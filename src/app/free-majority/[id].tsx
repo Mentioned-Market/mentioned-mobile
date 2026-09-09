@@ -51,7 +51,7 @@ export default function FreeMajorityScreen() {
   const required = m.bets_per_user;
   const betSize = m.play_tokens / Math.max(1, required);
   const pool = d.board.reduce((s, w) => s + w.staked, 0);
-  // Same preview the website shows: your bet joins the pool and the word's stake.
+  // Same preview the website shows: your pick joins the pool and the word's stake.
   const takeout = Number(m.takeout_pct) || 0;
   const floor = Number(m.floor_multiple) || 1.5;
   const winFor = (staked: number) => potentialWin(staked, pool, betSize, takeout, floor);
@@ -113,7 +113,7 @@ export default function FreeMajorityScreen() {
             <Text style={type.heading}>Recent picks</Text>
             {d.recentBets.slice(0, 6).map((r) => (
               <Link key={r.id} href={(r.username ? `/u/${encodeURIComponent(r.username)}` : `/positions?wallet=${r.wallet}`) as Href} asChild>
-                <Pressable style={styles.bet} accessibilityRole="button">
+                <Pressable style={styles.pick} accessibilityRole="button">
                   <Text style={[type.body, { flex: 1 }]} numberOfLines={1}>
                     <Text style={{ color: colors.gold }}>{r.username ?? `${r.wallet.slice(0, 4)}…${r.wallet.slice(-4)}`}</Text> picked {r.word}
                   </Text>
@@ -156,5 +156,5 @@ const styles = StyleSheet.create({
   content: { gap: spacing.md },
   stats: { flexDirection: 'row', gap: spacing.sm },
   stat: { flex: 1, padding: spacing.md, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: 2 },
-  bet: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 6 },
+  pick: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 6 },
 });

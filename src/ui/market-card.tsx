@@ -3,7 +3,7 @@ import { Link, type Href } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { compact, pct, tokens, usd } from '@/lib/format';
+import { compact as compactNumber, pct, tokens, usd } from '@/lib/format';
 import { closesIn, eventDate } from '@/lib/time';
 import { isMajority, isPaid, type MarketStatus, type MarketSummary } from '@/markets/merge';
 import { Pill, type PillTone } from '@/ui/pill';
@@ -16,7 +16,7 @@ const STATUS: Record<MarketStatus, { label: string; tone: PillTone }> = {
   cancelled: { label: 'Cancelled', tone: 'red' },
 };
 
-export function MarketCard({ market, now, hero = false }: { market: MarketSummary; now: number; hero?: boolean }) {
+export function MarketCard({ market, now, hero = false, compact = false }: { market: MarketSummary; now: number; hero?: boolean; compact?: boolean }) {
   const [imgFailed, setImgFailed] = useState(false);
   const paid = isPaid(market);
   const majority = isMajority(market);
@@ -30,8 +30,9 @@ export function MarketCard({ market, now, hero = false }: { market: MarketSummar
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={market.title}
-        style={({ pressed }) => [styles.card, paid ? styles.paidBorder : styles.freeBorder, finished && styles.finished, pressed && styles.pressed]}>
-        <View style={[styles.cover, hero && styles.coverHero]}>
+        style={StyleSheet.flatten([styles.card, compact && styles.compact, paid ? styles.paidBorder : styles.freeBorder, finished && styles.finished])}
+      >
+        <View style={[styles.cover, hero && styles.coverHero, compact && styles.coverCompact]}>
           {market.cover && !imgFailed ? (
             <Image source={{ uri: market.cover }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} onError={() => setImgFailed(true)} />
           ) : (
@@ -55,13 +56,16 @@ export function MarketCard({ market, now, hero = false }: { market: MarketSummar
           {when ? <Text style={type.muted}>{when}</Text> : null}
 
           <View style={styles.words}>
-            {market.words.slice(0, hero ? 5 : 3).map((w) => (
+            {market.words.slice(0, hero ? 5 : compact ? 2 : 3).map((w) => (
               <View key={w.label} style={styles.wordRow}>
                 <Text style={styles.wordLabel} numberOfLines={1}>
                   {w.label}
                 </Text>
                 {w.outcome ? (
-                  <Pill label={w.outcome === 'winner' ? 'WON' : w.outcome === 'loser' ? 'LOST' : w.outcome.toUpperCase()} tone={w.outcome === 'winner' || w.outcome === 'yes' ? 'green' : 'red'} />
+                  <Pill
+                    label={w.outcome === 'winner' ? 'WON' : w.outcome === 'loser' ? 'LOST' : w.outcome.toUpperCase()}
+                    tone={w.outcome === 'winner' || w.outcome === 'yes' ? 'green' : 'red'}
+                  />
                 ) : (
                   <Text style={styles.wordPct}>{pct(w.pct)}</Text>
                 )}
@@ -72,14 +76,10 @@ export function MarketCard({ market, now, hero = false }: { market: MarketSummar
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              {market.pool.kind === 'usdc'
-                ? market.pool.usd > 0
-                  ? `${usd(market.pool.usd)} pool`
-                  : 'USDC'
-                : `${tokens(market.pool.tokens)} tokens`}
+              {market.pool.kind === 'usdc' ? (market.pool.usd > 0 ? `${usd(market.pool.usd)} pool` : 'USDC') : `${tokens(market.pool.tokens)} tokens`}
             </Text>
             <Text style={styles.footerDot}>·</Text>
-            <Text style={styles.footerText}>{compact(market.traderCount)} traders</Text>
+            <Text style={styles.footerText}>{compactNumber(market.traderCount)} traders</Text>
             {closes ? (
               <>
                 <Text style={styles.footerDot}>·</Text>
@@ -95,10 +95,11 @@ export function MarketCard({ market, now, hero = false }: { market: MarketSummar
 
 const styles = StyleSheet.create({
   card: { borderRadius: 16, overflow: 'hidden', backgroundColor: colors.surface, borderWidth: 1 },
+  compact: { width: 260 },
+  coverCompact: { height: 110 },
   paidBorder: { borderColor: 'rgba(242,183,31,0.55)' },
   freeBorder: { borderColor: colors.border },
   finished: { opacity: 0.6 },
-  pressed: { opacity: 0.85 },
   cover: { height: 140, backgroundColor: colors.surfaceRaised },
   coverHero: { height: 200 },
   coverFallback: { alignItems: 'center', justifyContent: 'center' },

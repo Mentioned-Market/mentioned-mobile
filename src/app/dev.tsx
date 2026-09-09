@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { runSmokeTests, type SmokeResult } from '@/dev/smoke';
+import { usePrefs } from '@/store/prefs';
 import { useWallet } from '@/store/wallet';
 import { Screen } from '@/ui/screen';
 import { colors, fonts, spacing, type } from '@/ui/theme';
@@ -39,6 +40,7 @@ export default function DevScreen() {
   };
   const { running, results, fatal } = state;
   const { viewedAddress, setWallet, clear } = useWallet();
+  const setIntroSeen = usePrefs((s) => s.setIntroSeen);
   const [addr, setAddr] = useState('');
   const { wallet: walletParam } = useLocalSearchParams<{ wallet?: string }>();
   useEffect(() => {
@@ -61,6 +63,9 @@ export default function DevScreen() {
             </Pressable>
           </View>
         </View>
+        <Pressable onPress={() => setIntroSeen(false)} style={[styles.button, { backgroundColor: colors.surfaceRaised }]}>
+          <Text style={[styles.buttonLabel, { color: colors.text }]}>Show intro on next launch</Text>
+        </Pressable>
         <Pressable onPress={rerun} disabled={running} style={[styles.button, running && styles.buttonDisabled]}>
           <Text style={styles.buttonLabel}>{running ? 'Running' : 'Run again'}</Text>
         </Pressable>
