@@ -1,6 +1,7 @@
 // Static config. No process.env, no window: React Native has neither.
-// v0 reads production. A devnet flavour arrives in v1 via eas.json profiles.
-export const API_BASE = 'https://mentioned.market';
+// v0 reads production. A devnet flavour is stubbed in v1 and used from v2 (SPEC section 4).
+// The apex domain 301s to www; a redirect would break POSTs and MWA identity checks.
+export const API_BASE = 'https://www.mentioned.market';
 export const RPC_URL = `${API_BASE}/api/paid-rpc`;
 export const CLUSTER = 'mainnet' as const;
 export const PAID_PROGRAM_ID = '7pL3oze39xX7NmGFtndTz3EjhkCP9AcoVtX6fVmxm9pn';

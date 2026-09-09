@@ -41,6 +41,8 @@ export default function RootLayout() {
     PlusJakartaSans_700Bold,
   });
 
+  // Hold the tree until the fonts are in: Fabric caches text measurements by
+  // font name, so labels rendered with the fallback font stay truncated.
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync();
   }, [fontsLoaded]);

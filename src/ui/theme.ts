@@ -1,4 +1,6 @@
 // Mentioned mobile theme (V0_GUIDE section 7, step 1).
+import type { TextStyle } from 'react-native';
+
 // Black ground, gold accent, Plus Jakarta Sans, tabular numerals for money.
 export const colors = {
   bg: '#000000',
@@ -23,7 +25,7 @@ export const fonts = {
 export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 } as const;
 
 // Body text is never smaller than 14 (guide section 7).
-export const type = {
+export const type: Record<'title' | 'heading' | 'body' | 'muted' | 'money', TextStyle> = {
   title: { fontFamily: fonts.bold, fontSize: 28, lineHeight: 34, color: colors.text },
   heading: { fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, color: colors.text },
   body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: colors.text },
@@ -33,6 +35,6 @@ export const type = {
     fontSize: 16,
     lineHeight: 22,
     color: colors.text,
-    fontVariant: ['tabular-nums' as const],
+    fontVariant: ['tabular-nums'],
   },
-} as const;
+};

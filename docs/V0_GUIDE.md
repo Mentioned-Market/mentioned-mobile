@@ -20,7 +20,7 @@ Seed Vault wallet for its address over MWA, with no sign-in at all.
 - Four market screens, read-only: paid majority board, paid YES/NO trade sheet,
   free YES/NO trade sheet, free majority board. Quotes are computed on device
   with the ported maths so the trade sheets show real numbers, with the trade
-  button disabled and labelled "Trading arrives in v1".
+  button disabled and labelled "Trading arrives soon".
 - "View as your Seeker wallet": MWA `authorize` against the Seed Vault wallet,
   address stored, Positions and You tabs populated from the `?wallet=` routes.
 - Ranks tab: weekly points leaderboard and prize pool.
@@ -130,7 +130,7 @@ export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 export const APP_IDENTITY = { name: 'Mentioned', uri: 'https://mentioned.market', icon: 'favicon.ico' };
 ```
 
-A devnet flavour (staging API, devnet ids) comes in v1 when there is something
+A devnet flavour (staging API, devnet ids) is stubbed in v1 and used from v2 when there is something
 to sign. v0 reads production.
 
 ## 5. Port the SDKs from the web repo
@@ -240,7 +240,7 @@ Build order, each one runnable on the Seeker before the next:
 3. **Paid majority board.** Decode the account, render the board as a ranked
    list first (bubbles later). Odds %, units, your picks highlighted when a
    viewed wallet is set. Lock countdown from `lockTs`. Word tap opens a cart
-   sheet that totals $1 per word and shows a disabled "Trading arrives in v1".
+   sheet that totals $1 per word and shows a disabled "Trading arrives soon".
 4. **Paid YES/NO sheet.** Word strip, YES/NO price per word, amount input,
    live quote from `sharesForUsdc` and `estimateBuyCost`, disabled button.
    Chart below from the chart route (a simple line with `react-native-svg` is
@@ -326,7 +326,7 @@ Then the same list on a non-Seeker Android phone with Phantom installed.
 
 - `README.md`: what this is, how to run on a Seeker, the PORTED_FROM rule.
 - Commit `android/` so builds are reproducible; keystores are never committed.
-- `.env` is not used. Config is code. Flavours come in v1 via `eas.json` profiles.
+- `.env` is not used. Config is code. Flavour groundwork lands in v1 via `eas.json` profiles, used from v2.
 - Conventional commits, small PRs, one screen per PR. The commit history is
   part of the hackathon submission.
 - Copy `SPEC.md` next to this file. It is the plan for everything after v0.

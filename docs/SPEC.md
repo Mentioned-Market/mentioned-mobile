@@ -2,9 +2,11 @@
 
 Native Android app for Mentioned, built for the Solana Mobile CLOCK IN
 hackathon (Sep 8 to Oct 8 2026) and shipped for real on the Solana dApp Store
-on Sep 28. This document is the plan for everything after v0 (`V0_GUIDE.md`).
+on Sep 28. This document is the plan for everything after v0 (`V0_GUIDE.md`). Revised
+Sep 9 2026: v1 is now the complete read-only app, and auth, trading, push and
+store each moved one version later (section 3).
 It is written to live in this repo; the web-side changes it depends on are
-listed in section 9 and tracked in the `mentioned` repo.
+listed in section 10 and tracked in the `mentioned` repo.
 
 Companion documents in the web repo: `specs/hackathon_fall_2026_plan.md`
 (Colosseum overlap, Arena 3, owner lanes, branch landing schedule),
@@ -22,7 +24,7 @@ is live on mentioned.market:
 | Market | Mechanism | Trades on mobile via | Gate |
 |---|---|---|---|
 | Paid majority | Pari-mutuel, on-chain (`mention-majority-market`), $1 flat per word, unlimited words, coin your own | In-app Openfort signature, broadcast through the RPC proxy. Claim and refund on-chain | Signed in |
-| Free majority | Pari-mutuel, play tokens, one entry of exactly `bets_per_user` equal bets on distinct words | `POST /api/custom/[id]/entry` | Signed in (Discord gate retired, section 9) |
+| Free majority | Pari-mutuel, play tokens, one entry of exactly `bets_per_user` equal bets on distinct words | `POST /api/custom/[id]/entry` | Signed in (Discord gate retired, section 10) |
 | Paid YES/NO | LMSR AMM, on-chain (`mention-market-usdc-amm`), USDC, up to 8 words, buy/sell/redeem | In-app Openfort signature, proxy broadcast | Signed in |
 | Free YES/NO | LMSR, play tokens per market, profit to points at 0.5x | `POST /api/custom/[id]/trade` | Signed in (same) |
 
@@ -89,21 +91,33 @@ Each version is a runnable app on a Seeker and a store-shippable increment.
 
 | Version | Contents | Needs from web repo | Target |
 |---|---|---|---|
-| **v0** | Read-only everything, MWA "view as" | nothing | Sep 10 |
-| **v1** | Openfort login, bearer sessions, Seed Vault deposit/withdraw, Seeker link | Openfort branches on staging; bearer + mobile token; seeker link route | Sep 12 |
-| **v2** | All four trade flows, positions with claim/redeem/refund, results screens | Discord gate off (free markets) | Sep 15 |
-| **v3** | Push, notification feed + settings, profile edit, App Links, share, hand-designed AMM sheet, polish | push channel; assetlinks.json | Sep 17 |
-| **v4** | Release build, dApp Store submission | production deploy of all of the above (Sep 16) | Sep 18 submit, Sep 28 live |
-| **v4.1** | Stretch: Seeker perk, widget, price alerts, Kora gas | perk route | Sep 25 if green |
+| **v0** | Read-only skeleton on a Seeker, MWA "view as" | nothing | Sep 10 |
+| **v1** | Complete read-only app: every screen against production, AMM sheet design, polish list, deep-link routing, tests, flavour groundwork | nothing | Sep 13 |
+| **v2** | Openfort login, bearer sessions, Seed Vault deposit/withdraw, Seeker link | Openfort branches on staging; bearer + mobile token; seeker link route | Sep 16 |
+| **v3** | All four trade flows, positions with claim/redeem/refund enabled, post-trade behaviour | Discord gate off (free markets); wallet-keyed rate limits | Sep 18 |
+| **v4** | Push, notification feed + settings, profile edit, App Links verification, share points, mobile config | push channel; assetlinks.json | Sep 19 |
+| **v5** | Release build, dApp Store submission | production deploy of all of the above (Sep 16) | Sep 18 target, Sep 21 hard limit; Sep 28 live |
+| **v5.1** | Stretch: Seeker perk, widget, price alerts, Kora gas | perk route | Sep 25 if green |
+
+v1 was inserted on Sep 9 so that all UI, ported maths, API client and tests
+are finished while the Openfort branches land. v2 onwards is logic wired into
+finished screens. v2 starts the day Openfort staging is usable; every later
+date is a latest date, and an early v2 pulls them all forward.
 
 Gates (checked on a Seeker, not an emulator):
 
-- **Sep 10:** sign in with Google, get an Openfort wallet with no seed phrase,
-  browse every production market. (v0 + first v1 slice)
-- **Sep 15:** fund the app wallet from the Seed Vault via MWA, then one real
-  trade of each of the four types signed in-app, all visible on mentioned.market.
-- **Sep 18:** release APK in the store review queue; a new user can sign in,
-  fund from their Seeker, trade any market type, and get a push, unaided.
+- **Sep 10:** browse every production market on a Seeker, view positions as
+  the Seed Vault wallet over MWA. (v0)
+- **Sep 13:** someone who does not try to trade believes the app is finished;
+  every screen, quote and state is real; contract tests green against
+  production. (v1)
+- **Sep 16:** sign in with Google, get an Openfort wallet with no seed phrase,
+  fund it from the Seed Vault via MWA. (v2)
+- **Sep 18:** one real trade of each of the four types signed in-app, all
+  visible on mentioned.market. (v3)
+- **Sep 21 at the latest:** release APK in the store review queue; a new user
+  can sign in, fund from their Seeker, trade any market type, and get a push,
+  unaided. Sep 18 stays the target if v2 starts early.
 - **Sep 25:** store approval received; launch markets scheduled.
 - **Sep 28:** a stranger installs from the store and makes a pick.
 - **Oct 6:** hackathon entry submitted with real usage numbers.
@@ -112,7 +126,61 @@ Order inside each version: on-chain flows first (they carry the risk), free
 markets second (cheap REST calls), AMM polish last (the maths never changes).
 A slipping gate cuts stretch, never the gate.
 
-## 4. v1: auth, sessions, funding
+## 4. v1: complete read-only app
+
+Everything a user can see without a session, finished to shipping quality,
+against production reads. Nothing in this version waits on the web repo,
+Openfort, or a devnet. It exists so that the UI, the ported maths, the API
+client and the test suite are done before the auth lane unblocks. Devnet does
+not help here: read-only work runs against the public production routes, and
+devnet only matters once there is something to sign, which is v2.
+
+Build order, each step green on a Seeker before the next:
+
+1. **Finish `V0_GUIDE.md` sections 5 to 8.** SDK port with the four smoke
+   tests, typed API client, Markets list, four market screens with live
+   quotes and disabled trade buttons, MWA "view as".
+2. **Result screens.** `result/[type]/[id].tsx` from the public results
+   routes for all three market families. Public profiles at `u/[username].tsx`,
+   reachable by tapping any player anywhere: the Ranks leaderboard, result
+   leaderboards, search hits and recent-trade rows. Search from
+   `GET /api/search?q=`.
+3. **Ranks complete.** Weekly points board with week arrows (`?week=`), prize
+   pool, raffle tickets.
+4. **Positions complete.** The viewed wallet's positions merged from the three
+   sources, grouped open / resolved, with the correct CTA per row rendered
+   disabled: Claim, Refund, Redeem, Reclaim rent, View result. v3 enables them.
+5. **AMM sheet design pass** (pulled forward from the old v3). Word strip,
+   YES/NO price pair, amount pad, live quote, chart, hand-built with the Seeker
+   in hand. The same care on the majority cart and the two free sheets. The
+   maths never changes, so the design can be final now and v3 only wires the
+   builders into it.
+6. **Polish list** (pulled forward). Skeletons, error states with retry, empty
+   states with a next action, offline banner (`netinfo`), haptics, reduced
+   motion respected, keyboard-safe sheets, no horizontal scroll, body text at
+   least 14, tabular numerals on money.
+7. **Deep-link routing** (pulled forward). Intent filters and slug resolution
+   for `mentioned.market/paidmajoritymarket/*`, `/market/*`, `/free/*`,
+   `/ref/*`, `/u/*` via `paid-majority/metadata` and `custom/by-slug/[slug]`.
+   A `ref` code is held in the store for the v2 sign-in body. Verification
+   through `assetlinks.json` needs the release certificate and stays in v4;
+   until then links open through the Android chooser.
+8. **Tests** (section 13). Jest for the quote functions against fixtures
+   captured from the website, the deserializers against captured account
+   bytes, word validation, and list merging. A contract-test script that
+   parses every public route in section 11 against a live response.
+9. **Flavour groundwork.** `src/config.ts` keyed by `EXPO_PUBLIC_FLAVOR` with
+   `production` filled in and `devnet` stubbed (staging API URL and devnet
+   program ids to copy from the web repo), `eas.json` with the `dev`,
+   `devnet-preview` and `production` profiles. Unused until v2.
+
+Not in v1: anything that sends a bearer. Sign-in, trading, profile edit,
+notification feed, push, mobile config and bug report all wait for v2 onward.
+
+Exit: the Sep 13 gate. The app should look finished to someone who does not
+try to trade.
+
+## 5. v2: auth, sessions, funding
 
 ### 4.1 Openfort login
 
@@ -146,7 +214,7 @@ Mobile flow:
    There is no Privy path in the app.
 4. `POST /api/auth/sign-in` `{ type: 'openfort', token, wallet, client: 'mobile', ref }`.
    With `client: 'mobile'` the session token is returned in the JSON body
-   (web change, section 9). Store it in `expo-secure-store`.
+   (web change, section 10). Store it in `expo-secure-store`.
 5. Every request sends `Authorization: Bearer <token>`. Cookies are not relied
    on. On 401, or at 6 days, repeat step 4 silently with a fresh Openfort access
    token.
@@ -166,7 +234,7 @@ provider's `signTransaction({ messageBytes })` returns base58; decode, trim a
 65th recovery byte if present, assert 64 bytes. Broadcast is never the signer's
 job.
 
-Day-one check for v1: sign a memo transaction on a Seeker and broadcast it
+Day-one check for v2: sign a memo transaction on a Seeker and broadcast it
 through the proxy before writing any trade UI.
 
 ### 4.3 Funding: the Seed Vault bridge (MWA)
@@ -201,14 +269,14 @@ retry.
 
 ### 4.4 Seeker link
 
-`POST /api/seeker/link` (web, section 9): the app requests a nonce, signs it
+`POST /api/seeker/link` (web, section 10): the app requests a nonce, signs it
 with MWA `signMessages` from the Seed Vault address, posts address + signature.
 Server verifies, stores `seeker_wallet` on the profile, runs the Seeker Genesis
 Token check via Helius DAS, sets `seeker_verified_at`. Profile shows a Seeker
 badge. This runs automatically after the first successful deposit and is also
 offered on the You tab.
 
-## 5. v2: trading
+## 6. v3: trading
 
 ### 5.1 Paid majority: buy, claim, refund
 
@@ -249,9 +317,9 @@ Payout maths on device with `payoutBaseUnits` against the decoded snapshot.
    token accounts uses `buildReclaimPlan` so users get rent back.
 4. Same simulate → sign → broadcast → poll. Refetch at +4s.
 
-The AMM sheet is two-stage: v2 ships a plain, correct sheet (word, side,
-amount, quote, button); v3 replaces the visual design by hand. The maths and
-builders do not change between the two.
+The AMM sheet design is built read-only in v1 (section 4). v3 wires the
+builders into it and enables the button. The maths and builders do not change
+between the two.
 
 ### 5.3 Free YES/NO: one call
 
@@ -274,7 +342,7 @@ builders do not change between the two.
 4. Board refreshes with the user's words highlighted.
 
 Free markets stay read-only in the app until the Discord gate is off in
-production (section 9); the mobile config flag hides free trading, not free
+production (section 10); the mobile config flag hides free trading, not free
 browsing, so the app never shows a button that 403s.
 
 ### 5.5 Positions and results
@@ -284,7 +352,7 @@ and `custom/user-activity`, grouped open / resolved, with the right CTA per
 row: Claim, Refund, Redeem, Reclaim rent, or View result. Results screens use
 `paid-majority/[id]/results`, `paid-markets` history, and `custom/[id]/results`.
 
-## 6. v3: engagement and polish
+## 7. v4: engagement and polish
 
 - **Push.** FCM via `expo-notifications`. Register on sign-in and on token
   refresh: `POST /api/notifications/push-token` `{ token, platform: 'android', deviceId }`.
@@ -296,28 +364,21 @@ row: Claim, Refund, Redeem, Reclaim rent, or View result. Results screens use
   `POST /api/notifications/read`, unread badge from `unread-count` on focus
   (no SSE in the app).
 - **Profile.** `PUT`/`PATCH /api/profile` for username and emoji PFP; toast
-  `newAchievements`. Public profiles at `app/u/[username].tsx`.
-- **Ranks.** Weekly points board, prize pool with week arrows (`?week=`),
-  raffle tickets.
+  `newAchievements`. Public profiles already exist from v1.
 - **App Links.** `assetlinks.json` served by the web app for the release
-  signing cert. Intent filters for `mentioned.market/paidmajoritymarket/*`,
-  `/market/*`, `/free/*`, `/ref/*`, `/onramp/return`. Resolve slugs via
-  `paid-majority/metadata` and `custom/by-slug/[slug]`.
+  signing cert, turning the v1 intent filters into verified links. Adds
+  `/onramp/return`.
 - **Share.** Result screens open the Android share sheet with the existing
   share image URL; `POST /api/paid-majority/share` and `/api/paid-markets/share`
   for the tweet-proof points flow.
-- **AMM sheet design pass.** Word strip, YES/NO price pair, amount pad, quote,
-  chart. Hand-built with the Seeker in hand.
-- **Polish list.** Skeletons, error states with retry, empty states with a next
-  action, offline banner (`netinfo`), haptics on confirm, reduced-motion
-  respect, keyboard-safe sheets, no horizontal scroll, body text ≥ 14, tabular
-  numerals on money.
+- **Ranks, AMM sheet design, polish list, deep-link routing** moved to v1
+  (section 4). v4 adds only the pieces that need the web repo or a session.
 - **Mobile config.** `GET /api/mobile/config` on launch: `minVersion`,
   `killSwitch`, `cluster`, `features` (paid trading, free trading, seeker
   perk, onramp). A forced-update screen when below `minVersion`.
 - **Bug report.** `POST /api/bug-report` with `platform`, app version, device.
 
-## 7. v4: store release
+## 8. v5: store release
 
 - **Keystore.** A new signing key used only for the dApp Store (the store
   rejects APKs signed with a Google Play key). Generated once, stored in the
@@ -344,7 +405,7 @@ row: Claim, Refund, Redeem, Reclaim rent, or View result. Results screens use
   market opens that evening. Hotfix build ready to submit within 24h. Record
   everything on Seekers for the demo video.
 
-## 8. Stretch (v4.1, separate branch)
+## 9. Stretch (v5.1, separate branch)
 
 In priority order. Anything green on both Seekers by Sep 25 goes into a 1.1
 submission that day; otherwise the post-launch update.
@@ -362,28 +423,28 @@ submission that day; otherwise the post-launch update.
 7. **Live mentions** (unlikely): a Live panel fed by a public SSE route, plus
    a "your word was just said" push. Parked.
 
-## 9. Web repo dependencies
+## 10. Web repo dependencies
 
 All in the existing Railway services; no new service. The mobile lane is
 blocked on the first three.
 
 | Change | Where | What | Needed by |
 |---|---|---|---|
-| Land the Openfort branches | `feat/openfort-wallet`, `feat/openfort-privy-routing` | Already scheduled: staging Sep 9, production Sep 16, Privy allowlist first then `OPENFORT_CUTOVER_AT`. Brings `type: 'openfort'` sign-in, encryption-session, on-ramp routes | v1 |
-| Bearer sessions | `lib/walletAuth.ts` | `getVerifiedWallet` reads `Authorization: Bearer` before the cookie. Same token, same verifier, same expiry. Covers every authenticated route | v1 |
-| Mobile sign-in additions | `app/api/auth/sign-in` | Return `sessionToken` in the body when `client === 'mobile'`; accept `ref` in the body | v1 |
-| Seeker wallet link | `app/api/seeker/link`, `lib/seekerLink.ts` | Nonce, verify MWA-signed message, store `seeker_wallet`, DAS check, `seeker_verified_at` | v1 |
-| Retire the Discord gate | `lib/db.ts` (`assertDiscordTradingEligible`, `insertPointEvent`), free trade + entry routes | Behind an env flag so web and app flip together. Keep the lock check and rate limits. Watch Sybil pressure on free points | v2 |
-| Wallet-keyed rate limits | `lib/rateLimit.ts`, `/api/paid-rpc` | Carrier NAT puts thousands of phones behind one IP. Key authenticated calls on the wallet; the proxy on the wallet when a bearer is present, IP otherwise | v2 |
-| Push channel | `scripts/migrate.ts`, `lib/notifications.ts`, `services/notification-worker` | `push_tokens` table, `notification_settings.push_*`, `push` outbox rows, worker `push.ts` with Firebase Admin (`FCM_SERVICE_ACCOUNT_JSON`), remove tokens on `UNREGISTERED`. Delivery gate applies. Change both copies of delivery logic | v3 |
-| Mobile config | `app/api/mobile/config` | Static JSON from env: `minVersion`, `killSwitch`, `cluster`, `features` | v3 |
-| App Links | `public/.well-known/assetlinks.json` | Package name + release cert SHA-256 | v3 |
-| Seeker perk | `app/api/seeker/free-pick`, `lib/seekerPerk.ts` | Requires `seeker_verified_at`; one row per (wallet, cluster); budget cap | v4.1 |
-| Widget endpoint | `app/api/mobile/widget` | User's best-ranked open pick, cached 15s | v4.1 |
+| Land the Openfort branches | `feat/openfort-wallet`, `feat/openfort-privy-routing` | Already scheduled: staging Sep 9, production Sep 16, Privy allowlist first then `OPENFORT_CUTOVER_AT`. Brings `type: 'openfort'` sign-in, encryption-session, on-ramp routes | v2 |
+| Bearer sessions | `lib/walletAuth.ts` | `getVerifiedWallet` reads `Authorization: Bearer` before the cookie. Same token, same verifier, same expiry. Covers every authenticated route | v2 |
+| Mobile sign-in additions | `app/api/auth/sign-in` | Return `sessionToken` in the body when `client === 'mobile'`; accept `ref` in the body | v2 |
+| Seeker wallet link | `app/api/seeker/link`, `lib/seekerLink.ts` | Nonce, verify MWA-signed message, store `seeker_wallet`, DAS check, `seeker_verified_at` | v2 |
+| Retire the Discord gate | `lib/db.ts` (`assertDiscordTradingEligible`, `insertPointEvent`), free trade + entry routes | Behind an env flag so web and app flip together. Keep the lock check and rate limits. Watch Sybil pressure on free points | v3 |
+| Wallet-keyed rate limits | `lib/rateLimit.ts`, `/api/paid-rpc` | Carrier NAT puts thousands of phones behind one IP. Key authenticated calls on the wallet; the proxy on the wallet when a bearer is present, IP otherwise | v3 |
+| Push channel | `scripts/migrate.ts`, `lib/notifications.ts`, `services/notification-worker` | `push_tokens` table, `notification_settings.push_*`, `push` outbox rows, worker `push.ts` with Firebase Admin (`FCM_SERVICE_ACCOUNT_JSON`), remove tokens on `UNREGISTERED`. Delivery gate applies. Change both copies of delivery logic | v4 |
+| Mobile config | `app/api/mobile/config` | Static JSON from env: `minVersion`, `killSwitch`, `cluster`, `features` | v4 |
+| App Links | `public/.well-known/assetlinks.json` | Package name + release cert SHA-256 | v4 |
+| Seeker perk | `app/api/seeker/free-pick`, `lib/seekerPerk.ts` | Requires `seeker_verified_at`; one row per (wallet, cluster); budget cap | v5.1 |
+| Widget endpoint | `app/api/mobile/widget` | User's best-ranked open pick, cached 15s | v5.1 |
 
 Env: `FCM_SERVICE_ACCOUNT_JSON` on the worker; nothing new in the app.
 
-## 10. API contract
+## 11. API contract
 
 Public reads (no session):
 
@@ -430,7 +491,7 @@ Session required (bearer):
 | `POST /api/seeker/free-pick` | Seeker perk (new, stretch) |
 | `POST /api/bug-report`, `/api/feedback` | In-app reports |
 
-## 11. Repo layout
+## 12. Repo layout
 
 ```
 mentioned-mobile/
@@ -472,7 +533,7 @@ for the Seed Vault bridge only, TanStack Query, zustand, zod,
 `expo-notifications`, `expo-haptics`, `@react-native-community/netinfo`,
 NativeWind for styling.
 
-## 12. Testing
+## 13. Testing
 
 - **Device first.** Every gate is checked on a Seeker with the Seed Vault
   wallet. One Seeker on the devnet flavour for development, one on production
@@ -489,26 +550,26 @@ NativeWind for styling.
   users are.
 - **Load check** before launch: 50 simulated wallets from one IP against
   staging to confirm the wallet-keyed rate limits.
-- **Release run-through** as in section 7 by someone who did not build it.
+- **Release run-through** as in section 8 by someone who did not build it.
 
-## 13. Risks
+## 14. Risks
 
 | Risk | Mitigation |
 |---|---|
 | Eligibility: the web product predates the 3-month window | New repo with a visible history from Sep 8; a deck slide listing the mobile-only engineering; the question sent to the organisers in writing |
 | Openfort-only login versus "integrate MWA" | MWA is the funding and identity bridge, made unmissable: Fund sheet on first launch, Seed Vault approval in the first 30s of the video, Seeker badge. Confirm the reading with organisers; if they insist on MWA sign-in, that is a product decision, not a lane decision |
-| Openfort branches are owned by another lane | Dated in the fall plan (staging Sep 9, prod Sep 16). If Sep 9 slips, the mobile lane rebases them itself |
+| Openfort branches are owned by another lane | v1 (section 4) needs nothing from them, so the mobile lane stays busy until Sep 13 regardless. If staging is not usable by Sep 13, the mobile lane rebases the branches itself |
 | Legacy Privy users are blocked in the app | Clear message pointing at the website; count active ones before launch |
-| RN Openfort Solana signing parity | v1 day-one memo spike; the signer hard-asserts 64 bytes |
+| RN Openfort Solana signing parity | v2 day-one memo spike; the signer hard-asserts 64 bytes |
 | Embedded wallet with no SOL | Seed Vault deposit always carries a SOL reserve; Kora is stretch |
 | Free markets depend on the Discord gate retiring | Ship it in the Sep 16 release; the config flag hides free trading until then |
 | dApp Store policy on real-money prediction markets | Read the current policy before writing store code; the config kill switch can hide paid trading for a store flavour; age rating 18+ regardless |
 | Carrier NAT versus per-IP limits | Wallet-keyed limits; load check before launch |
 | App killed during the MWA deposit | Persist pending state before `transact()`, resume on foreground, 120s timeout |
-| Store review timing | Submit Sep 18; frozen release branch; review fixes only |
-| Four market types in ten days | Two screen types cover all four; AMM ships plain if sprint 2 slips and gets its design in 1.1; never cut |
+| Store review timing | Submit Sep 18 if v2 started early, Sep 21 at the latest; frozen release branch; review fixes only. Sep 21 leaves no slack for a resubmission before Sep 28 |
+| Four market types in ten days | Two screen types cover all four and are designed read-only in v1, so v3 is builders and confirm sheets only; never cut |
 
-## 14. Open questions
+## 15. Open questions
 
 1. Organisers: eligibility of an existing product with a new native client, and
    whether MWA as funding/identity satisfies the MWA requirement.
