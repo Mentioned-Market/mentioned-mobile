@@ -37,7 +37,14 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      # Not `npm ci`. npm hoists the dependencies of a transitive optional
+      # package (@unrs/resolver-binding-wasm32-wasi, pulled in by eslint's
+      # import resolver) differently on macOS, where this lockfile is written,
+      # and on Linux, where CI runs. `npm ci` reads that as an out-of-sync
+      # lockfile and refuses. Exact lockfile reproduction is not what this CI
+      # is for: the release APK is built locally, not here.
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
 
       - name: Contract test against production
         id: contract
