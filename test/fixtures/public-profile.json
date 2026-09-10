@@ -1,0 +1,148 @@
+{
+  "username": "Michael_Donnn",
+  "wallet": "49GT1N8mRLp4Q9JYJDRR3YopGtfHFGTrwg6cmbm3u2fY",
+  "pfpEmoji": "🏠",
+  "createdAt": "2026-05-05T18:20:22.659Z",
+  "lockedAt": null,
+  "positions": [],
+  "history": [],
+  "stats": {
+    "positionsCount": 0,
+    "totalVolume": 0,
+    "totalValue": 0,
+    "unrealizedPnl": 0,
+    "realizedPnl": 0,
+    "totalPnl": 0,
+    "tradesCount": 0,
+    "biggestWin": 0,
+    "allTimePoints": 12779,
+    "weeklyPoints": 671
+  },
+  "pointHistory": [
+    {
+      "points": 60,
+      "created_at": "2026-05-05T18:37:52.848Z"
+    },
+    {
+      "points": 2,
+      "created_at": "2026-05-06T06:11:19.939Z"
+    },
+    {
+      "points": 40,
+      "created_at": "2026-05-06T06:11:19.941Z"
+    }
+  ],
+  "freeMarket": {
+    "positions": [
+      {
+        "id": 7074,
+        "market_id": 111,
+        "word_id": 592,
+        "wallet": "49GT1N8mRLp4Q9JYJDRR3YopGtfHFGTrwg6cmbm3u2fY",
+        "yes_shares": "379.936530",
+        "no_shares": "0.008062",
+        "tokens_spent": "582.000000",
+        "tokens_received": "282.521823",
+        "updated_at": "2026-09-09T17:43:29.360Z",
+        "word": "Home Race",
+        "market_title": "What will be said during the Formula 1 Spanish GP?",
+        "market_status": "open",
+        "market_slug": "F1-37235c",
+        "market_type": "event"
+      },
+      {
+        "id": 7035,
+        "market_id": 110,
+        "word_id": 589,
+        "wallet": "49GT1N8mRLp4Q9JYJDRR3YopGtfHFGTrwg6cmbm3u2fY",
+        "yes_shares": "0.004240",
+        "no_shares": "359.894193",
+        "tokens_spent": "533.000000",
+        "tokens_received": "233.429217",
+        "updated_at": "2026-09-07T22:06:49.514Z",
+        "word": "Down Under",
+        "market_title": "What will be said during Rams vs 49ers?",
+        "market_status": "open",
+        "market_slug": "NFL-90975e",
+        "market_type": "event"
+      },
+      {
+        "id": 7059,
+        "market_id": 109,
+        "word_id": 579,
+        "wallet": "49GT1N8mRLp4Q9JYJDRR3YopGtfHFGTrwg6cmbm3u2fY",
+        "yes_shares": "0.000000",
+        "no_shares": "0.000000",
+        "tokens_spent": "150.000000",
+        "tokens_received": "0.000000",
+        "updated_at": "2026-09-07T22:04:44.192Z",
+        "word": "pro",
+        "market_title": "What will be said the most during Apple's \"Surprise and shine\" Event?",
+        "market_status": "open",
+        "market_slug": "APPLE-7afaef",
+        "market_type": "majority"
+      }
+    ],
+    "trades": [
+      {
+        "id": 6892,
+        "market_id": 111,
+        "word_id": 592,
+        "wallet": "49GT1N8mRLp4Q9JYJDRR3YopGtfHFGTrwg6cmbm3u2fY",
+        "action": "buy",
+        "side": "YES",
+        "shares": "379.936530",
+        "cost": "282.000000",
+        "yes_price": "0.7659",
+        "no_price": "0.2341",
+        "created_at": "2026-09-09T17:43:29.360Z",
+        "word": "Home Race",
+        "market_title": "What will be said during the Formula 1 Spanish GP?",
+        "market_slug": "F1-37235c",
+        "market_type": "event"
+      },
+      {
+        "id": 6891,
+        "market_id": 111,
+        "word_id": 592,
+        "wallet": "49GT1N8mRLp4Q9JYJDRR3YopGtfHFGTrwg6cmbm3u2fY",
+        "action": "sell",
+        "side": "NO",
+        "shares": "825.400000",
+        "cost": "282.521823",
+        "yes_price": "0.7175",
+        "no_price": "0.2825",
+        "created_at": "2026-09-09T17:43:24.314Z",
+        "word": "Home Race",
+        "market_title": "What will be said during the Formula 1 Spanish GP?",
+        "market_slug": "F1-37235c",
+        "market_type": "event"
+      },
+      {
+        "id": 6870,
+        "market_id": 111,
+        "word_id": 592,
+        "wallet": "49GT1N8mRLp4Q9JYJDRR3YopGtfHFGTrwg6cmbm3u2fY",
+        "action": "buy",
+        "side": "NO",
+        "shares": "825.408062",
+        "cost": "300.000000",
+        "yes_price": "0.5717",
+        "no_price": "0.4283",
+        "created_at": "2026-09-08T16:43:11.217Z",
+        "word": "Home Race",
+        "market_title": "What will be said during the Formula 1 Spanish GP?",
+        "market_slug": "F1-37235c",
+        "market_type": "event"
+      }
+    ],
+    "stats": {
+      "totalMarkets": 48,
+      "totalTrades": 140,
+      "totalTokensSpent": 25411,
+      "totalTokensReceived": 22937.451893,
+      "activePositions": 83,
+      "totalPoints": 2799
+    }
+  }
+}

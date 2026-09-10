@@ -1,0 +1,72 @@
+# Parses every public route the app reads against the live API, once a day.
+#
+# Why a schedule rather than a push hook: the thing that breaks these is a
+# change in the web repo, not a change here. A shipped APK cannot be patched
+# quickly, so the app needs to hear about a shape change the day it lands
+# rather than from a user.
+#
+# On failure this opens (or comments on) an issue rather than emailing a
+# silent red X. Needs no secrets: the API routes under test are all public.
+name: contract
+
+on:
+  schedule:
+    # 07:17 UTC daily, before the working day. GitHub cron is always UTC, and
+    # a run on the hour is the most likely to be delayed, so this is offset.
+    - cron: '17 7 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: contract
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Contract test against production
+        id: contract
+        # `shell: bash` is load-bearing: it runs with -eo pipefail, so a
+        # failing contract test is not swallowed by the exit code of tee.
+        shell: bash
+        run: npm run contract 2>&1 | tee contract.log
+
+      - name: Open or update an issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          FAILURES=$(grep '^FAIL' contract.log || echo 'the run did not complete')
+          BODY=$(printf 'The daily contract test failed against production.\n\n```\n%s\n```\n\n[Full run](%s)\n\nA route the app reads has changed shape. Check the web repo, then update the schema in `src/api/` and re-run `npm run fixtures`.' "$FAILURES" "$RUN_URL")
+          EXISTING=$(gh issue list --label contract-failure --state open --limit 1 --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh label create contract-failure --color B60205 --description "A production API shape changed under the app" 2>/dev/null || true
+            gh issue create --title "Contract test failing against production" --label contract-failure --body "$BODY"
+          fi
+
+      - name: Close the issue once the contract passes again
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          EXISTING=$(gh issue list --label contract-failure --state open --limit 1 --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue close "$EXISTING" --comment "Contract test is green again."
+          fi

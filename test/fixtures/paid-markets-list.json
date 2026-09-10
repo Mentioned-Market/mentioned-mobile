@@ -1,0 +1,168 @@
+{
+  "markets": [
+    {
+      "marketId": "1781333850643",
+      "title": "What will be said during Germany vs Curaçao on ITV?",
+      "coverImageUrl": "https://m.media-amazon.com/images/S/le-target-images-prod/amzn1.dv.gti.f11b143f-d1ff-4e45-b6d6-028f45b73e58/8/BOXART-4X3/es-419/2560x1920.png",
+      "status": 2,
+      "slug": "WORLDCUP-f58dac",
+      "wordCount": 4,
+      "words": [
+        {
+          "label": "2014",
+          "yesPrice": 0.4997740000153909,
+          "noPrice": 0.500225999984609,
+          "outcome": true
+        },
+        {
+          "label": "Blue Wave",
+          "yesPrice": 0.3440025345656092,
+          "noPrice": 0.6559974654343907,
+          "outcome": true
+        },
+        {
+          "label": "Four-time champions",
+          "yesPrice": 0.5190045900956791,
+          "noPrice": 0.4809954099043209,
+          "outcome": false
+        },
+        {
+          "label": "Texas",
+          "yesPrice": 0.5756426104295274,
+          "noPrice": 0.42435738957047264,
+          "outcome": false
+        }
+      ],
+      "locksAt": "1781451900",
+      "eventStartTime": "2026-06-14T17:00:00.000Z",
+      "traderCount": 9,
+      "isFeatured": false
+    },
+    {
+      "marketId": "1781898187777",
+      "title": "What will be said during England vs Ghana on BBC?",
+      "coverImageUrl": "https://www.mentioned.market/api/studio/image/worldcup-england-vs-ghana.png",
+      "status": 2,
+      "slug": "WORLDCUP-fa1b63",
+      "wordCount": 4,
+      "words": [
+        {
+          "label": "2010",
+          "yesPrice": 0.5756426104295274,
+          "noPrice": 0.42435738957047264,
+          "outcome": true
+        },
+        {
+          "label": "Boston",
+          "yesPrice": 0.5156606258502475,
+          "noPrice": 0.4843393741497525,
+          "outcome": true
+        },
+        {
+          "label": "Chelsea",
+          "yesPrice": 0.4929574657762445,
+          "noPrice": 0.5070425342237554,
+          "outcome": true
+        },
+        {
+          "label": "Red Card",
+          "yesPrice": 0.49140584649627217,
+          "noPrice": 0.5085941535037278,
+          "outcome": false
+        }
+      ],
+      "locksAt": "1782243900",
+      "eventStartTime": "2026-06-23T20:00:00.000Z",
+      "traderCount": 12,
+      "isFeatured": false
+    },
+    {
+      "marketId": "1782233172638",
+      "title": "What will be said during Uruguay vs Spain on ITV?",
+      "coverImageUrl": "https://www.mentioned.market/api/studio/image/worldcup-uruguay-vs-spain.png",
+      "status": 2,
+      "slug": "WORLDCUP-6be933",
+      "wordCount": 5,
+      "words": [
+        {
+          "label": "Real Madrid",
+          "yesPrice": 0.5215249830893935,
+          "noPrice": 0.47847501691060645,
+          "outcome": true
+        },
+        {
+          "label": "2010",
+          "yesPrice": 0.5347108340628718,
+          "noPrice": 0.4652891659371282,
+          "outcome": false
+        },
+        {
+          "label": "Tiki Taka",
+          "yesPrice": 0.5065618648933388,
+          "noPrice": 0.49343813510666124,
+          "outcome": false
+        },
+        {
+          "label": "La Masia",
+          "yesPrice": 0.5666423678285561,
+          "noPrice": 0.43335763217144385,
+          "outcome": false
+        },
+        {
+          "label": "Handball",
+          "yesPrice": 0.5601219456185871,
+          "noPrice": 0.4398780543814129,
+          "outcome": true
+        }
+      ],
+      "locksAt": "1782514860",
+      "eventStartTime": "2026-06-27T00:01:00.000Z",
+      "traderCount": 13,
+      "isFeatured": false
+    },
+    {
+      "marketId": "1782647992637",
+      "title": "What will be said during Argentina vs Cape Verde on ITV?",
+      "coverImageUrl": "https://www.mentioned.market/api/studio/image/worldcup-argentina-vs-cape-verde.png",
+      "status": 2,
+      "slug": "WORLDCUP-e7ea04",
+      "wordCount": 5,
+      "words": [
+        {
+          "label": "Di Maria",
+          "yesPrice": 0.4286676939142454,
+          "noPrice": 0.5713323060857546,
+          "outcome": false
+        },
+        {
+          "label": "Maradonna",
+          "yesPrice": 0.5331921129463273,
+          "noPrice": 0.4668078870536727,
+          "outcome": true
+        },
+        {
+          "label": "Qatar",
+          "yesPrice": 0.5282252112535557,
+          "noPrice": 0.4717747887464443,
+          "outcome": true
+        },
+        {
+          "label": "Blue Sharks",
+          "yesPrice": 0.5563644072762909,
+          "noPrice": 0.4436355927237091,
+          "outcome": true
+        },
+        {
+          "label": "Hat-Trick",
+          "yesPrice": 0.49515815135501,
+          "noPrice": 0.5048418486449899,
+          "outcome": false
+        }
+      ],
+      "locksAt": "1783112400",
+      "eventStartTime": "2026-07-03T22:00:00.000Z",
+      "traderCount": 19,
+      "isFeatured": false
+    }
+  ]
+}

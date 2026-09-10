@@ -92,11 +92,11 @@ Each version is a runnable app on a Seeker and a store-shippable increment.
 | Version | Contents | Needs from web repo | Target |
 |---|---|---|---|
 | **v0** | Read-only skeleton on a Seeker, MWA "view as" | nothing | Sep 10 |
-| **v1** | Complete read-only app: every screen against production, AMM sheet design, polish list, deep-link routing, tests, flavour groundwork | nothing | Sep 13 |
+| **v1** | Complete read-only app: every screen against production, AMM sheet design, polish list, tests | nothing | Sep 13 |
 | **v3** | Openfort login, bearer sessions, Seed Vault deposit/withdraw, Seeker link | Openfort branches on staging; bearer + mobile token; seeker link route | Sep 16 |
 | **v4** | All four trade flows, positions with claim/redeem/refund enabled, post-trade behaviour | Discord gate off (free markets); wallet-keyed rate limits | Sep 18 |
-| **v5** | Push, notification feed + settings, profile edit, App Links verification, share points, mobile config | push channel; assetlinks.json | Sep 19 |
-| **v6** | Release build, dApp Store submission | production deploy of all of the above (Sep 16) | Sep 18 target, Sep 21 hard limit; Sep 28 live |
+| **v5** | Push, notification feed + settings, profile edit, share points, mobile config | push channel | Sep 19 |
+| **v6** | Release build, deep links + App Links, dApp Store submission | production deploy of all of the above (Sep 16); assetlinks.json | Sep 18 target, Sep 21 hard limit; Sep 28 live |
 | **v6.1** | Stretch: Seeker perk, widget, price alerts, Kora gas | perk route | Sep 25 if green |
 
 v1 was inserted on Sep 9 so that all UI, ported maths, API client and tests
@@ -163,20 +163,16 @@ Build order, each step green on a Seeker before the next:
    states with a next action, offline banner (`netinfo`), haptics, reduced
    motion respected, keyboard-safe sheets, no horizontal scroll, body text at
    least 14, tabular numerals on money.
-7. **Deep-link routing** (pulled forward). Intent filters and slug resolution
-   for `mentioned.market/paidmajoritymarket/*`, `/market/*`, `/free/*`,
-   `/ref/*`, `/u/*` via `paid-majority/metadata` and `custom/by-slug/[slug]`.
-   A `ref` code is held in the store for the v3 sign-in body. Verification
-   through `assetlinks.json` needs the release certificate and stays in v5;
-   until then links open through the Android chooser.
-8. **Tests** (section 14). Jest for the quote functions against fixtures
-   captured from the website, the deserializers against captured account
-   bytes, word validation, and list merging. A contract-test script that
-   parses every public route in section 12 against a live response.
-9. **Flavour groundwork.** `src/config.ts` keyed by `EXPO_PUBLIC_FLAVOR` with
-   `production` filled in and `devnet` stubbed (staging API URL and devnet
-   program ids to copy from the web repo), `eas.json` with the `dev`,
-   `devnet-preview` and `production` profiles. Unused until v3.
+7. **Tests** (section 14). Jest over the ported maths (quotes, payouts, LMSR),
+   the deserializers against captured account bytes, word validation, list
+   merging and position grouping, plus every `src/api` zod schema against
+   captured responses. A contract-test script that parses every public route
+   in section 12 against a live response, run daily in CI.
+
+Deep-link routing was moved to v6 (section 9): intent filters are useless
+until `assetlinks.json` carries the release certificate, and a chooser dialog
+is a worse first impression than a link that opens the website. Flavour
+groundwork moved to v3 (section 6), where a devnet target is first needed.
 
 Not in v1: anything that sends a bearer. Sign-in, trading, profile edit,
 notification feed, push, mobile config and bug report all wait for v3 onward.
@@ -208,7 +204,22 @@ Exit: the Sep 14 gate.
 
 ## 6. v3: auth, sessions, funding
 
-### 4.1 Openfort login
+### 6.1 Flavours and the devnet target
+
+Do this first: everything below signs real transactions, and testing a trade
+flow against mainnet spends real USDC on every attempt.
+
+- `src/config.ts` keyed by `EXPO_PUBLIC_FLAVOR`, with `production` (the
+  current values) and `devnet`: the staging API URL, devnet AMM program
+  `9kSuebrHKKnFsgFcv5fc8S2gBazHA9Gki2NEWt2ft9tk`, devnet majority program
+  `FYEiiL1iBRqHEGA8kU3gxVLDcGjSdE7aFRgjnYKxnisr`, devnet USDC mint
+  `6duUhxsjpsRasCSmvejAad4hH7aSyuBba99iZvsCsDum`. All copied from the web
+  repo's `lib/solanaConfig.ts`. Still no secrets.
+- `eas.json` with the `dev`, `devnet-preview` and `production` profiles
+  (section 9).
+- One Seeker on the devnet flavour for development, one on production.
+
+### 6.2 Openfort login
 
 Server side already exists on `feat/openfort-privy-routing` in the web repo:
 
@@ -250,7 +261,7 @@ Referral: the app has no cookie, so a `ref` code captured from an App Link
 (`mentioned.market/ref/<code>`) is held in the store and sent in the sign-in
 body once.
 
-### 4.2 Signing
+### 6.3 Signing
 
 Signing is one function, `signTransaction(txBytes): Promise<Uint8Array>`, in
 `src/auth/signer.ts`, backed by the RN SDK's Solana provider. Port exactly the
@@ -263,7 +274,7 @@ job.
 Day-one check for v3: sign a memo transaction on a Seeker and broadcast it
 through the proxy before writing any trade UI.
 
-### 4.3 Funding: the Seed Vault bridge (MWA)
+### 6.4 Funding: the Seed Vault bridge (MWA)
 
 Fund sheet (`app/fund.tsx`), reached from the You tab and from any "not enough
 USDC" state:
@@ -293,7 +304,7 @@ and blockhash before `transact()`; on foreground resume by checking the
 signature status or rebuilding with a fresh blockhash. 120s timeout, clear
 retry.
 
-### 4.4 Seeker link
+### 6.5 Seeker link
 
 `POST /api/seeker/link` (web, section 11): the app requests a nonce, signs it
 with MWA `signMessages` from the Seed Vault address, posts address + signature.
@@ -304,7 +315,7 @@ offered on the You tab.
 
 ## 7. v4: trading
 
-### 5.1 Paid majority: buy, claim, refund
+### 7.1 Paid majority: buy, claim, refund
 
 1. Tap words on the board. Each is a $1 unit; a new word is coined by its first
    buyer (rent for WordEntry + Position). Cart shows total and a rent line if
@@ -329,7 +340,7 @@ offered on the You tab.
 Claim (`createClaimIx`) and refund (`createClaimRefundIx`) use the same path.
 Payout maths on device with `payoutBaseUnits` against the decoded snapshot.
 
-### 5.2 Paid YES/NO (AMM): buy, sell, redeem
+### 7.2 Paid YES/NO (AMM): buy, sell, redeem
 
 1. Snapshot: `GET /api/paid-markets/market/[id]` (raw base64, decode with
    `deserializeMarketAccount`), metadata, chart, trades, `user-word-spend`
@@ -347,7 +358,7 @@ The AMM sheet design is built read-only in v1 (section 4). v4 wires the
 builders into it and enables the button. The maths and builders do not change
 between the two.
 
-### 5.3 Free YES/NO: one call
+### 7.3 Free YES/NO: one call
 
 1. Load `/api/custom/[id]` and `/positions?wallet=`. Quote with
    `virtualBuyCost` / `virtualSellReturn` / `sharesForTokens`.
@@ -358,7 +369,7 @@ between the two.
 4. Show the fill, toast achievements, refetch positions and chart. Map error
    strings (locked, too fast, insufficient balance, too small) to copy.
 
-### 5.4 Free majority: one entry
+### 7.4 Free majority: one entry
 
 1. Load `/api/custom/[id]/board?wallet=`.
 2. Select exactly `bets_per_user` distinct words: existing by id or new by
@@ -371,7 +382,7 @@ Free markets stay read-only in the app until the Discord gate is off in
 production (section 11); the mobile config flag hides free trading, not free
 browsing, so the app never shows a button that 403s.
 
-### 5.5 Positions and results
+### 7.5 Positions and results
 
 Positions tab merges `paid-majority/user-positions`, `paid-markets/user-positions`
 and `custom/user-activity`, grouped open / resolved, with the right CTA per
@@ -391,14 +402,12 @@ row: Claim, Refund, Redeem, Reclaim rent, or View result. Results screens use
   (no SSE in the app).
 - **Profile.** `PUT`/`PATCH /api/profile` for username and emoji PFP; toast
   `newAchievements`. Public profiles already exist from v1.
-- **App Links.** `assetlinks.json` served by the web app for the release
-  signing cert, turning the v1 intent filters into verified links. Adds
-  `/onramp/return`.
 - **Share.** Result screens open the Android share sheet with the existing
   share image URL; `POST /api/paid-majority/share` and `/api/paid-markets/share`
   for the tweet-proof points flow.
-- **Ranks, AMM sheet design, polish list, deep-link routing** moved to v1
-  (section 4). v5 adds only the pieces that need the web repo or a session.
+- **Ranks, AMM sheet design and the polish list** shipped in v1 (section 4);
+  deep links are in v6 (section 9). v5 adds only the pieces that need the web
+  repo or a session.
 - **Mobile config.** `GET /api/mobile/config` on launch: `minVersion`,
   `killSwitch`, `cluster`, `features` (paid trading, free trading, seeker
   perk, onramp). A forced-update screen when below `minVersion`.
@@ -410,6 +419,15 @@ row: Claim, Refund, Redeem, Reclaim rent, or View result. Results screens use
   rejects APKs signed with a Google Play key). Generated once, stored in the
   team password manager, never in the repo. Its SHA-256 goes into
   `assetlinks.json`.
+- **Deep links and App Links.** All of it lands here, because a link that
+  opens a chooser is a worse first impression than one that opens the website.
+  Intent filters for `mentioned.market/paidmajoritymarket/*`, `/market/*`,
+  `/free/*`, `/u/*`, `/ref/*` and `/onramp/return`, with `autoVerify`. Slug to
+  id resolution through `paid-majority/metadata` and `custom/by-slug/[slug]`
+  behind a resolver route. A `ref` code is held in the store and sent once on
+  the next sign-in. `assetlinks.json`, served by the web app for the release
+  cert above, is what makes the filters verified rather than a chooser. Push
+  taps (v5) deep-link through the same resolver.
 - **Flavours** (`eas.json`): `dev` (dev client, staging API, devnet ids),
   `devnet-preview` (release build, staging), `production` (release build,
   mainnet, store keystore). Config per flavour lives in `src/config.ts` keyed
@@ -464,7 +482,7 @@ blocked on the first three.
 | Wallet-keyed rate limits | `lib/rateLimit.ts`, `/api/paid-rpc` | Carrier NAT puts thousands of phones behind one IP. Key authenticated calls on the wallet; the proxy on the wallet when a bearer is present, IP otherwise | v4 |
 | Push channel | `scripts/migrate.ts`, `lib/notifications.ts`, `services/notification-worker` | `push_tokens` table, `notification_settings.push_*`, `push` outbox rows, worker `push.ts` with Firebase Admin (`FCM_SERVICE_ACCOUNT_JSON`), remove tokens on `UNREGISTERED`. Delivery gate applies. Change both copies of delivery logic | v5 |
 | Mobile config | `app/api/mobile/config` | Static JSON from env: `minVersion`, `killSwitch`, `cluster`, `features` | v5 |
-| App Links | `public/.well-known/assetlinks.json` | Package name + release cert SHA-256 | v5 |
+| App Links | `public/.well-known/assetlinks.json` | Package name + release cert SHA-256 | v6 |
 | Seeker perk | `app/api/seeker/free-pick`, `lib/seekerPerk.ts` | Requires `seeker_verified_at`; one row per (wallet, cluster); budget cap | v6.1 |
 | Widget endpoint | `app/api/mobile/widget` | User's best-ranked open pick, cached 15s | v6.1 |
 
@@ -568,12 +586,20 @@ NativeWind for styling.
 - **Second device class.** Any Android phone with Phantom or Solflare, to
   confirm login and trading work with no MWA wallet and that the Fund sheet
   degrades correctly.
-- **Unit tests** (Jest): the signer (ported test), quote functions against
-  fixtures captured from the website, deserializers against captured account
-  bytes, word validation, list merging.
+- **Unit tests** (Jest, `npm test`): offline against `test/fixtures/`, real
+  production responses frozen by `npm run fixtures`. Cover the AMM and LMSR
+  quote maths, the deserializers, on-chain word identity and PDA derivation,
+  pari-mutuel payouts, word validation, list merging and sorting, position
+  grouping, formatting, time helpers, the broadcast and retry paths, error
+  copy, and every `src/api` schema. The Openfort signer test joins them in v3.
+  Run on every push (`.github/workflows/test.yml`). UI components are checked
+  on a Seeker, not here.
 - **Contract tests**: every `src/api` schema parsed against a live response in
-  CI once a day, so a web change that breaks the shipped app is caught before
-  users are.
+  CI once a day (`.github/workflows/contract.yml`, 07:00 UTC), so a web change
+  that breaks the shipped app is caught before users are. A failure opens an
+  issue labelled `contract-failure` rather than a silent red check; the same
+  job closes it when the contract is green again. No secrets: every route
+  under test is public.
 - **Load check** before launch: 50 simulated wallets from one IP against
   staging to confirm the wallet-keyed rate limits.
 - **Release run-through** as in section 9 by someone who did not build it.

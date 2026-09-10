@@ -1,0 +1,231 @@
+{
+  "market": {
+    "id": 109,
+    "title": "What will be said the most during Apple's \"Surprise and shine\" Event?",
+    "description": "Pick the word you think gets said most. 2 words per user. The most-said word wins and holders split the pool. Transcript taken from Apple Broadcast, September 9th Rules: Counting runs as soon as the stream goes live to when it ends. If it mishears a word, usually a name, we go by what was actually said. One pick per word per wallet.",
+    "cover_image_url": "https://helios-i.mashable.com/imagery/articles/00qbt9q0MmPP4hvFKWBikYy/hero-image.fill.size_1248x702.v1787763110.jpg",
+    "stream_url": "https://www.youtube.com/watch?v=39BalPDuTo0",
+    "status": "open",
+    "lock_time": "2026-09-09T17:00:00.000Z",
+    "created_at": "2026-09-03T17:47:34.672Z",
+    "updated_at": "2026-09-09T16:51:23.917Z",
+    "b_parameter": "500.00",
+    "play_tokens": 300,
+    "slug": "APPLE-7afaef",
+    "is_featured": false,
+    "market_type": "majority",
+    "event_start_time": "2026-09-09T17:00:00.000Z",
+    "resolved_at": null,
+    "takeout_pct": "0.000",
+    "floor_multiple": "1.50",
+    "bets_per_user": 2,
+    "seed_per_word": "150.000000",
+    "banned_words": [
+      "surprise",
+      "shine",
+      "apple"
+    ]
+  },
+  "board": [
+    {
+      "word_id": 573,
+      "word": "iphone",
+      "added_by": "ApWeWaj1AKzwPnCCFAmZTaqMp6jU7neLj23C4HPzMaiy",
+      "mention_count": 0,
+      "resolved_outcome": null,
+      "pending_resolution": false,
+      "bet_count": 10,
+      "staked": 1650,
+      "implied_prob": 0.28205128205128205
+    },
+    {
+      "word_id": 579,
+      "word": "pro",
+      "added_by": "9164nUKQVa2N8v6PBTtreGQbXmKFw8JvwZNuP1dQ9JT9",
+      "mention_count": 0,
+      "resolved_outcome": null,
+      "pending_resolution": false,
+      "bet_count": 7,
+      "staked": 1050,
+      "implied_prob": 0.1794871794871795
+    },
+    {
+      "word_id": 580,
+      "word": "new",
+      "added_by": "2kRJr1m4TVN7rNSFQZLQr81orBSf4EChfzgZi5U2hexM",
+      "mention_count": 0,
+      "resolved_outcome": null,
+      "pending_resolution": false,
+      "bet_count": 5,
+      "staked": 750,
+      "implied_prob": 0.1282051282051282
+    },
+    {
+      "word_id": 574,
+      "word": "siri",
+      "added_by": "ApWeWaj1AKzwPnCCFAmZTaqMp6jU7neLj23C4HPzMaiy",
+      "mention_count": 0,
+      "resolved_outcome": null,
+      "pending_resolution": false,
+      "bet_count": 3,
+      "staked": 600,
+      "implied_prob": 0.10256410256410256
+    },
+    {
+      "word_id": 575,
+      "word": "mac",
+      "added_by": "ApWeWaj1AKzwPnCCFAmZTaqMp6jU7neLj23C4HPzMaiy",
+      "mention_count": 0,
+      "resolved_outcome": null,
+      "pending_resolution": false,
+      "bet_count": 1,
+      "staked": 300,
+      "implied_prob": 0.05128205128205128
+    },
+    {
+      "word_id": 577,
+      "word": "camera",
+      "added_by": "ApWeWaj1AKzwPnCCFAmZTaqMp6jU7neLj23C4HPzMaiy",
+      "mention_count": 0,
+      "resolved_outcome": null,
+      "pending_resolution": false,
+      "bet_count": 1,
+      "staked": 300,
+      "implied_prob": 0.05128205128205128
+    },
+    {
+      "word_id": 578,
+      "word": "john",
+      "added_by": "GgJtyJVPn1BFiQV7fK7ctk9ECzgWtgVWhm6G4vqHaGSg",
+      "mention_count": 0,
+      "resolved_outcome": null,
+      "pending_resolution": false,
+      "bet_count": 2,
+      "staked": 300,
+      "implied_prob": 0.05128205128205128
+    },
+    {
+      "word_id": 581,
+      "word": "gemini",
+      "added_by": "BNN7HCJkRKBrW1285KTp82bEzphZu5a9BJubcdp3Z37F",
+      "mention_count": 0,
+      "resolved_outcome": null,
+      "pending_resolution": false,
+      "bet_count": 2,
+      "staked": 300,
+      "implied_prob": 0.05128205128205128
+    },
+    {
+      "word_id": 590,
+      "word": "max",
+      "added_by": "7YocAidEdzftqqZtx9pGyDVjZN753RkDEcDCHNxLR6hT",
+      "mention_count": 0,
+      "resolved_outcome": null,
+      "pending_resolution": false,
+      "bet_count": 2,
+      "staked": 300,
+      "implied_prob": 0.05128205128205128
+    },
+    {
+      "word_id": 576,
+      "word": "airpods",
+      "added_by": "ApWeWaj1AKzwPnCCFAmZTaqMp6jU7neLj23C4HPzMaiy",
+      "mention_count": 0,
+      "resolved_outcome": null,
+      "pending_resolution": false,
+      "bet_count": 0,
+      "staked": 150,
+      "implied_prob": 0.02564102564102564
+    },
+    {
+      "word_id": 582,
+      "word": "event",
+      "added_by": "BNN7HCJkRKBrW1285KTp82bEzphZu5a9BJubcdp3Z37F",
+      "mention_count": 0,
+      "resolved_outcome": null,
+      "pending_resolution": false,
+      "bet_count": 1,
+      "staked": 150,
+      "implied_prob": 0.02564102564102564
+    }
+  ],
+  "traderCount": 17,
+  "userEntry": [
+    {
+      "word_id": 573,
+      "word": "iphone",
+      "tokens": 150,
+      "tokens_received": 0
+    },
+    {
+      "word_id": 579,
+      "word": "pro",
+      "tokens": 150,
+      "tokens_received": 0
+    }
+  ],
+  "hasEntered": true,
+  "balance": 0,
+  "recentBets": [
+    {
+      "id": 210,
+      "word_id": 581,
+      "word": "gemini",
+      "wallet": "9sRDXgUGefYmWFEELUryK77iDpRJhPmdyqNK2joSGxUr",
+      "username": "Shiro",
+      "tokens": 150,
+      "is_word_add": false,
+      "pool_after": 5100,
+      "word_staked_after": 300,
+      "created_at": "2026-09-09T11:56:44.377Z"
+    },
+    {
+      "id": 209,
+      "word_id": 574,
+      "word": "siri",
+      "wallet": "9sRDXgUGefYmWFEELUryK77iDpRJhPmdyqNK2joSGxUr",
+      "username": "Shiro",
+      "tokens": 150,
+      "is_word_add": false,
+      "pool_after": 5100,
+      "word_staked_after": 450,
+      "created_at": "2026-09-09T11:56:44.377Z"
+    },
+    {
+      "id": 208,
+      "word_id": 574,
+      "word": "siri",
+      "wallet": "J6FdGw35sqRaA85SXrKHMqeTDi2cGg61omruhiSPvWBP",
+      "username": "Yudo",
+      "tokens": 150,
+      "is_word_add": false,
+      "pool_after": 4800,
+      "word_staked_after": 300,
+      "created_at": "2026-09-09T11:52:45.448Z"
+    },
+    {
+      "id": 207,
+      "word_id": 590,
+      "word": "max",
+      "wallet": "J6FdGw35sqRaA85SXrKHMqeTDi2cGg61omruhiSPvWBP",
+      "username": "Yudo",
+      "tokens": 150,
+      "is_word_add": false,
+      "pool_after": 4800,
+      "word_staked_after": 300,
+      "created_at": "2026-09-09T11:52:45.448Z"
+    },
+    {
+      "id": 206,
+      "word_id": 579,
+      "word": "pro",
+      "wallet": "8QNTicB737GcvAy5nDgx681MA55qEkMcw8hVs4Wi8jA4",
+      "username": "TheAnthonCrypto",
+      "tokens": 150,
+      "is_word_add": false,
+      "pool_after": 4500,
+      "word_staked_after": 1050,
+      "created_at": "2026-09-09T00:22:12.013Z"
+    }
+  ]
+}

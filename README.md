@@ -30,6 +30,26 @@ and is committed so builds are reproducible. Keystores are never committed.
 - `src/config.ts` static config: API base, RPC, program ids. No `.env`.
 - `src/lib/` ported SDKs and helpers.
 
+## Tests
+
+```bash
+npm test          # unit tests, offline, against captured fixtures
+npm run typecheck # tsc --noEmit
+npm run lint
+npm run contract  # every public route parsed against the live API
+npm run smoke     # the V0_GUIDE section 5 checks against live data
+npm run fixtures  # re-capture test/fixtures from production
+```
+
+`npm test` needs no network: `test/fixtures/` holds real production responses
+frozen by `npm run fixtures`. Re-capture them when a route legitimately
+changes shape, which is what the contract test tells you.
+
+CI runs typecheck, lint and the unit tests on every push, and the contract
+test against production once a day. A daily failure opens an issue labelled
+`contract-failure`, because a shape change in the web repo cannot be patched
+quickly once an APK is in users' hands.
+
 ## PORTED_FROM rule
 
 Any file ported from the web repo starts with a `// PORTED_FROM: <path>` comment

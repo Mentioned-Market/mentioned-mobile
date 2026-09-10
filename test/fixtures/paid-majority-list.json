@@ -1,0 +1,194 @@
+{
+  "markets": [
+    {
+      "marketId": "1788607868726",
+      "title": "What will be said the most during the Adobe earnings call?",
+      "coverImageUrl": "https://cdn.mos.cms.futurecdn.net/VsHFugEWbimtNzSBrvBAVa-1200-80.jpg",
+      "status": 0,
+      "slug": "ADOBE-ee5d83",
+      "wordCount": 5,
+      "words": [
+        {
+          "word": "creative",
+          "wordHash": "21056f0276aae2ab7ac7b8eb09826cbe69c0ec742011f4464dc4d865b786d6cc",
+          "oddsPct": 46.15384615384615,
+          "outcome": 0
+        },
+        {
+          "word": "business",
+          "wordHash": "773726721f902e339e96ae9442a8793e6b9367efdf3f22789f2eb8796d32e8a9",
+          "oddsPct": 23.076923076923077,
+          "outcome": 0
+        },
+        {
+          "word": "growth",
+          "wordHash": "35f35d10e7634a3e175b51f18fb4a1db1c4535a74591b34b9150574c01f6ba4b",
+          "oddsPct": 15.384615384615385,
+          "outcome": 0
+        },
+        {
+          "word": "billion",
+          "wordHash": "269a25eb909561fe84f2333abeb3179f3a562c2bbfbad715a06172160ef14ea8",
+          "oddsPct": 7.6923076923076925,
+          "outcome": 0
+        },
+        {
+          "word": "year",
+          "wordHash": "1100d7083fd9349ccaaff2f68af6d122913d71c181291807bc92385c23449399",
+          "oddsPct": 7.6923076923076925,
+          "outcome": 0
+        }
+      ],
+      "poolUsdc": "13000000",
+      "unitPrice": "1000000",
+      "lockTs": "1789070400",
+      "eventStartTime": "2026-09-10T21:00:00.000Z",
+      "traderCount": 9,
+      "isFeatured": false
+    },
+    {
+      "marketId": "1788950772506",
+      "title": "What will be said the most during the Global Chess League Final?",
+      "coverImageUrl": "https://static.time.com/v3/assets/bltea6093859af6183b/blt6dca5888cb57983b/6998c84c1f67096080f56931/Magnus-Carlsen-ChatGPT.jpg?branch=production&width=3840&quality=75&auto=webp&crop=3:2",
+      "status": 0,
+      "slug": "CHESS-b5e39b",
+      "wordCount": 5,
+      "words": [
+        {
+          "word": "move",
+          "wordHash": "4f9707989549a8b2fa5bf549e11e7847e8c1c9c0ab0004c0ac0adedf4c69f25e",
+          "oddsPct": 42.857142857142854,
+          "outcome": 0
+        },
+        {
+          "word": "white",
+          "wordHash": "bb78b495dd245b478c05b9075534e3b25f5e616dc62824d5f398808fa9958969",
+          "oddsPct": 14.285714285714285,
+          "outcome": 0
+        },
+        {
+          "word": "knight",
+          "wordHash": "432543d35842b6b24ebd7d011cd5e472441646b8fd81a0958d81e1abe3233610",
+          "oddsPct": 14.285714285714285,
+          "outcome": 0
+        },
+        {
+          "word": "black",
+          "wordHash": "af79a64e811ba4c75a6df49c29b24f765826926cd965c27f4cc7db9e18a8c811",
+          "oddsPct": 14.285714285714285,
+          "outcome": 0
+        },
+        {
+          "word": "pawn",
+          "wordHash": "774824e4f9130a3ebed1451384ca984de2f3bef6042dd2cb11c8153a8d16689f",
+          "oddsPct": 14.285714285714285,
+          "outcome": 0
+        }
+      ],
+      "poolUsdc": "7000000",
+      "unitPrice": "1000000",
+      "lockTs": "1789300800",
+      "eventStartTime": "2026-09-13T13:00:00.000Z",
+      "traderCount": 4,
+      "isFeatured": false
+    },
+    {
+      "marketId": "1788784365815",
+      "title": "What will be said the most during Man United vs Man City?",
+      "coverImageUrl": "https://cf-images.assettype.com/outlookindia/2025-08-30/h0cyqvhp/bruno_fernandes_8d2op48mqg4c1ns2n5g1fgi7h.jpg?w=1200&h=675&auto=format%2Ccompress&fit=max&enlarge=true",
+      "status": 0,
+      "slug": "FOOTBALL-186361",
+      "wordCount": 4,
+      "words": [
+        {
+          "word": "haaland",
+          "wordHash": "7754a4fe5f02b34843a42d52ba1a3d6842a8c379d065b0018b08a74a0836290f",
+          "oddsPct": 50,
+          "outcome": 0
+        },
+        {
+          "word": "bruno",
+          "wordHash": "f0a04a42c648a71487322e5f64628b316e3be31003a916e0bd419105b2268de2",
+          "oddsPct": 16.666666666666664,
+          "outcome": 0
+        },
+        {
+          "word": "mbeumo",
+          "wordHash": "378868749288f957da521449aa5c3bf52e69d8eb8a2acc1e752b603118171ebf",
+          "oddsPct": 16.666666666666664,
+          "outcome": 0
+        },
+        {
+          "word": "anderson",
+          "wordHash": "3bb5b3bb245d9328c52700e293f82fd68f78a3386f11e4e2e39e03acb5fede87",
+          "oddsPct": 16.666666666666664,
+          "outcome": 0
+        }
+      ],
+      "poolUsdc": "12000000",
+      "unitPrice": "1000000",
+      "lockTs": "1789309800",
+      "eventStartTime": "2026-09-13T15:30:00.000Z",
+      "traderCount": 6,
+      "isFeatured": true
+    },
+    {
+      "marketId": "1785233212926",
+      "title": "What will be said the most at Streamer Games?",
+      "coverImageUrl": "https://win.gg/wp-content/uploads/2026/07/ludwig-streamer-games.png",
+      "status": 1,
+      "slug": "STREAMER-GAMES-5e0f52",
+      "wordCount": 8,
+      "words": [
+        {
+          "word": "win",
+          "wordHash": "0fd0269b9450d1bad4c1b1ffe10467bdeb202345f92f9272381478d03b8da65b",
+          "oddsPct": 26.923076923076923,
+          "outcome": 1
+        },
+        {
+          "word": "chat",
+          "wordHash": "504c1dbb87fc1cd93594bd6baad1b520229bd222e16d9c48138998f602993c67",
+          "oddsPct": 19.230769230769234,
+          "outcome": 0
+        },
+        {
+          "word": "lose",
+          "wordHash": "9f9d4356de046256c07536d05a9cdf5006150cc31a242a3a214087a738bb3427",
+          "oddsPct": 15.384615384615385,
+          "outcome": 0
+        },
+        {
+          "word": "red",
+          "wordHash": "f56622ae0bb66aecb5b1477fb1447bad030fb3f75d49f83d501915fe5cb4c456",
+          "oddsPct": 11.538461538461538,
+          "outcome": 0
+        },
+        {
+          "word": "mentioned",
+          "wordHash": "c7756e5b96e22b4af82c30a87e666b422f6ac7bcba6d1d58f71037440fe87a6a",
+          "oddsPct": 7.6923076923076925,
+          "outcome": 0
+        },
+        {
+          "word": "streamer",
+          "wordHash": "9e22e836818ee8ad95960d7f0d1084a005253034b9be77b5544cbb0e7f3c80a3",
+          "oddsPct": 7.6923076923076925,
+          "outcome": 0
+        },
+        {
+          "word": "ludwig",
+          "wordHash": "65e683d42df6cee67a17056d6d7e7e4bfb5a0c6d449b6f4603c1c0447286a838",
+          "oddsPct": 7.6923076923076925,
+          "outcome": 0
+        }
+      ],
+      "poolUsdc": "26000000",
+      "unitPrice": "1000000",
+      "lockTs": "1785610800",
+      "eventStartTime": null,
+      "traderCount": 12,
+      "isFeatured": false
+    }
+  ]
+}

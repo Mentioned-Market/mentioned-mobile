@@ -1,0 +1,14 @@
+{
+  "balance": 0.429217,
+  "starting_balance": 300,
+  "positions": [
+    {
+      "word_id": 589,
+      "word": "Down Under",
+      "yes_shares": 0.00424,
+      "no_shares": 359.894193,
+      "tokens_spent": 533,
+      "tokens_received": 233.429217
+    }
+  ]
+}

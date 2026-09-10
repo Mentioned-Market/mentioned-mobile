@@ -1,0 +1,59 @@
+{
+  "weekStart": "2026-09-07T00:00:00.000Z",
+  "weekEnd": "2026-09-14T00:00:00.000Z",
+  "volumeUsd": 26,
+  "ammFeesUsd": 0.352417,
+  "poolUsd": 100.6962085,
+  "floorUsd": 100,
+  "split": [
+    {
+      "kind": "rank",
+      "place": 1,
+      "label": "1st",
+      "medal": "🥇",
+      "pct": 0.36,
+      "usd": 36.25063506
+    },
+    {
+      "kind": "rank",
+      "place": 2,
+      "label": "2nd",
+      "medal": "🥈",
+      "pct": 0.22,
+      "usd": 22.15316587
+    },
+    {
+      "kind": "rank",
+      "place": 3,
+      "label": "3rd",
+      "medal": "🥉",
+      "pct": 0.16,
+      "usd": 16.11139336
+    },
+    {
+      "kind": "rank",
+      "place": 4,
+      "label": "4th",
+      "medal": null,
+      "pct": 0.09,
+      "usd": 9.062658765
+    },
+    {
+      "kind": "rank",
+      "place": 5,
+      "label": "5th",
+      "medal": null,
+      "pct": 0.07,
+      "usd": 7.048734595000001
+    },
+    {
+      "kind": "raffle",
+      "place": null,
+      "label": "Raffle",
+      "medal": "🎟️",
+      "pct": 0.1,
+      "usd": 10.06962085
+    }
+  ],
+  "isCurrent": true
+}

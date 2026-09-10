@@ -1,0 +1,58 @@
+{
+  "data": [
+    {
+      "wallet": "9164nUKQVa2N8v6PBTtreGQbXmKFw8JvwZNuP1dQ9JT9",
+      "username": "ZeroXirem",
+      "pfpEmoji": "🎮",
+      "weeklyPoints": 753,
+      "allTimePoints": 31652,
+      "breakdown": {
+        "chats": 993
+      }
+    },
+    {
+      "wallet": "GgJtyJVPn1BFiQV7fK7ctk9ECzgWtgVWhm6G4vqHaGSg",
+      "username": "Niall",
+      "pfpEmoji": "🏷️",
+      "weeklyPoints": 734,
+      "allTimePoints": 19256,
+      "breakdown": {
+        "chats": 27
+      }
+    },
+    {
+      "wallet": "49GT1N8mRLp4Q9JYJDRR3YopGtfHFGTrwg6cmbm3u2fY",
+      "username": "Michael_Donnn",
+      "pfpEmoji": "🏠",
+      "weeklyPoints": 671,
+      "allTimePoints": 12779,
+      "breakdown": {
+        "chats": 512
+      }
+    },
+    {
+      "wallet": "AS4nDtkaQJEhrRFC496BFwhyJ8VjfovE3ZvkYN8CPcMY",
+      "username": "KENZO_S_10",
+      "pfpEmoji": "📣",
+      "weeklyPoints": 657,
+      "allTimePoints": 4477,
+      "breakdown": {
+        "chats": 265
+      }
+    },
+    {
+      "wallet": "E8pc4Q2o6TFvuVqX2wy92DxbZEC78VC5xERfrJYZaLLd",
+      "username": "Zuma001",
+      "pfpEmoji": "📅",
+      "weeklyPoints": 584,
+      "allTimePoints": 6653,
+      "breakdown": {
+        "chats": 301
+      }
+    }
+  ],
+  "userEntry": null,
+  "weekStart": "2026-09-07T00:00:00.000Z",
+  "weekEnd": null,
+  "week": "current"
+}

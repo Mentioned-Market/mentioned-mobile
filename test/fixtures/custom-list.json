@@ -1,0 +1,324 @@
+{
+  "markets": [
+    {
+      "id": 109,
+      "title": "What will be said the most during Apple's \"Surprise and shine\" Event?",
+      "description": "Pick the word you think gets said most. 2 words per user. The most-said word wins and holders split the pool. Transcript taken from Apple Broadcast, September 9th Rules: Counting runs as soon as the stream goes live to when it ends. If it mishears a word, usually a name, we go by what was actually said. One pick per word per wallet.",
+      "cover_image_url": "https://helios-i.mashable.com/imagery/articles/00qbt9q0MmPP4hvFKWBikYy/hero-image.fill.size_1248x702.v1787763110.jpg",
+      "stream_url": "https://www.youtube.com/watch?v=39BalPDuTo0",
+      "status": "open",
+      "lock_time": "2026-09-09T17:00:00.000Z",
+      "created_at": "2026-09-03T17:47:34.672Z",
+      "updated_at": "2026-09-09T16:51:23.917Z",
+      "b_parameter": "500.00",
+      "play_tokens": 300,
+      "slug": "APPLE-7afaef",
+      "is_featured": false,
+      "market_type": "majority",
+      "event_start_time": "2026-09-09T17:00:00.000Z",
+      "resolved_at": null,
+      "takeout_pct": "0.000",
+      "floor_multiple": "1.50",
+      "bets_per_user": 2,
+      "seed_per_word": "150.000000",
+      "banned_words": [
+        "surprise",
+        "shine",
+        "apple"
+      ],
+      "word_count": 11,
+      "trader_count": 17,
+      "words_prices": [
+        {
+          "word_id": 573,
+          "market_id": 109,
+          "word": "iphone",
+          "yes_price": 0.28205128205128205,
+          "no_price": 0.717948717948718,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 579,
+          "market_id": 109,
+          "word": "pro",
+          "yes_price": 0.1794871794871795,
+          "no_price": 0.8205128205128205,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 580,
+          "market_id": 109,
+          "word": "new",
+          "yes_price": 0.1282051282051282,
+          "no_price": 0.8717948717948718,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 574,
+          "market_id": 109,
+          "word": "siri",
+          "yes_price": 0.10256410256410256,
+          "no_price": 0.8974358974358975,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 575,
+          "market_id": 109,
+          "word": "mac",
+          "yes_price": 0.05128205128205128,
+          "no_price": 0.9487179487179487,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 577,
+          "market_id": 109,
+          "word": "camera",
+          "yes_price": 0.05128205128205128,
+          "no_price": 0.9487179487179487,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 578,
+          "market_id": 109,
+          "word": "john",
+          "yes_price": 0.05128205128205128,
+          "no_price": 0.9487179487179487,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 581,
+          "market_id": 109,
+          "word": "gemini",
+          "yes_price": 0.05128205128205128,
+          "no_price": 0.9487179487179487,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 590,
+          "market_id": 109,
+          "word": "max",
+          "yes_price": 0.05128205128205128,
+          "no_price": 0.9487179487179487,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 576,
+          "market_id": 109,
+          "word": "airpods",
+          "yes_price": 0.02564102564102564,
+          "no_price": 0.9743589743589743,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 582,
+          "market_id": 109,
+          "word": "event",
+          "yes_price": 0.02564102564102564,
+          "no_price": 0.9743589743589743,
+          "resolved_outcome": null
+        }
+      ]
+    },
+    {
+      "id": 110,
+      "title": "What will be said during Rams vs 49ers?",
+      "description": "Words must be spoken by a presenter, commentator, pundit or member of one of the teams during the live broadcast of Angels vs Yankees game on September  11th UTC.  \nCovers from  first pitch, until the game concludes. \nOn-screen graphics and crowd noise do not count. Adverts not included.",
+      "cover_image_url": "https://cdn.49erswebzone.com/v/T1kajU/content/media/cache/article-784x441-782f1eaf334441ee970639a24d628604.webp",
+      "stream_url": null,
+      "status": "open",
+      "lock_time": "2026-09-11T00:35:00.000Z",
+      "created_at": "2026-09-06T11:30:20.739Z",
+      "updated_at": "2026-09-06T15:02:39.494Z",
+      "b_parameter": "1500.00",
+      "play_tokens": 300,
+      "slug": "NFL-90975e",
+      "is_featured": false,
+      "market_type": "event",
+      "event_start_time": "2026-09-11T00:35:00.000Z",
+      "resolved_at": null,
+      "takeout_pct": "0.000",
+      "floor_multiple": "1.50",
+      "bets_per_user": 2,
+      "seed_per_word": "0.000000",
+      "banned_words": [],
+      "word_count": 5,
+      "trader_count": 17,
+      "words_prices": [
+        {
+          "word_id": 585,
+          "market_id": 110,
+          "word": "Puka Nacua",
+          "yes_price": 0.7752360371234845,
+          "no_price": 0.22476396287651546,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 586,
+          "market_id": 110,
+          "word": "Mac Jones",
+          "yes_price": 0.6056358326051797,
+          "no_price": 0.3943641673948203,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 587,
+          "market_id": 110,
+          "word": "Ty Simpson",
+          "yes_price": 0.37242559518238094,
+          "no_price": 0.6275744048176191,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 588,
+          "market_id": 110,
+          "word": "Romello Height",
+          "yes_price": 0.40114825510678426,
+          "no_price": 0.5988517448932158,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 589,
+          "market_id": 110,
+          "word": "Down Under",
+          "yes_price": 0.3255554744706765,
+          "no_price": 0.6744445255293234,
+          "resolved_outcome": null
+        }
+      ]
+    },
+    {
+      "id": 111,
+      "title": "What will be said during the Formula 1 Spanish GP?",
+      "description": "Words must be spoken by a presenter, commentator, pundit or member of one of the teams during the live broadcast of Formula 1 Spanish GP on September  13th UTC.  \nCovers from the formation lap to until all cars finish the race. \nOn-screen graphics and crowd noise do not count. Adverts not included.",
+      "cover_image_url": "https://images.ctfassets.net/gy95mqeyjg28/5YNcfkzQa6lcgPnD504aew/e6a96a5de7c604d032fa39d5678e5317/Spain_Race_0005_2218104491.jpg?w=3840&q=75&fm=webp",
+      "stream_url": null,
+      "status": "open",
+      "lock_time": "2026-09-13T13:00:00.000Z",
+      "created_at": "2026-09-07T20:56:43.417Z",
+      "updated_at": "2026-09-08T13:25:20.466Z",
+      "b_parameter": "1500.00",
+      "play_tokens": 300,
+      "slug": "F1-37235c",
+      "is_featured": false,
+      "market_type": "event",
+      "event_start_time": "2026-09-13T13:00:00.000Z",
+      "resolved_at": null,
+      "takeout_pct": "0.000",
+      "floor_multiple": "1.50",
+      "bets_per_user": 2,
+      "seed_per_word": "0.000000",
+      "banned_words": [],
+      "word_count": 5,
+      "trader_count": 14,
+      "words_prices": [
+        {
+          "word_id": 591,
+          "market_id": 111,
+          "word": "Safety Car",
+          "yes_price": 0.6105996084689043,
+          "no_price": 0.38940039153109574,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 592,
+          "market_id": 111,
+          "word": "Home Race",
+          "yes_price": 0.7659402226108286,
+          "no_price": 0.2340597773891714,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 593,
+          "market_id": 111,
+          "word": "Dirty Air",
+          "yes_price": 0.6476559551003077,
+          "no_price": 0.3523440448996923,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 594,
+          "market_id": 111,
+          "word": "10 Second Time Penalty",
+          "yes_price": 0.5600733103742507,
+          "no_price": 0.4399266896257493,
+          "resolved_outcome": null
+        },
+        {
+          "word_id": 595,
+          "market_id": 111,
+          "word": "Red Flag",
+          "yes_price": 0.5752355129170065,
+          "no_price": 0.4247644870829935,
+          "resolved_outcome": null
+        }
+      ]
+    },
+    {
+      "id": 94,
+      "title": "What will be said during the EWC 2026 Chess Grand Finals?",
+      "description": "Words must be spoken by a caster, analyst, player or desk host during the official English-language broadcast of the Esports World Cup Chess 2026 Grand Final. Covers gameplay casting, analyst desk segments, half-time breaks, and trophy ceremony. Market starts when the clock begins on the first game.\nCrowd chants, player comms, and non-English segments do not count\nThe exact phrase/word, or a plural or possessive form of the phrase/word, must be used. Grammatical/tense inflections are otherwise not included.",
+      "cover_image_url": "https://cdn.sanity.io/images/dwrtw5oz/production/16c5bcbd50e99df3f6e0be80c9678d8b2313c461-1280x720.jpg?w=720&h=405",
+      "stream_url": null,
+      "status": "resolved",
+      "lock_time": "2026-08-15T12:00:00.000Z",
+      "created_at": "2026-08-05T20:57:55.248Z",
+      "updated_at": "2026-08-16T17:26:10.845Z",
+      "b_parameter": "1500.00",
+      "play_tokens": 300,
+      "slug": "CHESS-fc59ab",
+      "is_featured": false,
+      "market_type": "event",
+      "event_start_time": "2026-08-15T12:00:00.000Z",
+      "resolved_at": "2026-08-16T17:26:10.845Z",
+      "takeout_pct": "0.000",
+      "floor_multiple": "1.50",
+      "bets_per_user": 2,
+      "seed_per_word": "0.000000",
+      "banned_words": [],
+      "word_count": 5,
+      "trader_count": 36,
+      "words_prices": [
+        {
+          "word_id": 478,
+          "market_id": 94,
+          "word": "Blunder",
+          "yes_price": 1,
+          "no_price": 0,
+          "resolved_outcome": true
+        },
+        {
+          "word_id": 479,
+          "market_id": 94,
+          "word": "Time trouble",
+          "yes_price": 1,
+          "no_price": 0,
+          "resolved_outcome": true
+        },
+        {
+          "word_id": 480,
+          "market_id": 94,
+          "word": "Team Liquid",
+          "yes_price": 1,
+          "no_price": 0,
+          "resolved_outcome": true
+        },
+        {
+          "word_id": 481,
+          "market_id": 94,
+          "word": "Armageddon",
+          "yes_price": 1,
+          "no_price": 0,
+          "resolved_outcome": true
+        },
+        {
+          "word_id": 482,
+          "market_id": 94,
+          "word": "Kasparov",
+          "yes_price": 0,
+          "no_price": 1,
+          "resolved_outcome": false
+        }
+      ]
+    }
+  ]
+}

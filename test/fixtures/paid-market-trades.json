@@ -1,0 +1,64 @@
+{
+  "trades": [
+    {
+      "signature": "3QoxxinAx4P4PHDLjzs4Tra3K2Mr56GcGaPTpHa3nPXm7RuKA7NkvpPJ8HZY9D6FeThif1R1MNCu4i5jBARnvhJo",
+      "wordIndex": 0,
+      "direction": "NO",
+      "isBuy": true,
+      "quantity": 2079330,
+      "cost": 1000000,
+      "impliedPrice": 0.499774,
+      "trader": "677vDcgkqD96ikb37uKB4vYZeLpifxBJXqHNN5D4QHwS",
+      "username": "duk_random",
+      "blockTime": "2026-06-13T14:35:26.000Z"
+    },
+    {
+      "signature": "4cAQHRmtYTE1Y2VbwWXQ2ZLNBjXtAPkTPf4F71XsMGeo1Cc8uJiD9N7Hha6qXuQzCo2TC58YbedQ6Esv8yeX91Z8",
+      "wordIndex": 3,
+      "direction": "NO",
+      "isBuy": true,
+      "quantity": 6359729,
+      "cost": 2000000,
+      "impliedPrice": 0.575643,
+      "trader": "HDZvcytxnhsPBLoToa9DnXWGKMUVPsii3wAgkHMV53kw",
+      "username": "diar",
+      "blockTime": "2026-06-13T14:16:43.000Z"
+    },
+    {
+      "signature": "2UopgBK1DKQLdLZWp8z2yHbqHhLG7ded56KZaA5HAvk3h2KKipTyaCWBoHs1VyHrwZyNQLqxgK2VcTCbC9xTXk4X",
+      "wordIndex": 2,
+      "direction": "NO",
+      "isBuy": true,
+      "quantity": 4540399,
+      "cost": 2000000,
+      "impliedPrice": 0.519004,
+      "trader": "HDZvcytxnhsPBLoToa9DnXWGKMUVPsii3wAgkHMV53kw",
+      "username": "diar",
+      "blockTime": "2026-06-13T14:12:12.000Z"
+    },
+    {
+      "signature": "hVe2rSF6hFH9tySRzNkL8TuTbeVHMM2KiMnt3zH5TWN9CvmEr3EyqJoGD3QVgPzq2zePQ73yd8CJhzUx5vHMVQd",
+      "wordIndex": 1,
+      "direction": "NO",
+      "isBuy": true,
+      "quantity": 2789430,
+      "cost": 1749990,
+      "impliedPrice": 0.344004,
+      "trader": "HDZvcytxnhsPBLoToa9DnXWGKMUVPsii3wAgkHMV53kw",
+      "username": "diar",
+      "blockTime": "2026-06-13T14:09:20.000Z"
+    },
+    {
+      "signature": "4zE4VH6q5f5k6Bwj6HMBDNwJWRXaH5v4ntKFL8kcjbXX8PWik4XRasoxCcBshDH3VhCihywtNTagVNN6HPn7kfkw",
+      "wordIndex": 3,
+      "direction": "YES",
+      "isBuy": true,
+      "quantity": 2583680,
+      "cost": 2000000,
+      "impliedPrice": 0.719277,
+      "trader": "BXEnQ2hwBfTRe6yDNxy6tHNQvY1qTB64GYVN4YPA7FAz",
+      "username": null,
+      "blockTime": "2026-06-13T14:06:59.000Z"
+    }
+  ]
+}

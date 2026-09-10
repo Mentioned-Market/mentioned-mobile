@@ -1,0 +1,73 @@
+[
+  {
+    "market_id": "1788950772506",
+    "cluster": "mainnet",
+    "title": "What will be said the most during the Global Chess League Final?",
+    "description": "Pick the word you think gets said most. $1 per word in USDC, pick as many as you like. The most-said word wins and holders split the pool.\n\nTranscript taken from September 13th\n\nRules:\n\nCounting runs from the first move of the first game until the final game concludes.\n\nIf it mishears a word, usually a name, we go by what was actually said.\nOne pick per word per wallet.",
+    "cover_image_url": "https://static.time.com/v3/assets/bltea6093859af6183b/blt6dca5888cb57983b/6998c84c1f67096080f56931/Magnus-Carlsen-ChatGPT.jpg?branch=production&width=3840&quality=75&auto=webp&crop=3:2",
+    "stream_url": null,
+    "slug": "CHESS-b5e39b",
+    "event_start_time": "2026-09-13T13:00:00.000Z",
+    "unit_price": "1000000",
+    "lock_ts": "1789300800",
+    "resolve_authority": "ApWeWaj1AKzwPnCCFAmZTaqMp6jU7neLj23C4HPzMaiy",
+    "fee_recipient": "A8d62FsfyM5Zx9wXeZVdRcjLXbL75NuVCxtL4tc8EjkD",
+    "hidden": false,
+    "is_featured": false,
+    "banned_words": [
+      "magnus",
+      "pawn"
+    ],
+    "created_at": "2026-09-09T10:46:17.047Z",
+    "updated_at": "2026-09-09T10:46:52.215Z"
+  },
+  {
+    "market_id": "1788784365815",
+    "cluster": "mainnet",
+    "title": "What will be said the most during Man United vs Man City?",
+    "description": "Pick the word you think gets said most. $1 per word in USDC, pick as many as you like. The most-said word wins and holders split the pool.\n\nTranscript taken from Sky Sports, September 13th\n\nRules:\n\nCounting runs from kickoff until the final whistle. Includes halftime analysis.\n\nIf it mishears a word, usually a name, we go by what was actually said.\nOne pick per word per wallet.",
+    "cover_image_url": "https://cf-images.assettype.com/outlookindia/2025-08-30/h0cyqvhp/bruno_fernandes_8d2op48mqg4c1ns2n5g1fgi7h.jpg?w=1200&h=675&auto=format%2Ccompress&fit=max&enlarge=true",
+    "stream_url": null,
+    "slug": "FOOTBALL-186361",
+    "event_start_time": "2026-09-13T15:30:00.000Z",
+    "unit_price": "1000000",
+    "lock_ts": "1789309800",
+    "resolve_authority": "ApWeWaj1AKzwPnCCFAmZTaqMp6jU7neLj23C4HPzMaiy",
+    "fee_recipient": "A8d62FsfyM5Zx9wXeZVdRcjLXbL75NuVCxtL4tc8EjkD",
+    "hidden": false,
+    "is_featured": true,
+    "banned_words": [
+      "united",
+      "city",
+      "manchester",
+      "first",
+      "ball",
+      "back",
+      "goal"
+    ],
+    "created_at": "2026-09-07T12:32:55.890Z",
+    "updated_at": "2026-09-09T11:52:55.884Z"
+  },
+  {
+    "market_id": "1788607868726",
+    "cluster": "mainnet",
+    "title": "What will be said the most during the Adobe earnings call?",
+    "description": "Pick the word you think gets said most. $1 per word in USDC, pick as many as you like. The most-said word wins and holders split the pool.\n\nTranscript taken from September 10th\n\nRules:\n\nCounting runs from beginning of the call to the end.\n\nWord must be spoken by any Adobe representative (including the operator of the call) during the next Adobe earnings call (including the Q+A)\nIf it mishears a word, usually a name, we go by what was actually said.\nOne pick per word per wallet.",
+    "cover_image_url": "https://cdn.mos.cms.futurecdn.net/VsHFugEWbimtNzSBrvBAVa-1200-80.jpg",
+    "stream_url": null,
+    "slug": "ADOBE-ee5d83",
+    "event_start_time": "2026-09-10T21:00:00.000Z",
+    "unit_price": "1000000",
+    "lock_ts": "1789070400",
+    "resolve_authority": "ApWeWaj1AKzwPnCCFAmZTaqMp6jU7neLj23C4HPzMaiy",
+    "fee_recipient": "A8d62FsfyM5Zx9wXeZVdRcjLXbL75NuVCxtL4tc8EjkD",
+    "hidden": false,
+    "is_featured": false,
+    "banned_words": [
+      "adobe",
+      "year"
+    ],
+    "created_at": "2026-09-05T11:31:12.378Z",
+    "updated_at": "2026-09-05T11:32:34.473Z"
+  }
+]

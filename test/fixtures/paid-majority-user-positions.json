@@ -1,0 +1,124 @@
+{
+  "positions": [
+    {
+      "marketId": "1787579800360",
+      "title": "What will be said the most during the Pokemon VGC Grand Final?",
+      "slug": "ESPORTS-e41018",
+      "status": 1,
+      "word": "protect",
+      "wordHash": "27a7a1e094d86cf0c62b2d6ef4705da9c61c385994dda685271d7d44546acd6e",
+      "units": "1",
+      "stakeUsdc": 1,
+      "claimableUsdc": 0,
+      "refundable": false
+    },
+    {
+      "marketId": "1788784365815",
+      "title": "What will be said the most during Man United vs Man City?",
+      "slug": "FOOTBALL-186361",
+      "status": 0,
+      "word": "haaland",
+      "wordHash": "7754a4fe5f02b34843a42d52ba1a3d6842a8c379d065b0018b08a74a0836290f",
+      "units": "1",
+      "stakeUsdc": 1,
+      "claimableUsdc": 0,
+      "refundable": false
+    },
+    {
+      "marketId": "1787656248703",
+      "title": "What will be said the most during Match of the Day?",
+      "slug": "FOOTBALL-bd3a18",
+      "status": 1,
+      "word": "city",
+      "wordHash": "cb31ae4cd45a7d884769e607dfe14ca85c567903912c7a83c179d4b31c0854a8",
+      "units": "1",
+      "stakeUsdc": 1,
+      "claimableUsdc": 0,
+      "refundable": false
+    },
+    {
+      "marketId": "1788607868726",
+      "title": "What will be said the most during the Adobe earnings call?",
+      "slug": "ADOBE-ee5d83",
+      "status": 0,
+      "word": "creative",
+      "wordHash": "21056f0276aae2ab7ac7b8eb09826cbe69c0ec742011f4464dc4d865b786d6cc",
+      "units": "1",
+      "stakeUsdc": 1,
+      "claimableUsdc": 0,
+      "refundable": false
+    },
+    {
+      "marketId": "1786139023094",
+      "title": "What will be said the most during the EWC R6 Siege Grand Finals?",
+      "slug": "ESPORTS-9075c8",
+      "status": 1,
+      "word": "win",
+      "wordHash": "0fd0269b9450d1bad4c1b1ffe10467bdeb202345f92f9272381478d03b8da65b",
+      "units": "1",
+      "stakeUsdc": 1,
+      "claimableUsdc": 0,
+      "refundable": false
+    },
+    {
+      "marketId": "1787573768796",
+      "title": "What will be said the most during Chelsea vs Brighton?",
+      "slug": "FOOTBALL-13836a",
+      "status": 1,
+      "word": "palmer",
+      "wordHash": "5270351aa1038bf31e0173e4d09e8a7c5a6846d25c67bf0258b8b083e2a7bae0",
+      "units": "1",
+      "stakeUsdc": 1,
+      "claimableUsdc": 0,
+      "refundable": false
+    },
+    {
+      "marketId": "1787573768796",
+      "title": "What will be said the most during Chelsea vs Brighton?",
+      "slug": "FOOTBALL-13836a",
+      "status": 1,
+      "word": "ball",
+      "wordHash": "ad597334b2239aec0439cc7981baeff9dc4f24e77768947f737189b69633ea2b",
+      "units": "1",
+      "stakeUsdc": 1,
+      "claimableUsdc": 0,
+      "refundable": false
+    },
+    {
+      "marketId": "1787573768796",
+      "title": "What will be said the most during Chelsea vs Brighton?",
+      "slug": "FOOTBALL-13836a",
+      "status": 1,
+      "word": "goal",
+      "wordHash": "7ec06e46bcbb1a92c3c9cc5d9919dd23061bda0acadb7882d7519cace63acaab",
+      "units": "1",
+      "stakeUsdc": 1,
+      "claimableUsdc": 0,
+      "refundable": false
+    },
+    {
+      "marketId": "1788950772506",
+      "title": "What will be said the most during the Global Chess League Final?",
+      "slug": "CHESS-b5e39b",
+      "status": 0,
+      "word": "move",
+      "wordHash": "4f9707989549a8b2fa5bf549e11e7847e8c1c9c0ab0004c0ac0adedf4c69f25e",
+      "units": "1",
+      "stakeUsdc": 1,
+      "claimableUsdc": 0,
+      "refundable": false
+    },
+    {
+      "marketId": "1785233212926",
+      "title": "What will be said the most at Streamer Games?",
+      "slug": "STREAMER-GAMES-5e0f52",
+      "status": 1,
+      "word": "chat",
+      "wordHash": "504c1dbb87fc1cd93594bd6baad1b520229bd222e16d9c48138998f602993c67",
+      "units": "1",
+      "stakeUsdc": 1,
+      "claimableUsdc": 0,
+      "refundable": false
+    }
+  ]
+}

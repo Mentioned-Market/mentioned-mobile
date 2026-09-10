@@ -1,0 +1,133 @@
+{
+  "weekStart": "2026-09-07T00:00:00.000Z",
+  "weekEnd": "2026-09-14T00:00:00.000Z",
+  "totalTickets": 7,
+  "topHolders": [
+    {
+      "wallet": "ApWeWaj1AKzwPnCCFAmZTaqMp6jU7neLj23C4HPzMaiy",
+      "username": "Mentioned",
+      "pfpEmoji": null,
+      "tickets": 8,
+      "eligible": false,
+      "reason": "creator"
+    },
+    {
+      "wallet": "AHUHMyj7Bva9zeQNp2ppFkBDwwAq3UDG3HPPz7jYBWfo",
+      "username": "Ttmoney2007",
+      "pfpEmoji": "🏆",
+      "tickets": 4,
+      "eligible": true,
+      "reason": null
+    },
+    {
+      "wallet": "AS4nDtkaQJEhrRFC496BFwhyJ8VjfovE3ZvkYN8CPcMY",
+      "username": "KENZO_S_10",
+      "pfpEmoji": "📣",
+      "tickets": 3,
+      "eligible": false,
+      "reason": "placed"
+    },
+    {
+      "wallet": "9164nUKQVa2N8v6PBTtreGQbXmKFw8JvwZNuP1dQ9JT9",
+      "username": "ZeroXirem",
+      "pfpEmoji": "🎮",
+      "tickets": 3,
+      "eligible": false,
+      "reason": "placed"
+    },
+    {
+      "wallet": "49GT1N8mRLp4Q9JYJDRR3YopGtfHFGTrwg6cmbm3u2fY",
+      "username": "Michael_Donnn",
+      "pfpEmoji": "🏠",
+      "tickets": 3,
+      "eligible": false,
+      "reason": "placed"
+    },
+    {
+      "wallet": "8QNTicB737GcvAy5nDgx681MA55qEkMcw8hVs4Wi8jA4",
+      "username": "TheAnthonCrypto",
+      "pfpEmoji": null,
+      "tickets": 2,
+      "eligible": true,
+      "reason": null
+    },
+    {
+      "wallet": "E8pc4Q2o6TFvuVqX2wy92DxbZEC78VC5xERfrJYZaLLd",
+      "username": "Zuma001",
+      "pfpEmoji": "📅",
+      "tickets": 1,
+      "eligible": false,
+      "reason": "placed"
+    },
+    {
+      "wallet": "9Rn8v9jUvj2VUJ1R4Pn3Wz9JRGGWzj3o1jVZrMNnZfdr",
+      "username": "Wanted",
+      "pfpEmoji": null,
+      "tickets": 1,
+      "eligible": true,
+      "reason": null
+    },
+    {
+      "wallet": "2kRJr1m4TVN7rNSFQZLQr81orBSf4EChfzgZi5U2hexM",
+      "username": "taylor",
+      "pfpEmoji": "💬",
+      "tickets": 1,
+      "eligible": false,
+      "reason": "creator"
+    }
+  ],
+  "placed": [
+    {
+      "rank": 1,
+      "wallet": "9164nUKQVa2N8v6PBTtreGQbXmKFw8JvwZNuP1dQ9JT9",
+      "username": "ZeroXirem",
+      "pfpEmoji": "🎮",
+      "points": 753
+    },
+    {
+      "rank": 2,
+      "wallet": "GgJtyJVPn1BFiQV7fK7ctk9ECzgWtgVWhm6G4vqHaGSg",
+      "username": "Niall",
+      "pfpEmoji": "🏷️",
+      "points": 734
+    },
+    {
+      "rank": 3,
+      "wallet": "49GT1N8mRLp4Q9JYJDRR3YopGtfHFGTrwg6cmbm3u2fY",
+      "username": "Michael_Donnn",
+      "pfpEmoji": "🏠",
+      "points": 671
+    },
+    {
+      "rank": 4,
+      "wallet": "AS4nDtkaQJEhrRFC496BFwhyJ8VjfovE3ZvkYN8CPcMY",
+      "username": "KENZO_S_10",
+      "pfpEmoji": "📣",
+      "points": 657
+    },
+    {
+      "rank": 5,
+      "wallet": "E8pc4Q2o6TFvuVqX2wy92DxbZEC78VC5xERfrJYZaLLd",
+      "username": "Zuma001",
+      "pfpEmoji": "📅",
+      "points": 584
+    }
+  ],
+  "winner": null,
+  "lastWinner": {
+    "wallet": "FC6AxAYPfv2ALbr86iLW8V31J19TcQh6FNA5C8bXPn2u",
+    "username": "Kulio9999",
+    "pfpEmoji": "🏆",
+    "tickets": 4,
+    "totalTickets": 15,
+    "raffleUsd": 10.1363116,
+    "weekStart": "2026-08-31"
+  },
+  "isCurrent": true,
+  "me": {
+    "tickets": 3,
+    "oddsPct": 0,
+    "eligible": false,
+    "reason": "placed"
+  }
+}

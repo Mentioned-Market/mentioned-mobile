@@ -1,0 +1,164 @@
+{
+  "leaderboard": [
+    {
+      "wallet": "2K4HgxttgmQPZVAUU1dXwE97hjHfpHa39veyy3vyLhe3",
+      "username": "SammyfxOG1",
+      "pfp_emoji": "🎮",
+      "total_spent": 3147,
+      "total_received": 3783.090383,
+      "net_tokens": 636.090383,
+      "pnl_pct": 20.212595583095013,
+      "points_earned": 318,
+      "words": [
+        {
+          "word_id": 481,
+          "word": "Armageddon",
+          "outcome": "YES",
+          "yes_shares": 0.005393,
+          "no_shares": 0,
+          "tokens_spent": 453,
+          "tokens_received": 648.786694,
+          "net_tokens": 195.786694
+        },
+        {
+          "word_id": 478,
+          "word": "Blunder",
+          "outcome": "YES",
+          "yes_shares": 0.009501,
+          "no_shares": 0,
+          "tokens_spent": 2394,
+          "tokens_received": 2681.25671,
+          "net_tokens": 287.25671
+        },
+        {
+          "word_id": 482,
+          "word": "Kasparov",
+          "outcome": "NO",
+          "yes_shares": 0.00424,
+          "no_shares": 0,
+          "tokens_spent": 300,
+          "tokens_received": 453.046979,
+          "net_tokens": 153.046979
+        }
+      ]
+    },
+    {
+      "wallet": "EA6Q5CpWmEQDSdM9eWWeGrFLraaZBVnPyxfJ98BHoccV",
+      "username": "Undecided",
+      "pfp_emoji": null,
+      "total_spent": 597,
+      "total_received": 1064.129859,
+      "net_tokens": 467.129859,
+      "pnl_pct": 78.24620753768843,
+      "points_earned": 233,
+      "words": [
+        {
+          "word_id": 481,
+          "word": "Armageddon",
+          "outcome": "YES",
+          "yes_shares": 766.940583,
+          "no_shares": 0,
+          "tokens_spent": 297,
+          "tokens_received": 766.940583,
+          "net_tokens": 469.940583
+        },
+        {
+          "word_id": 480,
+          "word": "Team Liquid",
+          "outcome": "YES",
+          "yes_shares": 0,
+          "no_shares": 0.009811,
+          "tokens_spent": 300,
+          "tokens_received": 297.189276,
+          "net_tokens": -2.810724
+        }
+      ]
+    },
+    {
+      "wallet": "GdgyZfPsYX1HYHAxYmsdYwmru2CKPmmGwK2hV9Gici3B",
+      "username": "zaza",
+      "pfp_emoji": null,
+      "total_spent": 300,
+      "total_received": 607.162347,
+      "net_tokens": 307.162347,
+      "pnl_pct": 102.387449,
+      "points_earned": 153,
+      "words": [
+        {
+          "word_id": 478,
+          "word": "Blunder",
+          "outcome": "YES",
+          "yes_shares": 607.162347,
+          "no_shares": 0,
+          "tokens_spent": 300,
+          "tokens_received": 607.162347,
+          "net_tokens": 307.162347
+        }
+      ]
+    },
+    {
+      "wallet": "J6FdGw35sqRaA85SXrKHMqeTDi2cGg61omruhiSPvWBP",
+      "username": "Yudo",
+      "pfp_emoji": null,
+      "total_spent": 755,
+      "total_received": 1031.399382,
+      "net_tokens": 276.399382,
+      "pnl_pct": 36.60918966887417,
+      "points_earned": 138,
+      "words": [
+        {
+          "word_id": 481,
+          "word": "Armageddon",
+          "outcome": "YES",
+          "yes_shares": 0.001318,
+          "no_shares": 0,
+          "tokens_spent": 300,
+          "tokens_received": 275.973795,
+          "net_tokens": -24.026205
+        },
+        {
+          "word_id": 480,
+          "word": "Team Liquid",
+          "outcome": "YES",
+          "yes_shares": 576.031067,
+          "no_shares": 0,
+          "tokens_spent": 307,
+          "tokens_received": 576.031067,
+          "net_tokens": 269.031067
+        },
+        {
+          "word_id": 479,
+          "word": "Time trouble",
+          "outcome": "YES",
+          "yes_shares": 0.007172,
+          "no_shares": 0,
+          "tokens_spent": 148,
+          "tokens_received": 179.39452,
+          "net_tokens": 31.39452
+        }
+      ]
+    },
+    {
+      "wallet": "HQBMLkPmuWs952PFCbfe8ZKgLP1opiCkyG6wo9cMybCj",
+      "username": "bosco_chima",
+      "pfp_emoji": null,
+      "total_spent": 300,
+      "total_received": 519.8282,
+      "net_tokens": 219.8282,
+      "pnl_pct": 73.27606666666668,
+      "points_earned": 109,
+      "words": [
+        {
+          "word_id": 478,
+          "word": "Blunder",
+          "outcome": "YES",
+          "yes_shares": 519.8282,
+          "no_shares": 0,
+          "tokens_spent": 300,
+          "tokens_received": 519.8282,
+          "net_tokens": 219.8282
+        }
+      ]
+    }
+  ]
+}

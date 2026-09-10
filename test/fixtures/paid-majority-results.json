@@ -1,0 +1,113 @@
+{
+  "resolved": true,
+  "leaderboard": [
+    {
+      "wallet": "DdTh4kqfRrPR9v9a7tbL1EPCgttTWMh8EK8pyRkcwUZv",
+      "username": "Hafeez",
+      "pfpEmoji": "🏆",
+      "stakeUsdc": 1,
+      "payoutUsdc": 3.528571,
+      "profitUsdc": 2.528571,
+      "points": 450
+    },
+    {
+      "wallet": "8QNTicB737GcvAy5nDgx681MA55qEkMcw8hVs4Wi8jA4",
+      "username": "TheAnthonCrypto",
+      "pfpEmoji": null,
+      "stakeUsdc": 1,
+      "payoutUsdc": 3.528571,
+      "profitUsdc": 2.528571,
+      "points": 450
+    },
+    {
+      "wallet": "Av4yPUHwB6WiZWT5FPGegLqeFaDwW1xokcenznMeEmxT",
+      "username": "Adammm",
+      "pfpEmoji": "🔥",
+      "stakeUsdc": 2,
+      "payoutUsdc": 3.528571,
+      "profitUsdc": 1.528571,
+      "points": 379
+    },
+    {
+      "wallet": "EVR1LXTtdp5NEV2oHzMaMaBcGce54ZhU8VYDbhrF47ae",
+      "username": "KingJSA1",
+      "pfpEmoji": null,
+      "stakeUsdc": 2,
+      "payoutUsdc": 3.528571,
+      "profitUsdc": 1.528571,
+      "points": 379
+    },
+    {
+      "wallet": "FyxcNjPtJanQzRgUnk7nE7jse3iXNzinWAaAk3zgoKpE",
+      "username": "SerMuse",
+      "pfpEmoji": null,
+      "stakeUsdc": 3,
+      "payoutUsdc": 3.528571,
+      "profitUsdc": 0.5285709999999999,
+      "points": 229
+    },
+    {
+      "wallet": "74zwWh3cgasbRZpxZenUUNAoF7Fyrun2JPBodKKVHjgn",
+      "username": "Brad",
+      "pfpEmoji": null,
+      "stakeUsdc": 4,
+      "payoutUsdc": 3.528571,
+      "profitUsdc": -0.4714290000000001,
+      "points": 150
+    },
+    {
+      "wallet": "9164nUKQVa2N8v6PBTtreGQbXmKFw8JvwZNuP1dQ9JT9",
+      "username": "ZeroXirem",
+      "pfpEmoji": "🎮",
+      "stakeUsdc": 1,
+      "payoutUsdc": 0,
+      "profitUsdc": -1,
+      "points": 150
+    },
+    {
+      "wallet": "49GT1N8mRLp4Q9JYJDRR3YopGtfHFGTrwg6cmbm3u2fY",
+      "username": "Michael_Donnn",
+      "pfpEmoji": "🏠",
+      "stakeUsdc": 1,
+      "payoutUsdc": 0,
+      "profitUsdc": -1,
+      "points": 150
+    },
+    {
+      "wallet": "2kRJr1m4TVN7rNSFQZLQr81orBSf4EChfzgZi5U2hexM",
+      "username": "taylor",
+      "pfpEmoji": "💬",
+      "stakeUsdc": 5,
+      "payoutUsdc": 3.528571,
+      "profitUsdc": -1.471429,
+      "points": 150
+    },
+    {
+      "wallet": "GVjuq4KdCpCCPPgz65v2dh73RQwZM8ZnPujaW4Ao7sPb",
+      "username": "asteroid",
+      "pfpEmoji": null,
+      "stakeUsdc": 2,
+      "payoutUsdc": 0,
+      "profitUsdc": -2,
+      "points": 150
+    },
+    {
+      "wallet": "GgJtyJVPn1BFiQV7fK7ctk9ECzgWtgVWhm6G4vqHaGSg",
+      "username": "Niall",
+      "pfpEmoji": "🏷️",
+      "stakeUsdc": 2,
+      "payoutUsdc": 0,
+      "profitUsdc": -2,
+      "points": 150
+    },
+    {
+      "wallet": "Q1vSsABB3VxE7N4XhZDhp7z2rTEQ7fm6JotPMPHZSMm",
+      "username": "naibother",
+      "pfpEmoji": null,
+      "stakeUsdc": 2,
+      "payoutUsdc": 0,
+      "profitUsdc": -2,
+      "points": 150
+    }
+  ]
+}
