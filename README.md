@@ -7,7 +7,8 @@ after v0.
 
 ## Run on a Seeker
 
-Prerequisites (guide section 1): Node 20, JDK 17, Android Studio with SDK
+Prerequisites (guide section 1): Node 24 (see `.nvmrc`; npm 11 writes the
+lockfile and npm 10 will not install it), JDK 17, Android Studio with SDK
 Platform 34+, `ANDROID_HOME` set, `platform-tools` on `PATH`, USB debugging on
 the Seeker and `adb devices` listing it.
 

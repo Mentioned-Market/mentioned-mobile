@@ -32,7 +32,9 @@ screen needs a session it shows a placeholder.
 
 ## 1. Prerequisites
 
-- Node 20 (`nvm use 20`), npm. No yarn.
+- Node 24 (`nvm use`, see `.nvmrc`), npm. No yarn. Node 24 ships npm 11, which
+  is the major that writes `package-lock.json`; npm 10 rejects that lockfile as
+  out of sync, so CI pins the same version.
 - Android Studio with SDK Platform 34+, build tools, and a JDK 17 (`java -version`).
   Set `ANDROID_HOME` and put `platform-tools` on `PATH`.
 - Seeker: Settings → About → tap Build number 7 times → Developer options → USB

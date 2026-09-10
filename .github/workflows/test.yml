@@ -16,11 +16,14 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          # Node 24 ships npm 11, which is the major that writes this
+          # lockfile. Node 20 ships npm 10, and npm 10 computes a different
+          # ideal tree, so `npm ci` rejects the lockfile as out of sync.
+          node-version: 24
           cache: npm
 
       - run: npm ci
