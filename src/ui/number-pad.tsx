@@ -1,8 +1,13 @@
-// In-app amount pad. Avoids the system keyboard so the quote stays visible.
+// In-app amount pad. Avoids the system keyboard so the quote and the buy
+// button stay visible; a system keyboard would cover both.
+//
+// Key height is deliberately modest. This is the tallest block in the trade
+// sheet, and every dp it takes is a dp the quote and the action have to fight
+// for on a short screen.
 import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, fonts, spacing } from '@/ui/theme';
+import { colors, fonts } from '@/ui/theme';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'] as const;
 
@@ -47,8 +52,8 @@ export function NumberPad({ value, onChange, maxDecimals = 2, maxLength = 9 }: P
 }
 
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  key: { width: '31.5%', height: 52, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  key: { width: '32%', height: 46, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   keyPressed: { backgroundColor: colors.surfaceRaised },
-  keyLabel: { fontFamily: fonts.semibold, fontSize: 22, color: colors.text, fontVariant: ['tabular-nums'] },
+  keyLabel: { fontFamily: fonts.semibold, fontSize: 21, color: colors.text, fontVariant: ['tabular-nums'] },
 });

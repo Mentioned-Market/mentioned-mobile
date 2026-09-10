@@ -1,15 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 
 import { useFreeList, useIsScreenFocused, usePaidMajorityList, usePaidMarketsList } from '@/api/queries';
-import { useNow } from '@/lib/time';
-import { filterMarkets, isHero, mergeMarkets, sectionMarkets, type MarketFilter } from '@/markets/merge';
+import { useNow } from '@/lib/use-now';
+import { filterMarkets, isHero, mergeMarkets, sectionMarkets, type MarketFilter, type MarketSummary } from '@/markets/merge';
 import { MarketCard } from '@/ui/market-card';
 import { Screen } from '@/ui/screen';
 import { CardSkeleton, EmptyState, ErrorState } from '@/ui/states';
 import { colors, fonts, spacing } from '@/ui/theme';
+
+// Hoisted out of the render. As inline arrows these were a fresh component type
+// on every render, so React tore down and rebuilt every separator in the list
+// each time anything on the screen changed.
+const ItemSeparator = () => <View style={styles.separator} />;
+const SectionSeparator = () => <View style={{ height: spacing.sm }} />;
+
+const renderSectionHeader = ({ section }: { section: { title: string; data: unknown[] } }) => (
+  <View style={styles.sectionHeader}>
+    <Text style={styles.sectionTitle}>{section.title}</Text>
+    <Text style={styles.sectionCount}>{section.data.length}</Text>
+  </View>
+);
 
 const FILTERS: { key: MarketFilter; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -37,6 +50,13 @@ export default function MarketsScreen() {
     [paidMajority.data, paidYesNo.data, free.data, filter, now],
   );
   const empty = sections.length === 0;
+
+  const renderItem = useCallback(
+    ({ item, index, section }: { item: MarketSummary; index: number; section: { key: string } }) => (
+      <MarketCard market={item} now={now} hero={section.key === 'open' && index === 0 && isHero(item)} />
+    ),
+    [now],
+  );
 
   const retryAll = () => {
     setRefreshing(true);
@@ -80,17 +100,20 @@ export default function MarketsScreen() {
         <SectionList
           sections={sections}
           keyExtractor={(m) => `${m.kind}:${m.id}`}
-          renderItem={({ item, index, section }) => <MarketCard market={item} now={now} hero={section.key === 'open' && index === 0 && isHero(item)} />}
-          renderSectionHeader={({ section }) => (
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{section.title}</Text>
-              <Text style={styles.sectionCount}>{section.data.length}</Text>
-            </View>
-          )}
+          renderItem={renderItem}
+          renderSectionHeader={renderSectionHeader}
           stickySectionHeadersEnabled={false}
           contentContainerStyle={styles.list}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          SectionSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+          ItemSeparatorComponent={ItemSeparator}
+          SectionSeparatorComponent={SectionSeparator}
+          // A market card is a tall view tree with a cover image in it. The
+          // default window keeps roughly twenty screens of them mounted, and
+          // re-attaching that on every tab focus is what made switching to this
+          // tab stall. Two screens either side is plenty for smooth scrolling.
+          initialNumToRender={4}
+          maxToRenderPerBatch={4}
+          windowSize={5}
+          updateCellsBatchingPeriod={50}
           ListHeaderComponent={
             someFailed ? (
               <View style={{ marginBottom: spacing.md }}>

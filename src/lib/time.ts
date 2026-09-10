@@ -1,6 +1,5 @@
 // Lock and event times arrive in two shapes: unix seconds as a decimal string
 // (paid routes) and ISO strings (free routes). Everything here works in ms.
-import { useEffect, useState } from 'react';
 
 export function toMs(v: string | number | null | undefined): number | null {
   if (v === null || v === undefined || v === '') return null;
@@ -44,14 +43,4 @@ export function eventDate(ms: number | null): string | null {
   if (!ms) return null;
   const d = new Date(ms);
   return d.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
-
-/** Re-renders the caller every `everyMs`, for countdowns. */
-export function useNow(everyMs = 30_000): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), everyMs);
-    return () => clearInterval(id);
-  }, [everyMs]);
-  return now;
 }

@@ -1,13 +1,41 @@
 // Contract test: parse every v0 read route against production (`npm run
 // contract`). A web change that breaks a shape fails here, not in a shipped APK.
+import { address as toAddress } from '@solana/kit';
+
 import * as free from '../src/api/free';
 import * as paidMajority from '../src/api/paidMajority';
 import * as paidMarkets from '../src/api/paidMarkets';
 import * as results from '../src/api/results';
 import * as user from '../src/api/user';
+import { getAssociatedTokenAddress } from '../src/chain/amm';
+import { getUsdcBalance } from '../src/chain/balance';
+import { RPC_URL, USDC_MINT } from '../src/config';
 
 // A wallet with activity across all three market families (public data).
 const WALLET = '49GT1N8mRLp4Q9JYJDRR3YopGtfHFGTrwg6cmbm3u2fY';
+
+/**
+ * Ask the chain which USDC token account a wallet actually owns.
+ *
+ * The balance read derives that address locally instead, which is faster and
+ * needs no extra call, but a silent drift in the derivation would report every
+ * wallet as empty. Cross-checking the two here is what makes that loud.
+ */
+async function chainUsdcAccount(wallet: string): Promise<string | null> {
+  const res = await fetch(RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'getTokenAccountsByOwner',
+      params: [wallet, { mint: USDC_MINT }, { encoding: 'jsonParsed' }],
+    }),
+  });
+  const json = (await res.json()) as { result?: { value?: { pubkey: string }[] }; error?: { message?: string } };
+  if (json.error) throw new Error(json.error.message ?? 'getTokenAccountsByOwner failed');
+  return json.result?.value?.[0]?.pubkey ?? null;
+}
 
 type Check = { name: string; fn: () => Promise<string> };
 
@@ -52,6 +80,23 @@ async function main() {
   add('custom/[id]/results', async () => `${(await results.getFreeResults(resolvedFree.id)).leaderboard.length} rows`);
   add('profile/[username]', async () => `${(await user.getPublicProfile('Michael_Donnn')).stats.allTimePoints} points`);
   add('search', async () => { const r = await user.search('mich'); return `${r.results.length} players, ${r.markets.length} markets`; });
+
+  // The wallet balance is read from the chain rather than from an API route, so
+  // it fails independently of everything above: the proxy could stop allowing
+  // the method, or the associated-token derivation could drift.
+  const board = await user.getLeaderboard();
+  const holder = board.data.find((e) => e.wallet) ?? null;
+  add('paid-rpc getTokenAccountBalance', async () => {
+    if (!holder) return 'no wallet on the leaderboard to check';
+    const derived = await getAssociatedTokenAddress(toAddress(USDC_MINT), toAddress(holder.wallet));
+    const onChain = await chainUsdcAccount(holder.wallet);
+    if (onChain && onChain !== derived) {
+      throw new Error(`derived USDC account ${derived} but the chain owns ${onChain}`);
+    }
+    const balance = await getUsdcBalance(holder.wallet);
+    if (!Number.isFinite(balance) || balance < 0) throw new Error(`implausible balance ${balance}`);
+    return onChain ? `${holder.wallet.slice(0, 6)} holds ${balance} USDC in ${derived.slice(0, 6)}` : `${holder.wallet.slice(0, 6)} has no USDC account, read as ${balance}`;
+  });
 
   let failed = 0;
   for (const c of checks) {

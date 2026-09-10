@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
+import { getUsdcBalance } from '@/chain/balance';
 import * as free from './free';
 import * as paidMajority from './paidMajority';
 import * as paidMarkets from './paidMarkets';
@@ -55,6 +56,7 @@ export const keys = {
   leaderboard: (week: user.LeaderboardWeek, wallet?: string) => ['leaderboard', week, wallet ?? ''] as const,
   prizePool: (week?: string) => ['prize-pool', week ?? 'current'] as const,
   raffle: (wallet?: string, week?: string) => ['raffle', wallet ?? '', week ?? 'current'] as const,
+  usdcBalance: (wallet: string) => ['chain', 'usdc-balance', wallet] as const,
 };
 
 // Lists
@@ -143,3 +145,14 @@ export const usePublicProfile = (username: string) =>
   useQuery({ queryKey: keys.publicProfile(username), queryFn: () => user.getPublicProfile(username), staleTime: 30_000 });
 export const useSearch = (q: string) =>
   useQuery({ queryKey: keys.search(q), queryFn: () => user.search(q), enabled: q.trim().length >= 2, staleTime: 30_000, placeholderData: (prev) => prev });
+
+// Wallet USDC, read from the chain rather than the API. Polled slowly: it only
+// moves when the user trades or deposits, and both of those refetch it directly.
+export const useUsdcBalance = (wallet: string | null, focused: boolean) =>
+  useQuery({
+    queryKey: keys.usdcBalance(wallet ?? ''),
+    queryFn: () => getUsdcBalance(wallet as string),
+    enabled: !!wallet,
+    staleTime: 30_000,
+    ...poll(focused && !!wallet, LIST_POLL_MS * 4),
+  });

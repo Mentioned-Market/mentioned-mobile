@@ -7,9 +7,20 @@ import { colors, fonts } from '@/ui/theme';
 type IconName = keyof typeof Ionicons.glyphMap;
 type IconProps = { color: ColorValue; size: number };
 
-function TabIcon({ name, color, size }: IconProps & { name: IconName }) {
-  return <Ionicons name={name} color={color} size={size} />;
-}
+// Hoisted so the navigator is not handed a new component on every render.
+const icon = (name: IconName) => {
+  const TabIcon = ({ color, size }: IconProps) => <Ionicons name={name} color={color} size={size} />;
+  TabIcon.displayName = `TabIcon(${name})`;
+  return TabIcon;
+};
+
+const ICONS = {
+  home: icon('home'),
+  markets: icon('grid'),
+  positions: icon('layers'),
+  ranks: icon('trophy'),
+  you: icon('person-circle'),
+};
 
 // Android's default tab button draws a ripple that fights the black bar. A
 // plain Pressable with a soft opacity dip reads better.
@@ -34,6 +45,8 @@ function TabButton({ children, style, onPress, onLongPress, accessibilityState, 
   );
 }
 
+const renderTabButton = (props: object) => <TabButton {...(props as TabButtonProps)} />;
+
 export default function TabsLayout() {
   return (
     <Tabs
@@ -44,15 +57,21 @@ export default function TabsLayout() {
         tabBarStyle: { backgroundColor: colors.bg, borderTopColor: colors.border },
         tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 12 },
         sceneStyle: { backgroundColor: colors.bg },
-        tabBarButton: (props) => <TabButton {...(props as TabButtonProps)} />,
+        tabBarButton: renderTabButton,
         animation: 'none',
+        // Every tab polls while focused and stays mounted once visited. Without
+        // this, a blurred screen still re-renders on each state change, so five
+        // trees repaint on a tab press. Freezing them is the difference between
+        // an instant switch and a visible stall.
+        freezeOnBlur: true,
+        lazy: true,
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: (p: IconProps) => <TabIcon name="home" {...p} /> }} />
-      <Tabs.Screen name="markets" options={{ title: 'Markets', tabBarIcon: (p: IconProps) => <TabIcon name="grid" {...p} /> }} />
-      <Tabs.Screen name="positions" options={{ title: 'Positions', tabBarIcon: (p: IconProps) => <TabIcon name="layers" {...p} /> }} />
-      <Tabs.Screen name="ranks" options={{ title: 'Ranks', tabBarIcon: (p: IconProps) => <TabIcon name="trophy" {...p} /> }} />
-      <Tabs.Screen name="you" options={{ title: 'You', tabBarIcon: (p: IconProps) => <TabIcon name="person-circle" {...p} /> }} />
+      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ICONS.home }} />
+      <Tabs.Screen name="markets" options={{ title: 'Markets', tabBarIcon: ICONS.markets }} />
+      <Tabs.Screen name="positions" options={{ title: 'Positions', tabBarIcon: ICONS.positions }} />
+      <Tabs.Screen name="ranks" options={{ title: 'Ranks', tabBarIcon: ICONS.ranks }} />
+      <Tabs.Screen name="you" options={{ title: 'You', tabBarIcon: ICONS.you }} />
     </Tabs>
   );
 }

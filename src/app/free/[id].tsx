@@ -8,7 +8,8 @@ import { useFreeChart, useFreeMarket, useFreePositions, useIsScreenFocused } fro
 import { sharesForTokens, virtualBuyCost, virtualSellReturn } from '@/free/lmsr';
 import { getDisplayStatus } from '@/free/marketUtils';
 import { tokens } from '@/lib/format';
-import { toMs, useNow } from '@/lib/time';
+import { toMs } from '@/lib/time';
+import { useNow } from '@/lib/use-now';
 import { useWallet } from '@/store/wallet';
 import { BottomSheet } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
@@ -33,7 +34,7 @@ export default function FreeYesNoScreen() {
   const positions = useFreePositions(id, viewed, focused);
   const chart = useFreeChart(id, focused);
   const [pick, setPick] = useState<{ wordId: number; side: Side } | null>(null);
-  const [mode, setMode] = useState<TradeMode>('buy');
+  const [modeChoice, setMode] = useState<TradeMode>('buy');
   const [amount, setAmount] = useState('50');
 
   if (market.isPending) {
@@ -80,6 +81,11 @@ export default function FreeYesNoScreen() {
   const heldYes = held?.yes_shares ?? 0;
   const heldNo = held?.no_shares ?? 0;
   const heldSide = side === 'YES' ? heldYes : heldNo;
+
+  // See the paid screen: the mode is derived so an emptied position cannot
+  // leave the sheet stuck in Sell with the Buy/Sell control hidden.
+  const canSell = heldYes > 0 || heldNo > 0;
+  const mode: TradeMode = canSell ? modeChoice : 'buy';
   const amountNum = Number(amount) || 0;
   let headline = { label: 'Est. shares', value: '0' };
   let lines: QuoteLine[] = [];
@@ -163,7 +169,20 @@ export default function FreeYesNoScreen() {
         </View>
       </ScrollView>
 
-      <BottomSheet visible={!!pick && !!word} onClose={() => setPick(null)} title={word?.word ?? ''} subtitle={m.title}>
+      <BottomSheet
+        visible={!!pick && !!word}
+        onClose={() => setPick(null)}
+        title={word?.word ?? ''}
+        subtitle={m.title}
+        footer={
+          <Button
+            label={open ? actionLabel : 'Market closed'}
+            tone={side === 'YES' ? 'yes' : 'no'}
+            disabled
+            note={open ? 'Trading arrives soon' : undefined}
+          />
+        }
+      >
         {word && pick ? (
           <TradeSheet
             word={{ key: String(word.id), label: word.word, yesPrice: word.yes_price, noPrice: word.no_price, outcome: word.resolved_outcome }}
@@ -172,7 +191,7 @@ export default function FreeYesNoScreen() {
               setMode(mm);
               setAmount(mm === 'buy' ? '50' : '');
             }}
-            canSell
+            canSell={canSell}
             side={side}
             onSide={(s) => {
               setPick({ wordId: pick.wordId, side: s });
@@ -189,7 +208,6 @@ export default function FreeYesNoScreen() {
             holdings={viewed ? { yes: fmt(heldYes), no: fmt(heldNo) } : null}
             warning={warning}
             open={open}
-            action={{ label: open ? actionLabel : 'Market closed', tone: side === 'YES' ? 'yes' : 'no', disabled: true, note: open ? 'Trading arrives soon' : undefined }}
           />
         ) : null}
       </BottomSheet>

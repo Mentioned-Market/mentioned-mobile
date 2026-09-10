@@ -3,8 +3,8 @@
 // last week, so the arrows toggle between the two.
 import { Ionicons } from '@expo/vector-icons';
 import { Link, type Href } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { memo, useCallback, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { useIsScreenFocused, useLeaderboard, usePrizePool, useRaffle } from '@/api/queries';
 import type { LeaderboardEntry, LeaderboardWeek } from '@/api/user';
@@ -16,6 +16,12 @@ import { EmptyState, ErrorState, Skeleton } from '@/ui/states';
 import { colors, fonts, spacing, type } from '@/ui/theme';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
+
+/** A stable empty array, so an absent board does not remount the list each render. */
+const EMPTY: LeaderboardEntry[] = [];
+
+const keyExtractor = (e: LeaderboardEntry) => e.wallet;
+const RowSeparator = () => <View style={{ height: spacing.sm }} />;
 
 function weekKey(weekStartIso: string | undefined, week: LeaderboardWeek): string | undefined {
   // Past weeks are addressed by their UTC Monday; the current week by omission.
@@ -39,22 +45,42 @@ export default function RanksScreen() {
   const pool = usePrizePool(key, focused);
   const raffle = useRaffle(viewed, key, focused);
   const [refreshing, setRefreshing] = useState(false);
+  const renderRow = useCallback(
+    ({ item, index }: { item: LeaderboardEntry; index: number }) => <Row entry={item} rank={index} you={viewed === item.wallet} />,
+    [viewed],
+  );
+
   const refetch = () => {
     setRefreshing(true);
     Promise.all([board.refetch(), pool.refetch(), raffle.refetch()]).finally(() => setRefreshing(false));
   };
 
-  const rows = board.data?.data ?? [];
+  const rows = board.data?.data ?? EMPTY;
+  const boardReady = !board.isPending && !board.isError;
   const myIndex = viewed ? rows.findIndex((e) => e.wallet === viewed) : -1;
   const pinned = board.data?.userEntry ?? null;
 
   return (
     <Screen title="Ranks" subtitle="Weekly points, prize pool and raffle">
-      <ScrollView
+      {/* A FlatList rather than a ScrollView: the board runs to a hundred rows,
+          and mounting all of them left several hundred views attached to this
+          screen at all times, which the navigator re-attached on every focus.
+          Everything above the board is the list header, so it still scrolls with
+          the rows. */}
+      <FlatList
+        data={boardReady ? rows : EMPTY}
+        keyExtractor={keyExtractor}
+        renderItem={renderRow}
+        ItemSeparatorComponent={RowSeparator}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={colors.gold} />}
-      >
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        removeClippedSubviews
+        ListHeaderComponent={
+          <View style={styles.header}>
         <View style={styles.weekRow}>
           <Pressable
             onPress={() => setWeek('last')}
@@ -144,32 +170,32 @@ export default function RanksScreen() {
         )}
 
         <Text style={type.heading}>Points</Text>
-        {board.isPending ? (
-          <View style={{ gap: spacing.sm }}>
-            <Skeleton height={56} radius={12} />
-            <Skeleton height={56} radius={12} />
-            <Skeleton height={56} radius={12} />
+            {board.isPending ? (
+              <View style={{ gap: spacing.sm }}>
+                <Skeleton height={56} radius={12} />
+                <Skeleton height={56} radius={12} />
+                <Skeleton height={56} radius={12} />
+              </View>
+            ) : board.isError ? (
+              <ErrorState error={board.error} onRetry={() => board.refetch()} title="Could not load the leaderboard" />
+            ) : (
+              <>
+                {pinned ? <Row entry={pinned} rank={null} you /> : null}
+                {viewed && myIndex === -1 && !pinned ? <Text style={type.muted}>Your wallet has no points this week yet.</Text> : null}
+              </>
+            )}
           </View>
-        ) : board.isError ? (
-          <ErrorState error={board.error} onRetry={() => board.refetch()} title="Could not load the leaderboard" />
-        ) : rows.length === 0 ? (
-          <EmptyState title="No points yet this week" body="Make a pick to get on the board." />
-        ) : (
-          <View style={{ gap: spacing.sm }}>
-            {pinned ? <Row entry={pinned} rank={null} you /> : null}
-            {viewed && myIndex === -1 && !pinned ? <Text style={type.muted}>Your wallet has no points this week yet.</Text> : null}
-            {rows.map((e, i) => (
-              <Row key={e.wallet} entry={e} rank={i} you={viewed === e.wallet} />
-            ))}
-          </View>
-        )}
-      </ScrollView>
+        }
+        ListEmptyComponent={
+          boardReady && rows.length === 0 ? <EmptyState title="No points yet this week" body="Make a pick to get on the board." /> : null
+        }
+      />
     </Screen>
   );
 }
 
 /** Tap opens the player's public profile (or their positions when they have no username). */
-function Row({ entry, rank, you }: { entry: LeaderboardEntry; rank: number | null; you: boolean }) {
+const Row = memo(function Row({ entry, rank, you }: { entry: LeaderboardEntry; rank: number | null; you: boolean }) {
   const href = (entry.username ? `/u/${encodeURIComponent(entry.username)}` : `/positions?wallet=${entry.wallet}`) as Href;
   return (
     <Link href={href} asChild>
@@ -196,10 +222,12 @@ function Row({ entry, rank, you }: { entry: LeaderboardEntry; rank: number | nul
       </Pressable>
     </Link>
   );
-}
+});
 
 const styles = StyleSheet.create({
-  content: { gap: spacing.md, paddingBottom: spacing.xl },
+  // The list supplies the gap between rows; the header keeps its own.
+  content: { paddingBottom: spacing.xl },
+  header: { gap: spacing.md, paddingBottom: spacing.sm },
   weekRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   arrow: {
     width: 40,

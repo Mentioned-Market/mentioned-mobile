@@ -1,13 +1,15 @@
 // Shared YES/NO trade sheet for paid (USDC) and free (play tokens) markets.
-// Design pass (SPEC v1 step 5): word strip, Buy/Sell, side pair, amount with
-// pad and presets, and a quote block with the headline number the website
-// leads with. The parent computes the quote; the action button is pinned by
-// the screen.
+// Side pair, amount with pad and presets, and a quote block led by the headline
+// number the website leads with. The parent computes the quote.
+//
+// Everything here is sized to fit one screen alongside the sheet's header and
+// its pinned action, because a buy screen you have to scroll to buy from is a
+// buy screen that hides its own purpose. The action itself is NOT rendered
+// here: it belongs in the sheet's footer, outside the scrolling body.
 import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { cents } from '@/lib/format';
-import { Button } from '@/ui/button';
 import { NumberPad } from '@/ui/number-pad';
 import { colors, fonts, spacing, type } from '@/ui/theme';
 
@@ -45,7 +47,6 @@ type Props = {
   warning?: string | null;
   /** When false the sheet shows prices only: no pad, no quote. */
   open?: boolean;
-  action: { label: string; tone: 'yes' | 'no' | 'gold' | 'neutral'; disabled: boolean; note?: string; onPress?: () => void };
 };
 
 export function TradeSheet(p: Props) {
@@ -155,7 +156,6 @@ export function TradeSheet(p: Props) {
               </View>
             </>
           )}
-          <Button label={p.action.label} tone={p.action.tone} disabled={p.action.disabled} note={p.action.note} onPress={p.action.onPress} />
         </>
       ) : null}
     </View>
@@ -163,7 +163,7 @@ export function TradeSheet(p: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: spacing.md },
+  wrap: { gap: spacing.sm },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   },
   segmentItem: {
     flex: 1,
-    height: 36,
+    height: 34,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   sides: { flexDirection: 'row', gap: spacing.sm },
   side: {
     flex: 1,
-    minHeight: 68,
+    minHeight: 58,
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: colors.border,
@@ -223,25 +223,25 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   sideLabel: { fontFamily: fonts.bold, fontSize: 15, letterSpacing: 0.5 },
-  sidePrice: { ...type.money, fontSize: 20 },
+  sidePrice: { ...type.money, fontSize: 19 },
   sideHeld: {
     fontFamily: fonts.medium,
     fontSize: 12,
     color: colors.textMuted,
     fontVariant: ['tabular-nums'],
   },
-  amountBlock: { gap: spacing.sm },
+  amountBlock: { gap: 6 },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'center',
     gap: 4,
-    minHeight: 56,
+    minHeight: 46,
   },
   amount: {
     fontFamily: fonts.bold,
-    fontSize: 44,
-    lineHeight: 52,
+    fontSize: 38,
+    lineHeight: 46,
     color: colors.text,
     fontVariant: ['tabular-nums'],
     maxWidth: '80%',
@@ -264,24 +264,24 @@ const styles = StyleSheet.create({
   },
   presetLabel: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
   quote: {
-    padding: spacing.md,
+    padding: spacing.sm + 4,
     borderRadius: 14,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    gap: 6,
+    gap: 3,
   },
   headline: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     gap: spacing.md,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   headlineValue: {
     fontFamily: fonts.bold,
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 26,
+    lineHeight: 32,
     color: colors.text,
     fontVariant: ['tabular-nums'],
     flexShrink: 1,

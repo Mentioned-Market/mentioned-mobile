@@ -1,7 +1,6 @@
 // First-launch intro: three slides, then browse or connect the Seeker wallet.
 // Shown once (prefs.introSeen); the dev screen can reset it.
 import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
@@ -10,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePrefs } from '@/store/prefs';
 import { Button } from '@/ui/button';
 import { colors, fonts, spacing, type } from '@/ui/theme';
+import { Wordmark } from '@/ui/wordmark';
 
 const SLIDES = [
   {
@@ -54,10 +54,7 @@ export default function IntroScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.top}>
-        <View style={styles.brand}>
-          <Image source={require('@/assets/images/logo-mark.png')} style={{ width: 28, height: 22 }} contentFit="contain" />
-          <Text style={styles.wordmark}>Mentioned</Text>
-        </View>
+        <Wordmark />
         {!last ? (
           <Pressable onPress={() => finish('/')} hitSlop={12} accessibilityRole="button">
             <Text style={type.muted}>Skip</Text>
@@ -98,7 +95,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingTop: spacing.md, height: 56 },
   brand: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  wordmark: { fontFamily: fonts.bold, fontSize: 20, color: colors.text, letterSpacing: -0.3 },
   slide: { paddingHorizontal: spacing.lg, justifyContent: 'center', gap: spacing.md },
   hero: { height: 220, alignItems: 'center', justifyContent: 'center', borderRadius: 24, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md },
   title: { fontFamily: fonts.bold, fontSize: 32, lineHeight: 38, color: colors.text, letterSpacing: -0.5 },

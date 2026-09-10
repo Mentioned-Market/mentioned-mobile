@@ -9,7 +9,7 @@ import { useIsScreenFocused, usePaidMarket, usePaidMarketChart, usePaidMarketMet
 import { deserializeMarketAccount, estimateBuyCost, estimateSellReturn, impliedYesPrice, MarketStatus, sharesForUsdc } from '@/chain/amm';
 import { base64ToBytes } from '@/lib/bytes';
 import { shares as fmtShares, shortAddress, usd, usdc } from '@/lib/format';
-import { useNow } from '@/lib/time';
+import { useNow } from '@/lib/use-now';
 import { useWallet } from '@/store/wallet';
 import { BottomSheet } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
@@ -40,7 +40,7 @@ export default function PaidYesNoScreen() {
   const trades = usePaidMarketTrades(id, focused);
   const positions = usePaidMarketUserPositions(viewed, focused);
   const [pick, setPick] = useState<{ idx: number; side: Side } | null>(null);
-  const [mode, setMode] = useState<TradeMode>('buy');
+  const [modeChoice, setMode] = useState<TradeMode>('buy');
   const [amount, setAmount] = useState('1');
 
   const acct = useMemo(() => (market.data ? deserializeMarketAccount(base64ToBytes(market.data.account)) : null), [market.data]);
@@ -94,6 +94,14 @@ export default function PaidYesNoScreen() {
   const heldYes = held ? BigInt(held.yesShares) : 0n;
   const heldNo = held ? BigInt(held.noShares) : 0n;
   const heldSide = side === 'YES' ? heldYes : heldNo;
+
+  // Sell is offered only against something you actually hold. Deriving the mode
+  // rather than trusting the stored choice means a position that empties while
+  // the sheet is open cannot strand the user in a Sell tab that no longer has a
+  // control to leave it.
+  const canSell = heldYes > 0n || heldNo > 0n;
+  const mode: TradeMode = canSell ? modeChoice : 'buy';
+
   const amountNum = Number(amount) || 0;
   const feeBps = BigInt(acct.tradeFeeBps);
   let headline = { label: 'Est. shares', value: '0' };
@@ -193,7 +201,20 @@ export default function PaidYesNoScreen() {
         {trades.data && trades.data.length === 0 ? <Text style={type.muted}>No trades yet</Text> : null}
       </ScrollView>
 
-      <BottomSheet visible={!!pick && !!word} onClose={() => setPick(null)} title={word?.label ?? ''} subtitle={meta.data?.title}>
+      <BottomSheet
+        visible={!!pick && !!word}
+        onClose={() => setPick(null)}
+        title={word?.label ?? ''}
+        subtitle={meta.data?.title}
+        footer={
+          <Button
+            label={open ? actionLabel : 'Market closed'}
+            tone={side === 'YES' ? 'yes' : 'no'}
+            disabled
+            note={open ? 'Trading arrives soon' : undefined}
+          />
+        }
+      >
         {word && pick ? (
           <TradeSheet
             word={words[pick.idx]}
@@ -202,7 +223,7 @@ export default function PaidYesNoScreen() {
               setMode(m);
               setAmount(m === 'buy' ? '1' : '');
             }}
-            canSell
+            canSell={canSell}
             side={side}
             onSide={(s) => {
               setPick({ idx: pick.idx, side: s });
@@ -218,7 +239,6 @@ export default function PaidYesNoScreen() {
             holdings={viewed ? { yes: fmtShares(heldYes), no: fmtShares(heldNo) } : null}
             warning={warning}
             open={open}
-            action={{ label: open ? actionLabel : 'Market closed', tone: side === 'YES' ? 'yes' : 'no', disabled: true, note: open ? 'Trading arrives soon' : undefined }}
           />
         ) : null}
       </BottomSheet>

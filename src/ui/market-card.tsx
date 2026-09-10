@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { Link, type Href } from 'expo-router';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { compact as compactNumber, pct, tokens, usd } from '@/lib/format';
@@ -16,7 +16,9 @@ const STATUS: Record<MarketStatus, { label: string; tone: PillTone }> = {
   cancelled: { label: 'Cancelled', tone: 'red' },
 };
 
-export function MarketCard({ market, now, hero = false, compact = false }: { market: MarketSummary; now: number; hero?: boolean; compact?: boolean }) {
+type MarketCardProps = { market: MarketSummary; now: number; hero?: boolean; compact?: boolean };
+
+function MarketCardImpl({ market, now, hero = false, compact = false }: MarketCardProps) {
   const [imgFailed, setImgFailed] = useState(false);
   const paid = isPaid(market);
   const majority = isMajority(market);
@@ -92,6 +94,56 @@ export function MarketCard({ market, now, hero = false, compact = false }: { mar
     </Link>
   );
 }
+
+/**
+ * Does this market render identically to that one?
+ *
+ * Deliberately structural rather than by reference: `mergeMarkets` builds fresh
+ * objects on every call and the lists call it on a 30s clock, so every card gets
+ * a new `market` twice a minute even when nothing about it changed. Comparing by
+ * reference here would make the memo a no-op.
+ */
+export function sameMarket(a: MarketSummary, b: MarketSummary): boolean {
+  if (
+    a.id !== b.id ||
+    a.kind !== b.kind ||
+    a.href !== b.href ||
+    a.title !== b.title ||
+    a.cover !== b.cover ||
+    a.status !== b.status ||
+    a.lockAt !== b.lockAt ||
+    a.eventAt !== b.eventAt ||
+    a.traderCount !== b.traderCount ||
+    a.words.length !== b.words.length
+  ) {
+    return false;
+  }
+  if (a.pool.kind !== b.pool.kind) return false;
+  if (a.pool.kind === 'usdc' && b.pool.kind === 'usdc' && a.pool.usd !== b.pool.usd) return false;
+  if (a.pool.kind === 'tokens' && b.pool.kind === 'tokens' && a.pool.tokens !== b.pool.tokens) return false;
+  return a.words.every((w, i) => {
+    const o = b.words[i];
+    return w.label === o.label && w.pct === o.pct && w.outcome === o.outcome;
+  });
+}
+
+/**
+ * Memoised because the lists that render it re-render on a ticking clock.
+ *
+ * `now` changes every 30s and every card takes it, but only the countdown in the
+ * footer actually moves, and only for a market closing within the day. Without
+ * this a list of thirty cards rebuilds its whole tree twice a minute, images
+ * included, which is a large part of why switching tabs felt slow.
+ */
+export const MarketCard = memo(MarketCardImpl, (a, b) => {
+  if (a.hero !== b.hero || a.compact !== b.compact) return false;
+  if (!sameMarket(a.market, b.market)) return false;
+  // The clock only matters while a countdown is on screen; once the market is
+  // locked or settled the rendered output is the same for any `now`.
+  if (a.market.status !== 'open') return true;
+  return closesIn(a.market.lockAt, a.now) === closesIn(b.market.lockAt, b.now);
+});
+MarketCard.displayName = 'MarketCard';
 
 const styles = StyleSheet.create({
   card: { borderRadius: 16, overflow: 'hidden', backgroundColor: colors.surface, borderWidth: 1 },

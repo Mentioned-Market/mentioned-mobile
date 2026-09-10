@@ -9,7 +9,7 @@ import { useIsScreenFocused, usePaidMajorityMarket, usePaidMajorityMetadata, use
 import { deserializeMajorityMarket, MajorityStatus, WordOutcome } from '@/chain/majority';
 import { base64ToBytes } from '@/lib/bytes';
 import { usd, usdc } from '@/lib/format';
-import { useNow } from '@/lib/time';
+import { useNow } from '@/lib/use-now';
 import { useWallet } from '@/store/wallet';
 import { Button } from '@/ui/button';
 import { PINNED_BAR_HEIGHT, PinnedBar } from '@/ui/pinned-bar';
