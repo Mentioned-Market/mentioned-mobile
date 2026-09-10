@@ -6,6 +6,7 @@ import { usd } from '@/lib/format';
 import { useWallet } from '@/store/wallet';
 import { ConnectWallet } from '@/ui/connect-wallet';
 import { Screen } from '@/ui/screen';
+import { SignInCard } from '@/ui/sign-in-card';
 import { ErrorState, Skeleton } from '@/ui/states';
 import { colors, spacing, type } from '@/ui/theme';
 
@@ -16,7 +17,8 @@ export default function YouScreen() {
   return (
     <Screen title="You">
       <View style={{ gap: spacing.md }}>
-        <ConnectWallet />
+        <SignInCard />
+
         {viewed ? (
           profile.isPending ? (
             <View style={styles.card}>
@@ -42,10 +44,15 @@ export default function YouScreen() {
             </View>
           )
         ) : null}
-        <View style={styles.card}>
-          <Text style={type.heading}>Sign in</Text>
-          <Text style={type.muted}>Trading, funding and profile edits arrive with sign-in in a later build.</Text>
+
+        {/* The Seed Vault wallet is not how you sign in. It funds the app
+            wallet, receives withdrawals, and proves you hold a Seeker. Until
+            trading lands it also lets you look at a wallet's positions. */}
+        <View style={styles.secondary}>
+          <Text style={type.muted}>Seeker wallet</Text>
+          <ConnectWallet compact={!!viewed} />
         </View>
+
         {__DEV__ ? (
           <Link href="/dev" style={{ marginTop: spacing.sm }}>
             <Text style={[type.muted, { color: colors.gold }]}>Dev: smoke tests</Text>
@@ -68,4 +75,5 @@ function Stat({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   card: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.md },
   stats: { flexDirection: 'row', gap: spacing.sm },
+  secondary: { gap: spacing.sm, marginTop: spacing.sm },
 });

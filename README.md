@@ -31,6 +31,26 @@ and is committed so builds are reproducible. Keystores are never committed.
 - `src/config.ts` static config: API base, RPC, program ids. No `.env`.
 - `src/lib/` ported SDKs and helpers.
 
+## Flavours
+
+`EXPO_PUBLIC_FLAVOR` picks the API, cluster, program ids and mint together.
+Anything but the literal `devnet` resolves to production.
+
+| Flavour | API | Cluster |
+|---|---|---|
+| `production` (default) | `www.mentioned.market` | mainnet |
+| `devnet` | `mentioned-web-dev-dev.up.railway.app` | devnet |
+
+**Always clear the Metro cache when switching flavour.** Metro caches the
+inlined value, so a production build made straight after a devnet build will
+silently carry devnet config. `npm run bundle:devnet` and
+`npm run bundle:production` pass `--clear` for you; a Gradle release build
+needs the same care.
+
+Every launch logs `[flavour] <name> -> <api base>`, and a non-production build
+shows the flavour as a pill next to the wordmark on Home, so a wrong build is
+obvious rather than silent.
+
 ## Tests
 
 ```bash

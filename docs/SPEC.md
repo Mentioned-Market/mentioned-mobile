@@ -209,19 +209,24 @@ Exit: the Sep 14 gate.
 Do this first: everything below signs real transactions, and testing a trade
 flow against mainnet spends real USDC on every attempt.
 
-- `src/config.ts` keyed by `EXPO_PUBLIC_FLAVOR`, with `production` (the
-  current values) and `devnet`: the staging API URL, devnet AMM program
-  `9kSuebrHKKnFsgFcv5fc8S2gBazHA9Gki2NEWt2ft9tk`, devnet majority program
-  `FYEiiL1iBRqHEGA8kU3gxVLDcGjSdE7aFRgjnYKxnisr`, devnet USDC mint
-  `6duUhxsjpsRasCSmvejAad4hH7aSyuBba99iZvsCsDum`. All copied from the web
-  repo's `lib/solanaConfig.ts`. Still no secrets.
-- `eas.json` with the `dev`, `devnet-preview` and `production` profiles
-  (section 9).
-- One Seeker on the devnet flavour for development, one on production.
+DONE Sep 10. `src/config.ts` is keyed by `EXPO_PUBLIC_FLAVOR` with two
+flavours, and `eas.json` carries the `dev`, `devnet-preview` and `production`
+profiles (section 9). Anything but the literal `devnet` resolves to production,
+so a typo fails safe to live rather than to a half-configured devnet, and a
+test pins that the API, cluster, programs and mint always move as a set.
+
+- `devnet` points at `https://mentioned-web-dev-dev.up.railway.app`, the
+  Railway dev deployment. Confirmed on devnet by asking its RPC proxy for both
+  AMM program ids: it answers for `9kSuebrHKKnFsgFcv5fc8S2gBazHA9Gki2NEWt2ft9tk`
+  and not for the mainnet one. It runs the merged Openfort code with Shield
+  configured, but it has its own database, so it holds few or no markets.
+- Devnet majority program `FYEiiL1iBRqHEGA8kU3gxVLDcGjSdE7aFRgjnYKxnisr`,
+  devnet USDC mint `6duUhxsjpsRasCSmvejAad4hH7aSyuBba99iZvsCsDum`.
+- Still to do: one Seeker on the devnet flavour, one on production.
 
 ### 6.2 Openfort login
 
-Server side already exists on `feat/openfort-privy-routing` in the web repo:
+Server side is merged to `main` in the web repo (PR #159, Sep 10):
 
 - `POST /api/auth/sign-in` with `type: 'openfort'`, an Openfort access token,
   and the wallet the client is using. `verifyOpenfortToken` verifies the token
@@ -233,20 +238,41 @@ Server side already exists on `feat/openfort-privy-routing` in the web repo:
 - `lib/openfortSolanaSigner.ts`: pure function, compiled kit transaction + raw
   Ed25519 signer in, signed wire bytes out, hard 64-byte assertion. Unit tested
   with a local keypair in `scripts/test-openfort-signer.ts`. Port it unchanged
-  to `src/auth/signer.ts` with its test.
+  to `src/auth/signer.ts` with its test. Verified portable on Sep 10: it
+  imports only `bs58` and three `@solana/kit` symbols (`address`,
+  `getTransactionDecoder`, `getTransactionEncoder`), all present in the kit
+  7.1.1 the app pins even though the web is on kit 6. The test needs
+  `tweetnacl` as a dev dependency and becomes a Jest test rather than a script.
+
+SDK: `@openfort/react-native@2.1.2` (checked on npm Sep 10). Its peer
+dependencies are `expo-application`, `expo-crypto`, `expo-linking`,
+`expo-secure-store`, `expo-web-browser`, `react-native-webview` and
+`expo-apple-authentication`; the app already has three of those. Note the web
+verifies tokens with `@openfort/openfort-node` while the app would mint them
+with the v2 React Native SDK, so proving one token verifies server side is the
+first thing to check, before any UI (see section 16, open question 3).
 
 Mobile flow:
 
-1. `OpenfortProvider` at the root with `publishableKey`, `walletConfig.shieldPublishableKey`
-   and `walletConfig.createEncryptedSessionEndpoint = API_BASE + '/api/openfort/encryption-session'`.
-   Auth hooks: `useOAuth` (Google, X), `useEmailAuthOtp`. OAuth returns on the
-   `mentioned://` scheme via `expo-web-browser`.
+1. `OpenfortProvider` at the root with `publishableKey` and
+   `walletConfig.shieldPublishableKey`. NOT
+   `createEncryptedSessionEndpoint`: the RN SDK does not implement that
+   pathway yet (its own types carry a TODO saying so), so the provider takes a
+   `getEncryptionSession` callback and the app calls the route itself. That is
+   the better shape anyway, because it is what lets the app recognise the 409
+   and show the legacy-Privy message rather than surfacing a generic SDK
+   failure. Done in `src/auth/encryption-session.ts`, with the provider in
+   `src/auth/openfort-provider.tsx` rendering its children untouched when the
+   keys are unset, exactly as the web does. Auth hooks come from the SDK's
+   `hooks/auth`; OAuth returns on the `mentioned://` scheme via
+   `expo-web-browser`.
 2. After auth, `useEmbeddedSolanaWallet`: list SVM accounts; recover the
    existing one, else create with `RecoveryMethod.AUTOMATIC`. Mirror
    `ensureOpenfortSolanaWallet()` on the web branch, including the
    retry-once-before-create guard so a returning user never gets a second empty
    wallet.
-3. A 409 from the encryption-session route means a legacy Privy identity. Show
+3. A 409 with code `LEGACY_PRIVY_ACCOUNT` from the encryption-session route
+   means a legacy Privy identity. Show
    "Your account is being upgraded. Use mentioned.market for now." and stop.
    There is no Privy path in the app.
 4. `POST /api/auth/sign-in` `{ type: 'openfort', token, wallet, client: 'mobile', ref }`.
@@ -469,15 +495,21 @@ submission that day; otherwise the post-launch update.
 
 ## 11. Web repo dependencies
 
-All in the existing Railway services; no new service. The mobile lane is
-blocked on the first three.
+All in the existing Railway services; no new service.
+
+**Status Sep 10 2026.** PR #159 (`feat/openfort-privy-routing`) is merged to
+`main`, so `type: 'openfort'` sign-in, the encryption-session route, the signer
+and the card on-ramp all exist. None of the four mobile-specific changes below
+have been started, and the merged specs do not mention mobile. Three of them
+are small; the first is the one that matters, because every authenticated route
+goes through it.
 
 | Change | Where | What | Needed by |
 |---|---|---|---|
-| Land the Openfort branches | `feat/openfort-wallet`, `feat/openfort-privy-routing` | Already scheduled: staging Sep 9, production Sep 16, Privy allowlist first then `OPENFORT_CUTOVER_AT`. Brings `type: 'openfort'` sign-in, encryption-session, on-ramp routes | v3 |
-| Bearer sessions | `lib/walletAuth.ts` | `getVerifiedWallet` reads `Authorization: Bearer` before the cookie. Same token, same verifier, same expiry. Covers every authenticated route | v3 |
-| Mobile sign-in additions | `app/api/auth/sign-in` | Return `sessionToken` in the body when `client === 'mobile'`; accept `ref` in the body | v3 |
-| Seeker wallet link | `app/api/seeker/link`, `lib/seekerLink.ts` | Nonce, verify MWA-signed message, store `seeker_wallet`, DAS check, `seeker_verified_at` | v3 |
+| ~~Land the Openfort branches~~ | merged as PR #159 | DONE. `type: 'openfort'` sign-in, `/api/openfort/encryption-session` (409 `LEGACY_PRIVY_ACCOUNT`, accessToken in body, no browser assumptions), `lib/openfortSolanaSigner.ts` and its test, `/api/onramp/quote` and `/session`. Gated on `NEXT_PUBLIC_OPENFORT_CUTOVER_AT` | v3 |
+| **Bearer sessions** | `lib/walletAuth.ts:402` | `getVerifiedWallet` is cookie-only today (`req.cookies.get('session')`). Read `Authorization: Bearer` first, fall back to the cookie, same `verifySessionToken`. Four lines. This one change unlocks every authenticated route at once, including the on-ramp, which already 401s a mobile caller | v3 |
+| **Mobile sign-in additions** | `app/api/auth/sign-in` | The route mints `sessionToken` and sets it only as an httpOnly cookie, and reads `ref` only from a cookie. Return the token in the JSON body when `client === 'mobile'`, and accept `ref` in the body. The app has no cookie jar to rely on | v3 |
+| **Seeker wallet link** | `app/api/seeker/link`, `lib/seekerLink.ts` | Does not exist; there is no `app/api/seeker` directory. Nonce, verify MWA-signed message, store `seeker_wallet`, DAS check, `seeker_verified_at` | v3 |
 | Retire the Discord gate | `lib/db.ts` (`assertDiscordTradingEligible`, `insertPointEvent`), free trade + entry routes | Behind an env flag so web and app flip together. Keep the lock check and rate limits. Watch Sybil pressure on free points | v4 |
 | Wallet-keyed rate limits | `lib/rateLimit.ts`, `/api/paid-rpc` | Carrier NAT puts thousands of phones behind one IP. Key authenticated calls on the wallet; the proxy on the wallet when a bearer is present, IP otherwise | v4 |
 | Push channel | `scripts/migrate.ts`, `lib/notifications.ts`, `services/notification-worker` | `push_tokens` table, `notification_settings.push_*`, `push` outbox rows, worker `push.ts` with Firebase Admin (`FCM_SERVICE_ACCOUNT_JSON`), remove tokens on `UNREGISTERED`. Delivery gate applies. Change both copies of delivery logic | v5 |

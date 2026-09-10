@@ -6,6 +6,9 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { runSmokeTests, type SmokeResult } from '@/dev/smoke';
+import * as Linking from 'expo-linking';
+
+import { API_BASE, FLAVOR, isOpenfortConfigured } from '@/config';
 import { usePrefs } from '@/store/prefs';
 import { useWallet } from '@/store/wallet';
 import { Screen } from '@/ui/screen';
@@ -51,9 +54,29 @@ export default function DevScreen() {
     <Screen title="Smoke tests" subtitle="Ported SDKs against production">
       <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
         <View style={styles.row}>
+          <Text style={type.heading}>Build</Text>
+          <Text style={type.muted}>
+            flavour {FLAVOR} · {API_BASE.replace('https://', '')} · Openfort {isOpenfortConfigured ? 'configured' : 'not configured'}
+          </Text>
+          {/* The exact string to allowlist as an OAuth redirect in the
+              Openfort dashboard. The SDK derives it the same way. */}
+          <Text style={type.muted}>OAuth redirect</Text>
+          <Text style={[type.body, { color: colors.gold }]} selectable>
+            {Linking.createURL('/oauth/callback')}
+          </Text>
+        </View>
+        <View style={styles.row}>
           <Text style={type.heading}>View as any address</Text>
           <Text style={type.muted}>QA helper: sets the viewed wallet without MWA. Current: {viewedAddress ?? 'none'}</Text>
-          <TextInput value={addr} onChangeText={setAddr} placeholder="Base58 wallet" placeholderTextColor={colors.textMuted} autoCapitalize="none" autoCorrect={false} style={styles.input} />
+          <TextInput
+            value={addr}
+            onChangeText={setAddr}
+            placeholder="Base58 wallet"
+            placeholderTextColor={colors.textMuted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={styles.input}
+          />
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
             <Pressable onPress={() => addr.trim() && setWallet(addr.trim(), '')} style={styles.button}>
               <Text style={styles.buttonLabel}>Set</Text>
@@ -96,7 +119,15 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.5 },
   buttonLabel: { ...type.heading, color: colors.bg },
-  input: { height: 44, paddingHorizontal: spacing.md, borderRadius: 10, backgroundColor: colors.surfaceRaised, color: colors.text, fontFamily: fonts.medium, fontSize: 14 },
+  input: {
+    height: 44,
+    paddingHorizontal: spacing.md,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceRaised,
+    color: colors.text,
+    fontFamily: fonts.medium,
+    fontSize: 14,
+  },
   row: {
     padding: spacing.md,
     borderRadius: 12,

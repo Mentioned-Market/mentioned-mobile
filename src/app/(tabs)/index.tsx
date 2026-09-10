@@ -18,12 +18,13 @@ import {
   usePaidMarketUserPositions,
   usePrizePool,
 } from '@/api/queries';
+import { FLAVOR } from '@/config';
 import { shortAddress, usd } from '@/lib/format';
 import { countdown, useNow } from '@/lib/time';
 import { mergeMarkets } from '@/markets/merge';
 import { fromFree, fromPaidMajority, fromPaidYesNo, groupPositions } from '@/markets/positions';
 import { useWallet } from '@/store/wallet';
-import { ConnectWallet } from '@/ui/connect-wallet';
+import { SignInCard } from '@/ui/sign-in-card';
 import { MarketCard } from '@/ui/market-card';
 import { Pill } from '@/ui/pill';
 import { ErrorState, Skeleton } from '@/ui/states';
@@ -78,6 +79,7 @@ export default function HomeScreen() {
           <View style={styles.brand}>
             <Image source={require('@/assets/images/logo-mark.png')} style={{ width: 30, height: 24 }} contentFit="contain" />
             <Text style={styles.wordmark}>Mentioned</Text>
+            {FLAVOR !== 'production' ? <Pill label={FLAVOR.toUpperCase()} tone="orange" /> : null}
           </View>
           <Link href="/search" asChild>
             <Pressable style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Search">
@@ -137,7 +139,7 @@ export default function HomeScreen() {
             </Pressable>
           </Link>
         ) : (
-          <ConnectWallet />
+          <SignInCard />
         )}
 
         <SectionHead title="Top this week" href="/ranks" />

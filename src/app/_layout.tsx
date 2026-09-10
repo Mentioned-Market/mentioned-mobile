@@ -11,6 +11,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { OpenfortAuthProvider } from '@/auth/openfort-provider';
 import { logPolyfillChecks } from '@/lib/polyfill-check';
 import { usePrefs } from '@/store/prefs';
 import { colors } from '@/ui/theme';
@@ -62,14 +63,16 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider value={theme}>
-        <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="intro" options={{ animation: 'fade' }} />
-        </Stack>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <OpenfortAuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider value={theme}>
+          <StatusBar style="light" />
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="intro" options={{ animation: 'fade' }} />
+          </Stack>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </OpenfortAuthProvider>
   );
 }

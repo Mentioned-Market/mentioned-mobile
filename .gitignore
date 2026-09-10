@@ -41,3 +41,6 @@ example
 # generated native folders
 /ios
 # /android is committed on purpose (V0_GUIDE section 10)
+
+# test coverage
+coverage/

@@ -1,0 +1,22 @@
+{
+  "cli": { "version": ">= 12.0.0", "appVersionSource": "local" },
+  "build": {
+    "dev": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": { "EXPO_PUBLIC_FLAVOR": "devnet" }
+    },
+    "devnet-preview": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": { "EXPO_PUBLIC_FLAVOR": "devnet" }
+    },
+    "production": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": { "EXPO_PUBLIC_FLAVOR": "production" }
+    }
+  },
+  "submit": { "production": {} }
+}
