@@ -2,6 +2,7 @@
 // that turns a silent web-side change into a loud failure.
 import { ApiError, get, q } from '@/api/client';
 import { API_BASE } from '@/config';
+import { useSession } from '@/store/session';
 import { z } from 'zod';
 
 const Schema = z.object({ ok: z.boolean() });
@@ -14,7 +15,45 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => {
+  jest.restoreAllMocks();
+  useSession.setState({ wallet: null, token: null });
+});
+
+/** Read the Authorization header off the fetch call the client made. */
+function sentAuth(spy: jest.SpyInstance): string | undefined {
+  const init = spy.mock.calls[0][1] as RequestInit;
+  return (init.headers as Record<string, string>).Authorization;
+}
+
+describe('session bearer', () => {
+  it('attaches the session token when signed in', async () => {
+    // A native app has no cookie jar, so the token has to ride on every call.
+    useSession.setState({ wallet: 'WALLET', token: 'tok_abc123' });
+    const spy = mockFetch(async () => jsonResponse({ ok: true }));
+    await get('/api/thing', Schema);
+    expect(sentAuth(spy)).toBe('Bearer tok_abc123');
+  });
+
+  it('sends no Authorization header when signed out', async () => {
+    const spy = mockFetch(async () => jsonResponse({ ok: true }));
+    await get('/api/thing', Schema);
+    expect(sentAuth(spy)).toBeUndefined();
+  });
+
+  it('reads the token at call time, not when the query was defined', async () => {
+    // Sign-in happens after most queries already exist, so a captured token
+    // would leave every one of them permanently anonymous.
+    const spy = mockFetch(async () => jsonResponse({ ok: true }));
+    await get('/api/thing', Schema);
+    expect(sentAuth(spy)).toBeUndefined();
+
+    useSession.setState({ wallet: 'WALLET', token: 'tok_later' });
+    spy.mockClear();
+    await get('/api/thing', Schema);
+    expect(sentAuth(spy)).toBe('Bearer tok_later');
+  });
+});
 
 describe('q', () => {
   it('builds a query string', () => {

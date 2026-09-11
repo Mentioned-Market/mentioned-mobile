@@ -19,6 +19,7 @@ module.exports = defineConfig([
       'src/chain/rpcSend.ts',
       'src/free/lmsr.ts',
       'src/free/marketUtils.ts',
+      'src/lib/chatFilter.ts',
     ],
   },
   {

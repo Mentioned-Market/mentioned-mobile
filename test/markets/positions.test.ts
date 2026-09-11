@@ -1,6 +1,6 @@
 // Position rows drive the Positions tab and the Home summary, including which
 // call to action each finished row gets once trading lands.
-import { fromFree, fromPaidMajority, fromPaidYesNo, groupPositions, type PositionRow } from '@/markets/positions';
+import { fromFree, fromPaidMajority, fromPaidYesNo, groupByMarket, groupPositions, type PositionRow } from '@/markets/positions';
 
 import activity from '../fixtures/custom-user-activity.json';
 import majPositions from '../fixtures/paid-majority-user-positions.json';
@@ -22,9 +22,13 @@ describe('paid majority rows', () => {
     expect(row.href).toBe('/result/majority/1');
   });
 
-  it('offers a refund on a cancelled market', () => {
+  it('shows a refund amount but never a refund button', () => {
+    // Refunds on majority markets are settled from the website's admin tab, so
+    // the app states the amount and offers nothing to tap (SPEC 7.1).
     const row = fromPaidMajority({ marketId: '1', title: 'T', slug: 's', status: 2, word: 'goal', wordHash: 'h', units: '1', stakeUsdc: 1, claimableUsdc: 0, refundable: true } as never);
-    expect(row.cta?.label).toBe('Refund');
+    expect(row.cta).toBeNull();
+    expect(row.value).toBe('$1.00 refund');
+    expect(row.finished).toBe(true);
   });
 
   it('sends an open position to the market, not the result', () => {
@@ -37,6 +41,21 @@ describe('paid majority rows', () => {
 });
 
 describe('paid YES/NO rows', () => {
+  it('says the cost is updating before the indexer records it, rather than $0.00', () => {
+    // Shares come from the chain at once; the cost basis comes from the trade
+    // indexer, which trails it. A fresh position must not claim it cost nothing.
+    const row = fromPaidYesNo({ marketId: '1', marketTitle: 'T', marketStatus: 0, coverImageUrl: null, wordIndex: 0, wordLabel: 'w', yesShares: '1909059', noShares: '0', yesPrice: 0.55, noPrice: 0.45, outcome: null, estValueUsdc: '1000000', costBasisUsdc: '0' } as never);
+    expect(row.value).toBe('Worth $1.00 (cost updating)');
+    // Counted at its current value in "At stake" until then, not as zero.
+    expect(row.stakeUsd).toBe(1);
+  });
+
+  it('uses the recorded cost once the indexer has it', () => {
+    const row = fromPaidYesNo({ marketId: '1', marketTitle: 'T', marketStatus: 0, coverImageUrl: null, wordIndex: 0, wordLabel: 'w', yesShares: '1909059', noShares: '0', yesPrice: 0.55, noPrice: 0.45, outcome: null, estValueUsdc: '1000000', costBasisUsdc: '1010000' } as never);
+    expect(row.value).toBe('Worth $1.00 (cost $1.01)');
+    expect(row.stakeUsd).toBe(1.01);
+  });
+
   it('maps every fixture row', () => {
     const rows = ammPositions.positions.map((p) => fromPaidYesNo(p as never));
     for (const r of rows) expect(r.kind).toBe('paid-yesno');
@@ -83,7 +102,7 @@ describe('free rows', () => {
 });
 
 describe('groupPositions', () => {
-  const base: PositionRow = { key: 'k', kind: 'paid-majority', cover: null, href: '/x', title: 'T', line: '', value: '', finished: false, won: null, cta: null };
+  const base: PositionRow = { key: 'k', marketKey: 'pm:1', kind: 'paid-majority', cover: null, href: '/x', title: 'T', line: '', value: '', finished: false, won: null, cta: null };
 
   it('splits open from finished', () => {
     const { open, finished } = groupPositions([base, { ...base, key: '2', finished: true }]);
@@ -115,5 +134,58 @@ describe('groupPositions', () => {
   it('summarises an empty list as zeroes', () => {
     const { summary } = groupPositions([]);
     expect(summary).toEqual({ open: 0, finished: 0, actionable: 0, stakedUsd: 0, tokensIn: 0, claimableUsd: 0 });
+  });
+});
+
+describe('groupByMarket', () => {
+  const base: PositionRow = { key: 'k', marketKey: 'pm:1', kind: 'paid-majority', cover: null, href: '/majority/1', title: 'Market 1', line: '', value: '', finished: false, won: null, cta: null };
+
+  it('folds every position in a market into one group, in first-seen order', () => {
+    const groups = groupByMarket([
+      { ...base, key: 'a', stakeUsd: 1 },
+      { ...base, key: 'b', marketKey: 'pm:2', title: 'Market 2' },
+      { ...base, key: 'c', stakeUsd: 2 },
+    ]);
+    expect(groups.map((g) => g.key)).toEqual(['pm:1', 'pm:2']);
+    expect(groups[0].rows.map((r) => r.key)).toEqual(['a', 'c']);
+    expect(groups[0].count).toBe('2 positions');
+    expect(groups[0].value).toBe('$3.00 at stake');
+    expect(groups[1].count).toBe('1 position');
+  });
+
+  it('totals tokens for an open free market', () => {
+    const free = { ...base, marketKey: 'fr:3', kind: 'free-majority' as const };
+    const [g] = groupByMarket([
+      { ...free, key: 'a', tokensIn: 150 },
+      { ...free, key: 'b', tokensIn: 150 },
+    ]);
+    expect(g.value).toBe('300 tokens in');
+  });
+
+  it('leads a finished market with what there is to claim', () => {
+    const done = { ...base, finished: true };
+    const [g] = groupByMarket([
+      { ...done, key: 'a', won: true, claimableUsd: 1.91 },
+      { ...done, key: 'b', won: false },
+    ]);
+    expect(g.value).toBe('$1.91 to claim');
+    expect(g.won).toBe(true);
+  });
+
+  it('calls a market lost only when every position lost', () => {
+    const done = { ...base, finished: true };
+    expect(groupByMarket([{ ...done, key: 'a', won: false }, { ...done, key: 'b', won: false }])[0]).toMatchObject({ won: false, value: 'Lost' });
+    expect(groupByMarket([{ ...done, key: 'a', won: false }, { ...done, key: 'b', won: null }])[0].won).toBeNull();
+  });
+
+  it('says what a finished free market paid back', () => {
+    const free = { ...base, marketKey: 'fr:3', kind: 'free-yesno' as const, finished: true };
+    expect(groupByMarket([{ ...free, key: 'a', tokensOut: 95 }])[0].value).toBe('Returned 95 tokens');
+    expect(groupByMarket([{ ...free, key: 'a', tokensOut: 0 }])[0].value).toBe('No return');
+  });
+
+  it('keeps the cover from whichever position has one', () => {
+    const [g] = groupByMarket([{ ...base, key: 'a' }, { ...base, key: 'b', cover: 'https://x/c.png' }]);
+    expect(g.cover).toBe('https://x/c.png');
   });
 });

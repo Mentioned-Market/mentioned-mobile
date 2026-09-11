@@ -10,6 +10,7 @@ import {
   useIsScreenFocused,
   usePaidMajorityMarket,
   usePaidMajorityMetadata,
+  usePaidMajorityUserPositions,
   usePaidMajorityResults,
   usePaidMarket,
   usePaidMarketChart,
@@ -22,7 +23,9 @@ import { base64ToBytes } from '@/lib/bytes';
 import { cents, shortAddress, tokens, usd, usdc } from '@/lib/format';
 import { toMs } from '@/lib/time';
 import { useNow } from '@/lib/use-now';
-import { useWallet } from '@/store/wallet';
+import { useActiveWallet } from '@/store/active-wallet';
+import { useSession } from '@/store/session';
+import { ClaimCard, useClaimFlow, type ClaimTarget } from '@/ui/claim-card';
 import { MarketHeader } from '@/ui/market-header';
 import { Pill } from '@/ui/pill';
 import { Screen } from '@/ui/screen';
@@ -52,11 +55,15 @@ function Loading() {
 function PaidMajorityResult({ id }: { id: string }) {
   const focused = useIsScreenFocused();
   const now = useNow(60_000);
-  const viewed = useWallet((s) => s.viewedAddress);
+  const viewed = useActiveWallet();
   const market = usePaidMajorityMarket(id, focused);
   const meta = usePaidMajorityMetadata();
   const results = usePaidMajorityResults(id);
-  const acct = useMemo(() => (market.data ? deserializeMajorityMarket(base64ToBytes(market.data.account)) : null), [market.data]);
+  const acct = useMemo(() => (market.data?.account ? deserializeMajorityMarket(base64ToBytes(market.data.account)) : null), [market.data]);
+  const wallet = useSession((s) => s.wallet);
+  const claimFlow = useClaimFlow(wallet);
+  const mine = usePaidMajorityUserPositions(wallet, focused);
+  const claimable = (mine.data ?? []).filter((p) => p.marketId === id && p.claimableUsdc > 0);
   if (market.isPending || results.isPending) return <Loading />;
   if (market.isError || !market.data || !acct) {
     return (
@@ -87,7 +94,7 @@ function PaidMajorityResult({ id }: { id: string }) {
             {acct.status === 2 ? 'Cancelled, stakes refundable' : resolved ? (winners.length > 1 ? 'Winning words' : 'Winning word') : 'Awaiting resolution'}
           </Text>
           {winners.length > 0 ? (
-            <Text style={styles.winner}>{winners.map((w) => w.word).join(' · ')}</Text>
+            <Text style={styles.winner}>{winners.map((w) => w.word ?? 'Word not shown yet').join(' · ')}</Text>
           ) : (
             <Text style={styles.winner}>{acct.status === 2 ? '–' : 'Pending'}</Text>
           )}
@@ -97,10 +104,23 @@ function PaidMajorityResult({ id }: { id: string }) {
             <Stat label="Units" value={market.data.totalUnits} />
           </View>
         </View>
+        {wallet && claimable.length > 0 ? (
+          <ClaimCard
+            wallet={wallet}
+            flow={claimFlow}
+            target={{
+              kind: 'majority',
+              marketId: id,
+              title: info?.title ?? `Market ${id}`,
+              words: claimable.map((p) => p.word),
+              dollars: claimable.reduce((sum, p) => sum + p.claimableUsdc, 0),
+            }}
+          />
+        ) : null}
         <Text style={type.heading}>Board</Text>
         {market.data.board.map((w) => (
           <View key={w.wordHash} style={styles.row}>
-            <Text style={[type.body, { flex: 1, fontFamily: fonts.semibold }]}>{w.word}</Text>
+            <Text style={[type.body, { flex: 1, fontFamily: fonts.semibold }]}>{w.word ?? 'Word not shown yet'}</Text>
             <Text style={type.muted}>{w.units} units</Text>
             {w.outcome === WordOutcome.Winner ? <Pill label="WON" tone="green" /> : resolved ? <Pill label="LOST" tone="neutral" /> : null}
           </View>
@@ -133,6 +153,7 @@ function PaidMajorityResult({ id }: { id: string }) {
           <EmptyState title="No payouts yet" body="Payouts appear once the market resolves." />
         )}
       </ScrollView>
+      {claimFlow.sheet}
     </Screen>
   );
 }
@@ -145,6 +166,8 @@ function PaidYesNoResult({ id }: { id: string }) {
   const chart = usePaidMarketChart(id, focused);
   const trades = usePaidMarketTrades(id, focused);
   const acct = useMemo(() => (market.data ? deserializeMarketAccount(base64ToBytes(market.data.account)) : null), [market.data]);
+  const wallet = useSession((s) => s.wallet);
+  const claimFlow = useClaimFlow(wallet);
   if (market.isPending) return <Loading />;
   if (market.isError || !acct) {
     return (
@@ -173,6 +196,7 @@ function PaidYesNoResult({ id }: { id: string }) {
           <Stat label="Trades" value={trades.data ? String(trades.data.length) : '–'} />
           <Stat label="Words" value={String(acct.numWords)} />
         </View>
+        {wallet ? <ClaimCard wallet={wallet} flow={claimFlow} target={{ kind: 'amm', marketId: id, title: meta.data?.title ?? `Market ${id}` } satisfies ClaimTarget} /> : null}
         <Text style={type.heading}>Outcomes</Text>
         {acct.words.map((w) => (
           <View key={w.wordIndex} style={styles.row}>
@@ -181,8 +205,9 @@ function PaidYesNoResult({ id }: { id: string }) {
             {w.outcome === null ? <Pill label="PENDING" tone="orange" /> : <Pill label={w.outcome ? 'YES' : 'NO'} tone={w.outcome ? 'green' : 'red'} />}
           </View>
         ))}
-        <Text style={type.muted}>YES shares on a word said pay $1 each. Redeem arrives with trading.</Text>
+        <Text style={type.muted}>YES shares on a word said pay $1 each, and NO shares on a word not said.</Text>
       </ScrollView>
+      {claimFlow.sheet}
     </Screen>
   );
 }
@@ -190,7 +215,7 @@ function PaidYesNoResult({ id }: { id: string }) {
 function FreeResult({ id, majority }: { id: number; majority: boolean }) {
   const focused = useIsScreenFocused();
   const now = useNow(60_000);
-  const viewed = useWallet((s) => s.viewedAddress);
+  const viewed = useActiveWallet();
   const market = useFreeMarket(id, focused);
   const results = useFreeResults(id);
   if (market.isPending || results.isPending) return <Loading />;

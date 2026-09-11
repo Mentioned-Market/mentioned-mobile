@@ -4,7 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
-import { getUsdcBalance } from '@/chain/balance';
+import { deserializeMarketAccount } from '@/chain/amm';
+import { getSolBalance, getUsdcBalance } from '@/chain/balance';
+import { base64ToBytes } from '@/lib/bytes';
+import { fetchAmmClaim } from '@/trade/claim';
 import * as free from './free';
 import * as paidMajority from './paidMajority';
 import * as paidMarkets from './paidMarkets';
@@ -57,6 +60,10 @@ export const keys = {
   prizePool: (week?: string) => ['prize-pool', week ?? 'current'] as const,
   raffle: (wallet?: string, week?: string) => ['raffle', wallet ?? '', week ?? 'current'] as const,
   usdcBalance: (wallet: string) => ['chain', 'usdc-balance', wallet] as const,
+  solBalance: (wallet: string) => ['chain', 'sol-balance', wallet] as const,
+  paidMarketWordSpend: (wallet: string, id: string) => ['paid-markets', 'word-spend', wallet, id] as const,
+  ammClaimAll: ['chain', 'amm-claim'] as const,
+  ammClaim: (wallet: string, id: string) => ['chain', 'amm-claim', wallet, id] as const,
 };
 
 // Lists
@@ -155,4 +162,35 @@ export const useUsdcBalance = (wallet: string | null, focused: boolean) =>
     enabled: !!wallet,
     staleTime: 30_000,
     ...poll(focused && !!wallet, LIST_POLL_MS * 4),
+  });
+
+export const useSolBalance = (wallet: string | null, focused: boolean) =>
+  useQuery({
+    queryKey: keys.solBalance(wallet ?? ''),
+    queryFn: () => getSolBalance(wallet as string),
+    enabled: !!wallet,
+    staleTime: 30_000,
+    ...poll(focused && !!wallet, LIST_POLL_MS * 4),
+  });
+
+export const usePaidMarketWordSpend = (wallet: string | null, id: string, focused: boolean) =>
+  useQuery({
+    queryKey: keys.paidMarketWordSpend(wallet ?? '', id),
+    queryFn: () => paidMarkets.getPaidMarketWordSpend(wallet as string, id),
+    enabled: !!wallet,
+    ...poll(focused && !!wallet, LIST_POLL_MS),
+  });
+
+// What the wallet can collect from a resolved paid YES/NO market, read from its
+// token accounts on chain. Not polled: it only changes when the user claims,
+// and the claim refetches it.
+export const useAmmClaim = (wallet: string | null, id: string) =>
+  useQuery({
+    queryKey: keys.ammClaim(wallet ?? '', id),
+    queryFn: async () => {
+      const market = deserializeMarketAccount(base64ToBytes((await paidMarkets.getPaidMarket(id)).account));
+      return market ? fetchAmmClaim(wallet as string, market) : null;
+    },
+    enabled: !!wallet,
+    staleTime: 30_000,
   });

@@ -16,6 +16,11 @@ export type BoardWord = {
   yours: boolean;
   /** Shown in place of countLabel while selected, e.g. "Wins $2.40 if said most". */
   winLabel?: string;
+  /**
+   * Cannot be picked even though the board is open. Used for words the wallet
+   * already holds: one pick per word per account, as on the website.
+   */
+  locked?: boolean;
 };
 
 type Props = { words: BoardWord[]; selected: Set<string>; onToggle?: (key: string) => void; selectable: boolean };
@@ -25,14 +30,15 @@ export function WordBoard({ words, selected, onToggle, selectable }: Props) {
     <View style={styles.list}>
       {words.map((w, i) => {
         const isSelected = selected.has(w.key);
+        const canPick = selectable && !w.locked;
         return (
           <Pressable
             key={w.key}
-            disabled={!selectable}
+            disabled={!canPick}
             onPress={() => onToggle?.(w.key)}
-            accessibilityRole={selectable ? 'button' : undefined}
+            accessibilityRole={canPick ? 'button' : undefined}
             accessibilityState={{ selected: isSelected }}
-            style={({ pressed }) => [styles.row, isSelected && styles.rowSelected, w.outcome === 'winner' && styles.rowWinner, pressed && selectable && { opacity: 0.85 }]}>
+            style={({ pressed }) => [styles.row, isSelected && styles.rowSelected, w.outcome === 'winner' && styles.rowWinner, pressed && canPick && { opacity: 0.85 }]}>
             <View style={[styles.bar, { width: `${Math.max(2, Math.round(w.share * 100))}%` }, w.outcome === 'winner' && { backgroundColor: 'rgba(61,220,132,0.14)' }]} />
             <Text style={styles.rank}>{i + 1}</Text>
             <View style={{ flex: 1, gap: 2 }}>
@@ -46,7 +52,7 @@ export function WordBoard({ words, selected, onToggle, selectable }: Props) {
               <Text style={[type.muted, isSelected && w.winLabel ? { color: colors.yes } : null]}>{isSelected && w.winLabel ? w.winLabel : w.countLabel}</Text>
             </View>
             <Text style={styles.share}>{pct(w.share)}</Text>
-            {selectable ? <View style={[styles.check, isSelected && styles.checkOn]}>{isSelected ? <Text style={styles.checkMark}>✓</Text> : null}</View> : null}
+            {canPick ? <View style={[styles.check, isSelected && styles.checkOn]}>{isSelected ? <Text style={styles.checkMark}>✓</Text> : null}</View> : null}
           </Pressable>
         );
       })}

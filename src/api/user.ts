@@ -1,7 +1,7 @@
 // Profile, weekly leaderboard and prize pool. Shapes captured Sep 9 2026.
 import { z } from 'zod';
 
-import { get, q } from './client';
+import { get, put, q } from './client';
 
 export const Profile = z.object({
   username: z.string().nullable(),
@@ -10,6 +10,10 @@ export const Profile = z.object({
   referralCount: z.number(),
   bonusPointsEarned: z.number(),
   earningsUsd: z.number(),
+  // Present on the current web build; optional so an older one still parses.
+  discordId: z.string().nullable().optional(),
+  discordUsername: z.string().nullable().optional(),
+  discordAgeVerified: z.boolean().optional(),
 });
 export type Profile = z.infer<typeof Profile>;
 
@@ -115,3 +119,15 @@ export const getLeaderboard = (week: LeaderboardWeek = 'current', wallet?: strin
 /** `week` is a UTC Monday as YYYY-MM-DD for a past week; omit for the current one. */
 export const getPrizePool = (week?: string) => get(`/api/prize-pool${q({ week })}`, PrizePool);
 export const getRaffle = (wallet?: string, week?: string) => get(`/api/raffle/tickets${q({ wallet, week })}`, Raffle);
+
+/**
+ * Save the signed-in wallet's username. This is also what creates the user's
+ * profile row on the server: signing in does not, so an account that never
+ * picks a name has no row, and nothing that needs one (linking Discord,
+ * admin verification) has anything to attach to.
+ */
+export const setUsername = (username: string) =>
+  put('/api/profile', { username }, z.object({ success: z.boolean() }).passthrough());
+
+/** The website's rule for usernames, checked on the device first. */
+export const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;

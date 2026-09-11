@@ -98,3 +98,16 @@ export const getPaidMarketUserPositions = (wallet: string) =>
   get(`/api/paid-markets/user-positions${q({ wallet })}`, z.object({ positions: z.array(PaidMarketUserPosition) })).then(
     (r) => r.positions,
   );
+
+/**
+ * Net USDC spent by a wallet on each (word, side) of a market, in base units,
+ * keyed "<wordIndex>:<0 for YES | 1 for NO>". Buys add, sells subtract.
+ *
+ * Read from the indexer, so it trails the chain. The trade screen combines it
+ * with this session's own trades (src/trade/spend.ts) for that reason.
+ */
+export const PaidMarketWordSpend = z.object({ spend: z.record(z.string(), z.number()) });
+export type PaidMarketWordSpend = z.infer<typeof PaidMarketWordSpend>;
+
+export const getPaidMarketWordSpend = (wallet: string, id: string) =>
+  get(`/api/paid-markets/user-word-spend${q({ wallet, id })}`, PaidMarketWordSpend).then((r) => r.spend);

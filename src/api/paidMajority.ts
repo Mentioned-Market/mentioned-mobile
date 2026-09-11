@@ -2,7 +2,7 @@
 // from production on Sep 9 2026. Base-unit amounts arrive as decimal strings.
 import { z } from 'zod';
 
-import { get, q } from './client';
+import { get, post, q } from './client';
 
 const numStr = z.string().regex(/^-?\d+$/);
 
@@ -31,12 +31,17 @@ export const PaidMajorityListEntry = z.object({
 export type PaidMajorityListEntry = z.infer<typeof PaidMajorityListEntry>;
 
 export const PaidMajorityMarket = z.object({
-  account: z.string(),
+  // Null when there is no such market on chain.
+  account: z.string().nullable(),
   vaultAmount: numStr,
   board: z.array(
     z.object({
       wordHash: z.string(),
-      word: z.string(),
+      // Null until the server knows the text behind the hash: a word is
+      // identified on chain only by its hash, and the text arrives from the
+      // buyer's record call or the indexer. Requiring text here meant one such
+      // word failed the whole market screen for every mobile user.
+      word: z.string().nullable(),
       units: numStr,
       oddsPct: z.number(),
       outcome: z.number(),
@@ -101,3 +106,16 @@ export const getPaidMajorityUserPositions = (wallet: string) =>
   get(`/api/paid-majority/user-positions${q({ wallet })}`, z.object({ positions: z.array(PaidMajorityUserPosition) })).then(
     (r) => r.positions,
   );
+
+/**
+ * Tell the web about a confirmed majority buy, so the feed, leaderboard and
+ * points see it without waiting for an indexer. Deduplicated server side by
+ * signature. Sent with the bearer, which is what lets the server award the
+ * Plus One achievement: it only does so when the session wallet matches.
+ */
+export const recordMajorityBuys = (body: {
+  marketId: string;
+  wallet: string;
+  signature: string;
+  words: { word: string; isNewWord: boolean }[];
+}) => post('/api/paid-majority/record-buys', body, z.object({ ok: z.boolean() }).passthrough());

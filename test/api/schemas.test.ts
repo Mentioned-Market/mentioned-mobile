@@ -127,3 +127,24 @@ describe('schemas reject the wrong shape', () => {
     expect(PaidMajorityMarket.safeParse({ ...majMarket, totalUnits: '12.5' }).success).toBe(false);
   });
 });
+
+describe('PaidMajorityMarket nulls', () => {
+  // The route sends word: null until the server knows the text behind a hash,
+  // and account: null for a market that is not on chain. Rejecting either
+  // failed the whole market screen for every mobile user.
+  it('accepts a board word whose text is not known yet', () => {
+    const parsed = PaidMajorityMarket.safeParse({
+      account: 'AAAA',
+      vaultAmount: '5000000',
+      board: [{ wordHash: 'ab', word: null, units: '1', oddsPct: 100, outcome: 0 }],
+      totalUnits: '1',
+      traderCount: 1,
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('accepts a market that is not on chain', () => {
+    const parsed = PaidMajorityMarket.safeParse({ account: null, vaultAmount: '0', board: [], totalUnits: '0', traderCount: 0 });
+    expect(parsed.success).toBe(true);
+  });
+});

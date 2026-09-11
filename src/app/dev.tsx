@@ -10,6 +10,7 @@ import * as Linking from 'expo-linking';
 
 import { API_BASE, FLAVOR, isOpenfortConfigured } from '@/config';
 import { usePrefs } from '@/store/prefs';
+import { useSession } from '@/store/session';
 import { useWallet } from '@/store/wallet';
 import { Screen } from '@/ui/screen';
 import { colors, fonts, spacing, type } from '@/ui/theme';
@@ -20,9 +21,18 @@ export default function DevScreen() {
     running: true,
   });
 
+  const sessionWallet = useSession((st) => st.wallet);
+  const sessionToken = useSession((st) => st.token);
+
+  // Printed so the address can be copied off the wire exactly, rather than read
+  // off a screenshot. A wallet address is public; the bearer never gets logged.
+  useEffect(() => {
+    if (sessionWallet) console.log(`[dev] session wallet ${sessionWallet}`);
+  }, [sessionWallet]);
+
   useEffect(() => {
     let active = true;
-    runSmokeTests()
+    runSmokeTests({ sessionToken })
       .then((results) => {
         for (const r of results) console.log(`[smoke] ${r.ok ? 'PASS' : 'FAIL'} ${r.name}: ${r.detail}`);
         if (active) setState({ running: false, results });
@@ -35,7 +45,7 @@ export default function DevScreen() {
     return () => {
       active = false;
     };
-  }, [runId]);
+  }, [runId, sessionToken]);
 
   const rerun = () => {
     setState({ running: true });
@@ -58,6 +68,21 @@ export default function DevScreen() {
           <Text style={type.muted}>
             flavour {FLAVOR} · {API_BASE.replace('https://', '')} · Openfort {isOpenfortConfigured ? 'configured' : 'not configured'}
           </Text>
+          {/* Whether the web returned a bearer token for this session. The
+              token itself is never shown: only its presence and length, which
+              is what tells you the mobile sign-in change is deployed. */}
+          <Text style={type.muted}>
+            session {sessionWallet ? 'signed in' : 'none'} · bearer{' '}
+            {sessionToken ? `present (${sessionToken.length} chars)` : 'absent'}
+          </Text>
+          {/* Full and selectable: a wallet address is public, and this is the
+              one you need to fund a fresh devnet account. The bearer above is
+              deliberately never printed. */}
+          {sessionWallet ? (
+            <Text style={[type.body, { color: colors.gold }]} selectable>
+              {sessionWallet}
+            </Text>
+          ) : null}
           {/* The exact string to allowlist as an OAuth redirect in the
               Openfort dashboard. The SDK derives it the same way. */}
           <Text style={type.muted}>OAuth redirect</Text>

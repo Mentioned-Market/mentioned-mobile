@@ -50,3 +50,20 @@ export async function getUsdcBalance(owner: string): Promise<number> {
   }
   return Number(value.uiAmountString ?? 0);
 }
+
+/**
+ * SOL held by `owner`, in SOL. Needed before any on-chain trade: fees and the
+ * rent for a first-time token account are paid in SOL, and an embedded wallet
+ * commonly holds USDC and nothing else.
+ */
+export async function getSolBalance(owner: string): Promise<number> {
+  const res = await fetch(RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getBalance', params: [owner, { commitment: 'confirmed' }] }),
+  });
+  if (!res.ok) throw new Error(`RPC ${res.status} reading SOL balance`);
+  const json = (await res.json()) as { result?: { value?: number }; error?: { message?: string } };
+  if (json.error) throw new Error(json.error.message ?? 'RPC error reading SOL balance');
+  return (json.result?.value ?? 0) / 1e9;
+}

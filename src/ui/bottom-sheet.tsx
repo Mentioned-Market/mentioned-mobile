@@ -16,11 +16,15 @@
 // Closing therefore animates FIRST and reports second: every path out of the
 // sheet runs the exit and only calls `onClose` when it finishes. That keeps the
 // Modal mounted for exactly as long as there is something to see, with no extra
-// state to hold it there.
-import { useCallback, useEffect, type ReactNode } from 'react';
+// state to hold it there. A button inside the sheet (Done, Close) must go the
+// same way, through the `close()` on the sheet's ref, not by flipping `visible`
+// itself: that unmounts the Modal in a single frame and the sheet simply blinks
+// out.
+import { useCallback, useEffect, useImperativeHandle, type ReactNode, type Ref } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
+  Easing,
   Extrapolation,
   interpolate,
   runOnJS,
@@ -41,42 +45,71 @@ const DISMISS_DISTANCE = 120;
 const DISMISS_VELOCITY = 800;
 
 const SPRING = { damping: 22, stiffness: 240, mass: 0.7 } as const;
+/** A release that dismisses: short, because it carries the finger's own speed. */
 const EXIT_MS = 200;
+
+/**
+ * A close that starts from rest (Done, Close, the backdrop, back): long enough
+ * to read as the sheet leaving, eased at both ends so it neither jerks away
+ * nor drags at the finish.
+ */
+const CLOSE_MS = 340;
+const CLOSE_EASING = Easing.bezier(0.4, 0, 0.2, 1);
+
+export type BottomSheetHandle = {
+  /** Slide the sheet out, then call `onClose`. Ignored while locked. */
+  close: () => void;
+};
 
 /** Darkness of the backdrop when the sheet is fully open. */
 const BACKDROP_OPACITY = 0.6;
 
 type Props = {
+  ref?: Ref<BottomSheetHandle>;
   visible: boolean;
   onClose: () => void;
   title?: string;
   subtitle?: string;
   /** Pinned under the body, always on screen. The sheet's primary action. */
   footer?: ReactNode;
+  /**
+   * Refuse every way of dismissing: drag, backdrop, back button. For while a
+   * transaction is in flight, when closing the sheet would hide its outcome
+   * without stopping it.
+   */
+  locked?: boolean;
   children: ReactNode;
 };
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
-export function BottomSheet({ visible, onClose, title, subtitle, footer, children }: Props) {
+export function BottomSheet({ ref, visible, onClose, title, subtitle, footer, locked = false, children }: Props) {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
 
   // Distance the sheet sits below its resting place. `height` is always past the
-  // bottom of the screen, so it doubles as the closed position.
+  // bottom of the screen, so it is where the sheet starts before it is measured.
   const translateY = useSharedValue(height);
   const scrollY = useSharedValue(0);
+  // The sheet's own height, and so the distance at which it is just out of
+  // view. Exits run to here rather than to the bottom of the window: a sheet
+  // half the screen tall would otherwise be gone halfway through the curve, in
+  // its fastest part, and the slide would read as a blink.
+  const sheetHeight = useSharedValue(height);
 
   // Slide out, then tell the parent. Used by the backdrop, the hardware back
   // button and the accessibility action; the drag does the same inline, on the
   // UI thread, so it can carry the finger's position into the animation.
   const close = useCallback(() => {
+    if (locked) return;
     translateY.set(
-      withTiming(height, { duration: EXIT_MS }, (finished) => {
+      withTiming(sheetHeight.get(), { duration: CLOSE_MS, easing: CLOSE_EASING }, (finished) => {
         if (finished) runOnJS(onClose)();
       }),
     );
-  }, [height, onClose, translateY]);
+  }, [locked, onClose, translateY, sheetHeight]);
+
+  useImperativeHandle(ref, () => ({ close }), [close]);
 
   const onScroll = useAnimatedScrollHandler((e) => {
     scrollY.set(e.contentOffset.y);
@@ -91,6 +124,7 @@ export function BottomSheet({ visible, onClose, title, subtitle, footer, childre
   // while the body is at its top. Without that second condition, scrolling a
   // long sheet back up would drag the whole thing off the screen instead.
   const pan = Gesture.Pan()
+    .enabled(!locked)
     // Downward only. Without this the pan wins the gesture arena on an upward
     // swipe and the body never scrolls at all.
     .activeOffsetY(12)
@@ -106,7 +140,7 @@ export function BottomSheet({ visible, onClose, title, subtitle, footer, childre
       if (e.translationY > DISMISS_DISTANCE || e.velocityY > DISMISS_VELOCITY) {
         // Continue from where the finger let go rather than snapping first.
         translateY.set(
-          withTiming(height, { duration: EXIT_MS }, (finished) => {
+          withTiming(sheetHeight.get(), { duration: EXIT_MS }, (finished) => {
             if (finished) runOnJS(onClose)();
           }),
         );
@@ -121,7 +155,7 @@ export function BottomSheet({ visible, onClose, title, subtitle, footer, childre
   // lightens under the finger during a drag and is already gone by the time the
   // sheet is.
   const backdropStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(translateY.get(), [0, height], [BACKDROP_OPACITY, 0], Extrapolation.CLAMP),
+    opacity: interpolate(translateY.get(), [0, sheetHeight.get()], [BACKDROP_OPACITY, 0], Extrapolation.CLAMP),
   }));
 
   // Shared values are written through set() rather than .value throughout this
@@ -146,7 +180,10 @@ export function BottomSheet({ visible, onClose, title, subtitle, footer, childre
           <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close" />
         </Animated.View>
         <GestureDetector gesture={pan}>
-          <Animated.View style={[styles.sheet, sheetStyle, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+          <Animated.View
+            style={[styles.sheet, sheetStyle, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}
+            onLayout={(e) => sheetHeight.set(e.nativeEvent.layout.height)}
+          >
             <View
               style={styles.grabber}
               accessibilityRole="adjustable"
@@ -154,7 +191,7 @@ export function BottomSheet({ visible, onClose, title, subtitle, footer, childre
               accessibilityActions={[{ name: 'decrement', label: 'Close' }]}
               onAccessibilityAction={close}
             >
-              <View style={styles.handle} />
+              <View style={[styles.handle, locked && { opacity: 0 }]} />
             </View>
             {title ? (
               <View style={styles.header}>

@@ -11,12 +11,14 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { getProfile } from '@/api/user';
 import { lastEncryptionSessionError, LegacyPrivyAccountError, WalletRoutingUnconfiguredError } from '@/auth/encryption-session';
 import { chooseWalletAction, signInWithServer } from '@/auth/sign-in';
 import { isOpenfortConfigured } from '@/config';
 import { useSession } from '@/store/session';
 import { Button } from '@/ui/button';
 import { Screen } from '@/ui/screen';
+import { UsernameForm } from '@/ui/username-form';
 import { colors, fonts, spacing, type } from '@/ui/theme';
 
 export default function SignInScreen() {
@@ -33,7 +35,7 @@ export default function SignInScreen() {
   return <SignInFlow />;
 }
 
-type Step = 'email' | 'code' | 'wallet' | 'done';
+type Step = 'email' | 'code' | 'wallet' | 'username' | 'done';
 
 function SignInFlow() {
   const router = useRouter();
@@ -42,6 +44,7 @@ function SignInFlow() {
   const { requestEmailOtp, signInEmailOtp } = useEmailAuthOtp();
   const { initOAuth } = useOAuth();
   const setSession = useSession((s) => s.setSession);
+  const sessionWallet = useSession((s) => s.wallet);
 
   const [chosenStep, setStep] = useState<Step | null>(null);
   const [email, setEmail] = useState('');
@@ -136,7 +139,16 @@ function SignInFlow() {
 
     const result = await signInWithServer({ token, wallet: address });
     setSession(result.wallet, result.sessionToken);
-    setStep('done');
+    // A new account has no profile row until it picks a username, so ask now,
+    // the way the website does, rather than leave it half set up.
+    let hasName = true;
+    try {
+      hasName = !!(await getProfile(result.wallet)).username;
+    } catch {
+      // If the profile cannot be read, do not block sign-in on it; the You tab
+      // asks again whenever the username is missing.
+    }
+    setStep(hasName ? 'done' : 'username');
     setNote(
       result.sessionToken ? 'Signed in.' : 'Openfort verified by the server. The session token is not returned to mobile yet, so trading stays disabled.',
     );
@@ -196,6 +208,10 @@ function SignInFlow() {
             <Text style={type.muted}>You are signed in with Openfort. This step recovers your Solana wallet, or creates one if you do not have it yet.</Text>
             <Button label={busy ? 'Working' : 'Set up wallet'} onPress={() => run(finish)} disabled={busy} />
           </View>
+        ) : null}
+
+        {step === 'username' && sessionWallet ? (
+          <UsernameForm wallet={sessionWallet} onSaved={() => setStep('done')} />
         ) : null}
 
         {step === 'done' ? (

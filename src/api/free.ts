@@ -3,7 +3,7 @@
 // production on Sep 9 2026. Decimal strings are DB numerics.
 import { z } from 'zod';
 
-import { get, q } from './client';
+import { get, post, q } from './client';
 
 const decStr = z.string();
 
@@ -180,3 +180,43 @@ export const getFreePositions = (id: number, wallet: string) => get(`/api/custom
 export const getFreeBoard = (id: number, wallet?: string) => get(`/api/custom/${id}/board${q({ wallet })}`, FreeBoard);
 export const getFreeChart = (id: number) => get(`/api/custom/${id}/chart`, FreeChart);
 export const getFreeUserActivity = (wallet: string) => get(`/api/custom/user-activity${q({ wallet })}`, FreeUserActivity);
+
+// ── Writes ───────────────────────────────────────────────────────────────────
+// Both need the session bearer; the client attaches it. Neither is retried.
+
+const Achievement = z.object({ id: z.string(), emoji: z.string(), title: z.string(), points: z.number() });
+export type Achievement = z.infer<typeof Achievement>;
+
+export const FreeTradeResult = z.object({
+  trade_id: z.union([z.number(), z.string()]),
+  cost: z.number(),
+  shares: z.number(),
+  new_yes_price: z.number(),
+  new_no_price: z.number(),
+  new_balance: z.number(),
+  new_yes_shares: z.number(),
+  new_no_shares: z.number(),
+  newAchievements: z.array(Achievement).default([]),
+});
+export type FreeTradeResult = z.infer<typeof FreeTradeResult>;
+
+/**
+ * A free YES/NO trade. Buys are an amount of play tokens (minimum 1), sells an
+ * amount of shares, exactly as the website sends them. The website sends no
+ * slippage bound, so neither does the app.
+ */
+export const tradeFree = (
+  id: number,
+  body: { word_id: number; action: 'buy' | 'sell'; side: 'YES' | 'NO'; amount: number; amount_type: 'tokens' | 'shares' },
+) => post(`/api/custom/${id}/trade`, body, FreeTradeResult);
+
+export const FreeEntryResult = z.object({
+  picks: z.array(z.unknown()),
+  new_balance: z.number(),
+  newAchievements: z.array(Achievement).default([]),
+});
+export type FreeEntryResult = z.infer<typeof FreeEntryResult>;
+
+/** A free majority entry: exactly the market's number of picks, each an existing word or a new one. */
+export const enterFreeMajority = (id: number, words: ({ wordId: number } | { newWord: string })[]) =>
+  post(`/api/custom/${id}/entry`, { words }, FreeEntryResult);

@@ -19,6 +19,13 @@ import { API_BASE, RPC_URL } from '../config';
 
 export type SmokeResult = { name: string; ok: boolean; detail: string };
 
+/**
+ * The session token is passed in rather than read from the store, because this
+ * file also runs under Node (`npm run smoke`) where the store's secure-storage
+ * backend does not exist.
+ */
+export type SmokeOptions = { sessionToken?: string | null };
+
 function base64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
@@ -52,7 +59,7 @@ type AmmListEntry = {
   words: { label: string; yesPrice: number }[];
 };
 
-export async function runSmokeTests(): Promise<SmokeResult[]> {
+export async function runSmokeTests(opts: SmokeOptions = {}): Promise<SmokeResult[]> {
   const results: SmokeResult[] = [];
   const run = async (name: string, fn: () => Promise<string>) => {
     try {
@@ -120,6 +127,31 @@ export async function runSmokeTests(): Promise<SmokeResult[]> {
     if (shares <= 0n) throw new Error('zero shares for $1');
     if (cost > 1_000_000n || cost < 980_000n) throw new Error(`cost ${cost} for ${shares} shares`);
     return `"${word.label}": $1 buys ${shares} share units (cost ${formatUsdc(cost)}). Compare with the $1 quote on ${API_BASE}/market/${amm.marketId}`;
+  });
+
+  await run('5. session bearer authenticates against the API', async () => {
+    // React Native's fetch on Android keeps a cookie jar, so the session cookie
+    // set at sign-in rides along on its own and every authenticated route
+    // answers whether or not the bearer works. `credentials: 'omit'` drops the
+    // cookie, which is the only way to see the header on its own. Without that
+    // this check silently passes on the cookie and proves nothing.
+    const path = '/api/notifications';
+
+    const anon = await fetch(API_BASE + path, { credentials: 'omit' });
+    if (anon.status !== 401) {
+      return `inconclusive: ${path} answered ${anon.status} with no cookie and no bearer, so it does not gate on the session`;
+    }
+    if (!opts.sessionToken) return 'skipped: signed out, so there is no bearer to send';
+
+    const authed = await fetch(API_BASE + path, {
+      credentials: 'omit',
+      headers: { Authorization: `Bearer ${opts.sessionToken}` },
+    });
+    if (authed.status === 401) {
+      throw new Error(`${path} still 401s with a bearer and no cookie: the web is not reading the Authorization header`);
+    }
+    if (!authed.ok) throw new Error(`${path} answered ${authed.status} with a bearer`);
+    return `cookie stripped: ${path} 401s bare and answers ${authed.status} with the bearer alone`;
   });
 
   return results;

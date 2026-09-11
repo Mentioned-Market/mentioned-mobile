@@ -9,7 +9,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'rea
 import { useIsScreenFocused, useLeaderboard, usePrizePool, useRaffle } from '@/api/queries';
 import type { LeaderboardEntry, LeaderboardWeek } from '@/api/user';
 import { shortAddress, usd } from '@/lib/format';
-import { useWallet } from '@/store/wallet';
+import { useActiveWallet } from '@/store/active-wallet';
 import { Pill } from '@/ui/pill';
 import { Screen } from '@/ui/screen';
 import { EmptyState, ErrorState, Skeleton } from '@/ui/states';
@@ -38,7 +38,7 @@ function rangeLabel(start?: string, end?: string | null): string {
 
 export default function RanksScreen() {
   const focused = useIsScreenFocused();
-  const viewed = useWallet((s) => s.viewedAddress);
+  const viewed = useActiveWallet();
   const [week, setWeek] = useState<LeaderboardWeek>('current');
   const board = useLeaderboard(week, viewed, focused);
   const key = weekKey(board.data?.weekStart, week);

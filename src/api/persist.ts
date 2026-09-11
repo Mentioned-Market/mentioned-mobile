@@ -16,9 +16,15 @@ import { dehydrate, hydrate, type DehydratedState, type QueryClient } from '@tan
 import { File, Paths } from 'expo-file-system';
 import { AppState } from 'react-native';
 
+import { FLAVOR } from '@/config';
+
 /** Bump when the cached shapes change, so old files are ignored, not parsed. */
 const VERSION = 1;
-const FILE_NAME = `query-cache-v${VERSION}.json`;
+
+// Keyed by flavour. Production and devnet are different chains with different
+// markets and different wallets, and one file for both meant switching flavour
+// restored the other environment's data and showed it as if it were current.
+const FILE_NAME = `query-cache-v${VERSION}-${FLAVOR}.json`;
 
 /** Older than this and the network is worth waiting for. A week's data goes stale. */
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;

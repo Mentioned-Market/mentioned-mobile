@@ -3,23 +3,35 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { useProfile } from '@/api/queries';
 import { usd } from '@/lib/format';
+import { useActiveWallet } from '@/store/active-wallet';
+import { useSession } from '@/store/session';
 import { useWallet } from '@/store/wallet';
 import { ConnectWallet } from '@/ui/connect-wallet';
 import { Screen } from '@/ui/screen';
 import { SignInCard } from '@/ui/sign-in-card';
 import { ErrorState, Skeleton } from '@/ui/states';
 import { colors, spacing, type } from '@/ui/theme';
+import { UsernameForm } from '@/ui/username-form';
 
 export default function YouScreen() {
-  const viewed = useWallet((s) => s.viewedAddress);
-  const profile = useProfile(viewed);
+  // The profile follows whoever is signed in; the Seeker card below is about
+  // the Seed Vault wallet specifically, so it keeps reading that directly.
+  const active = useActiveWallet();
+  const seeker = useWallet((s) => s.viewedAddress);
+  const profile = useProfile(active);
+  const sessionWallet = useSession((s) => s.wallet);
+  // Only the signed-in account can set its own name; a Seed Vault wallet being
+  // viewed is someone looking, not someone signed in.
+  const needsName = !!sessionWallet && sessionWallet === active && profile.isSuccess && !profile.data.username;
 
   return (
     <Screen title="You">
       <View style={{ gap: spacing.md }}>
         <SignInCard />
 
-        {viewed ? (
+        {needsName && sessionWallet ? <UsernameForm wallet={sessionWallet} /> : null}
+
+        {active ? (
           profile.isPending ? (
             <View style={styles.card}>
               <Skeleton height={24} width="50%" />
@@ -33,9 +45,18 @@ export default function YouScreen() {
                 <Text style={{ fontSize: 32 }}>{profile.data.pfpEmoji ?? '🙂'}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={type.heading}>{profile.data.username ?? 'No username yet'}</Text>
-                  <Text style={type.muted}>{profile.data.username ? `mentioned.market/u/${profile.data.username}` : 'Set one on the website'}</Text>
+                  <Text style={type.muted}>{profile.data.username ? `mentioned.market/u/${profile.data.username}` : 'Choose one above'}</Text>
                 </View>
               </View>
+              {/* Free markets need a linked Discord account while the gate is
+                  on, so say plainly whether this account has one. */}
+              {profile.data.discordId !== undefined ? (
+                <Text style={type.muted}>
+                  {profile.data.discordId
+                    ? `Discord linked${profile.data.discordUsername ? ` as ${profile.data.discordUsername}` : ''}`
+                    : 'Discord not linked. Free markets need it for now.'}
+                </Text>
+              ) : null}
               <View style={styles.stats}>
                 <Stat label="Earnings" value={usd(profile.data.earningsUsd)} />
                 <Stat label="Bonus points" value={String(profile.data.bonusPointsEarned)} />
@@ -50,7 +71,7 @@ export default function YouScreen() {
             trading lands it also lets you look at a wallet's positions. */}
         <View style={styles.secondary}>
           <Text style={type.muted}>Seeker wallet</Text>
-          <ConnectWallet compact={!!viewed} />
+          <ConnectWallet compact={!!seeker} />
         </View>
 
         {__DEV__ ? (
