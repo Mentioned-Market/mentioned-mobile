@@ -84,7 +84,17 @@ export async function put<S extends z.ZodType>(path: string, body: unknown, sche
   return send('PUT', path, body, schema);
 }
 
-async function send<S extends z.ZodType>(method: 'POST' | 'PUT', path: string, body: unknown, schema: S): Promise<z.infer<S>> {
+/** A PATCH, for the routes that change one field of something, e.g. a profile emoji. */
+export async function patch<S extends z.ZodType>(path: string, body: unknown, schema: S): Promise<z.infer<S>> {
+  return send('PATCH', path, body, schema);
+}
+
+/** A DELETE. No body: every route that takes one is a POST. */
+export async function del<S extends z.ZodType>(path: string, schema: S): Promise<z.infer<S>> {
+  return send('DELETE', path, undefined, schema);
+}
+
+async function send<S extends z.ZodType>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body: unknown, schema: S): Promise<z.infer<S>> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -92,7 +102,7 @@ async function send<S extends z.ZodType>(method: 'POST' | 'PUT', path: string, b
       method,
       signal: controller.signal,
       headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify(body),
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
     let json: unknown = null;
     try {

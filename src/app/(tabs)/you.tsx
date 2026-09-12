@@ -1,12 +1,14 @@
 import { Link } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useProfile } from '@/api/queries';
 import { usd } from '@/lib/format';
 import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
 import { useWallet } from '@/store/wallet';
+import { BugReport } from '@/ui/bug-report';
 import { ConnectWallet } from '@/ui/connect-wallet';
+import { EmojiPicker } from '@/ui/emoji-picker';
 import { Screen } from '@/ui/screen';
 import { SignInCard } from '@/ui/sign-in-card';
 import { ErrorState, Skeleton } from '@/ui/states';
@@ -26,7 +28,10 @@ export default function YouScreen() {
 
   return (
     <Screen title="You">
-      <View style={{ gap: spacing.md }}>
+      {/* Scrolls: the profile, the Seeker card and the bug report together run
+          past the bottom of a phone, and a report box nobody can reach is the
+          same as no report box. */}
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <SignInCard />
 
         {needsName && sessionWallet ? <UsernameForm wallet={sessionWallet} /> : null}
@@ -62,6 +67,8 @@ export default function YouScreen() {
                 <Stat label="Bonus points" value={String(profile.data.bonusPointsEarned)} />
                 <Stat label="Referrals" value={String(profile.data.referralCount)} />
               </View>
+              {/* Only the signed-in account can change its own profile. */}
+              {sessionWallet && sessionWallet === active ? <EmojiPicker wallet={sessionWallet} current={profile.data.pfpEmoji} /> : null}
             </View>
           )
         ) : null}
@@ -74,12 +81,17 @@ export default function YouScreen() {
           <ConnectWallet compact={!!seeker} />
         </View>
 
+        <View style={styles.secondary}>
+          <Text style={type.muted}>Report a bug</Text>
+          <BugReport wallet={active} />
+        </View>
+
         {__DEV__ ? (
           <Link href="/dev" style={{ marginTop: spacing.sm }}>
             <Text style={[type.muted, { color: colors.gold }]}>Dev: smoke tests</Text>
           </Link>
         ) : null}
-      </View>
+      </ScrollView>
     </Screen>
   );
 }
@@ -94,6 +106,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  content: { gap: spacing.md, paddingBottom: spacing.xl },
   card: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.md },
   stats: { flexDirection: 'row', gap: spacing.sm },
   secondary: { gap: spacing.sm, marginTop: spacing.sm },

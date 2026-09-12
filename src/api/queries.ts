@@ -1,6 +1,6 @@
 // TanStack Query wrappers. Detail queries poll every 5s only while the screen
 // is focused (the server caches at 3s/8s, so this costs nothing upstream).
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
@@ -8,7 +8,9 @@ import { deserializeMarketAccount } from '@/chain/amm';
 import { getSolBalance, getUsdcBalance } from '@/chain/balance';
 import { base64ToBytes } from '@/lib/bytes';
 import { fetchAmmClaim } from '@/trade/claim';
+import * as achievements from './achievements';
 import * as free from './free';
+import * as notifications from './notifications';
 import * as paidMajority from './paidMajority';
 import * as paidMarkets from './paidMarkets';
 import * as results from './results';
@@ -62,6 +64,9 @@ export const keys = {
   usdcBalance: (wallet: string) => ['chain', 'usdc-balance', wallet] as const,
   solBalance: (wallet: string) => ['chain', 'sol-balance', wallet] as const,
   paidMarketWordSpend: (wallet: string, id: string) => ['paid-markets', 'word-spend', wallet, id] as const,
+  notifications: ['notifications'] as const,
+  notificationsUnread: ['notifications', 'unread'] as const,
+  achievements: (wallet: string) => ['achievements', wallet] as const,
   ammClaimAll: ['chain', 'amm-claim'] as const,
   ammClaim: (wallet: string, id: string) => ['chain', 'amm-claim', wallet, id] as const,
 };
@@ -193,4 +198,39 @@ export const useAmmClaim = (wallet: string | null, id: string) =>
     },
     enabled: !!wallet,
     staleTime: 30_000,
+  });
+
+/** How many rows one page of the feed asks for, and so what a full page looks like. */
+const FEED_PAGE = 30;
+
+// The feed and its badge are for the signed-in wallet only: both routes read
+// the bearer, not a ?wallet=, so there is nothing to show when signed out.
+export const useNotifications = (signedIn: boolean) =>
+  useInfiniteQuery({
+    queryKey: keys.notifications,
+    queryFn: ({ pageParam }) => notifications.listNotifications({ before: pageParam, limit: FEED_PAGE }),
+    initialPageParam: undefined as string | undefined,
+    // A short page is the end of the feed; a full one means there may be more,
+    // and the oldest id is where the next page starts.
+    getNextPageParam: (last) => (last.length < FEED_PAGE ? undefined : last[last.length - 1]?.id),
+    enabled: signedIn,
+    staleTime: 15_000,
+  });
+
+export const useUnreadCount = (signedIn: boolean, focused: boolean) =>
+  useQuery({
+    queryKey: keys.notificationsUnread,
+    queryFn: notifications.getUnreadCount,
+    enabled: signedIn,
+    staleTime: 15_000,
+    ...poll(focused && signedIn, LIST_POLL_MS * 4),
+  });
+
+/** Every achievement with its unlocked flag. Also the emoji picker's source. */
+export const useAchievements = (wallet: string | null) =>
+  useQuery({
+    queryKey: keys.achievements(wallet ?? ''),
+    queryFn: () => achievements.listAchievements(wallet as string),
+    enabled: !!wallet,
+    staleTime: 60_000,
   });

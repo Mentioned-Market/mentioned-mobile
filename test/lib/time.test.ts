@@ -1,6 +1,6 @@
 // Lock times arrive as unix seconds from the paid routes and as ISO strings
 // from the free ones. Everything downstream assumes milliseconds.
-import { closesIn, countdown, eventDate, toMs } from '@/lib/time';
+import { ago, closesIn, countdown, eventDate, toMs } from '@/lib/time';
 
 const NOW = Date.parse('2026-09-10T12:00:00Z');
 
@@ -76,5 +76,33 @@ describe('eventDate', () => {
 
   it('is null with no timestamp', () => {
     expect(eventDate(null)).toBeNull();
+  });
+});
+
+describe('ago', () => {
+  const now = Date.parse('2026-09-12T12:00:00Z');
+  const at = (iso: string) => ago(Date.parse(iso), now);
+
+  it('calls the last minute just now', () => {
+    expect(at('2026-09-12T11:59:40Z')).toBe('just now');
+  });
+
+  it('counts minutes, then hours, then days', () => {
+    expect(at('2026-09-12T11:30:00Z')).toBe('30m');
+    expect(at('2026-09-12T09:00:00Z')).toBe('3h');
+    expect(at('2026-09-10T12:00:00Z')).toBe('2d');
+  });
+
+  it('gives a date once a week has passed', () => {
+    // Past a week the gap stops being the useful part; the day itself is.
+    expect(at('2026-08-30T12:00:00Z')).toMatch(/Aug/);
+  });
+
+  it('never counts into the future', () => {
+    expect(at('2026-09-12T12:05:00Z')).toBe('just now');
+  });
+
+  it('says nothing for a missing time', () => {
+    expect(ago(null, now)).toBe('');
   });
 });

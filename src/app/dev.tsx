@@ -6,6 +6,9 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { runSmokeTests, type SmokeResult } from '@/dev/smoke';
+import * as Notifications from 'expo-notifications';
+
+import { ensureChannel, getPushToken, requestPermission } from '@/notifications/push';
 import * as Linking from 'expo-linking';
 
 import { API_BASE, FLAVOR, isOpenfortConfigured } from '@/config';
@@ -90,6 +93,7 @@ export default function DevScreen() {
             {Linking.createURL('/oauth/callback')}
           </Text>
         </View>
+        <PushSection />
         <View style={styles.row}>
           <Text style={type.heading}>View as any address</Text>
           <Text style={type.muted}>QA helper: sets the viewed wallet without MWA. Current: {viewedAddress ?? 'none'}</Text>
@@ -130,6 +134,69 @@ export default function DevScreen() {
         ))}
       </ScrollView>
     </Screen>
+  );
+}
+
+/** Permission in a word, from whichever call reported it. */
+const describe = (p: Notifications.NotificationPermissionsStatus) => (p.granted ? 'granted' : p.canAskAgain ? 'not asked yet' : 'denied');
+
+/**
+ * Push, before the server can take a token: does this build have Firebase, does
+ * the permission stick, and does a device token come back. The token is printed
+ * to logcat in full and shown here in part, which is enough to tell a real
+ * registration from a silent failure.
+ */
+function PushSection() {
+  const [permission, setPermission] = useState('checking');
+  const [token, setToken] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const readPermission = async () => {
+    const current = await Notifications.getPermissionsAsync();
+    setPermission(describe(current));
+    return current.granted;
+  };
+
+  // Written as a promise callback rather than an awaited call: the compiler's
+  // lint refuses a setState reachable synchronously from an effect body.
+  useEffect(() => {
+    let cancelled = false;
+    Notifications.getPermissionsAsync().then((current) => {
+      if (!cancelled) setPermission(describe(current));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const register = async () => {
+    setBusy(true);
+    try {
+      await ensureChannel();
+      const granted = await requestPermission();
+      await readPermission();
+      const next = granted ? await getPushToken() : null;
+      setToken(next);
+      console.log(`[push] device token ${next ?? 'none'}`);
+    } catch (e) {
+      console.log(`[push] failed ${e instanceof Error ? e.message : String(e)}`);
+      setToken(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={styles.row}>
+      <Text style={type.heading}>Push</Text>
+      <Text style={type.muted}>permission {permission}</Text>
+      <Text style={type.muted} selectable>
+        token {token ? `${token.slice(0, 12)}…${token.slice(-6)} (${token.length} chars)` : 'none yet'}
+      </Text>
+      <Pressable onPress={register} disabled={busy} style={[styles.button, busy && styles.buttonDisabled]}>
+        <Text style={styles.buttonLabel}>{busy ? 'Asking' : 'Ask and get token'}</Text>
+      </Pressable>
+    </View>
   );
 }
 

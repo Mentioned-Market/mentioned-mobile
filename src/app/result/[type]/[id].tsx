@@ -26,6 +26,7 @@ import { useNow } from '@/lib/use-now';
 import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
 import { ClaimCard, useClaimFlow, type ClaimTarget } from '@/ui/claim-card';
+import { ResultShare } from '@/ui/result-share';
 import { MarketHeader } from '@/ui/market-header';
 import { Pill } from '@/ui/pill';
 import { Screen } from '@/ui/screen';
@@ -117,6 +118,7 @@ function PaidMajorityResult({ id }: { id: string }) {
             }}
           />
         ) : null}
+        <ResultShare family="paid-majority" marketId={id} title={info?.title ?? `Market ${id}`} />
         <Text style={type.heading}>Board</Text>
         {market.data.board.map((w) => (
           <View key={w.wordHash} style={styles.row}>
@@ -197,6 +199,7 @@ function PaidYesNoResult({ id }: { id: string }) {
           <Stat label="Words" value={String(acct.numWords)} />
         </View>
         {wallet ? <ClaimCard wallet={wallet} flow={claimFlow} target={{ kind: 'amm', marketId: id, title: meta.data?.title ?? `Market ${id}` } satisfies ClaimTarget} /> : null}
+        <ResultShare family="paid-markets" marketId={id} title={meta.data?.title ?? `Market ${id}`} />
         <Text style={type.heading}>Outcomes</Text>
         {acct.words.map((w) => (
           <View key={w.wordIndex} style={styles.row}>
@@ -267,6 +270,7 @@ function FreeResult({ id, majority }: { id: number; majority: boolean }) {
             )}
           </View>
         ))}
+        <ResultShare family="free" marketId={String(id)} title={m.title} />
         <Text style={type.heading}>Leaderboard</Text>
         {results.isError ? (
           <ErrorState error={results.error} onRetry={() => results.refetch()} title="Could not load the leaderboard" />

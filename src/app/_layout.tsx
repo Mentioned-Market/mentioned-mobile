@@ -16,6 +16,7 @@ import { prefetchSharedData } from '@/api/prefetch';
 import { restoreQueryCache, startPersistingQueryCache } from '@/api/persist';
 import { OpenfortAuthProvider } from '@/auth/openfort-provider';
 import { logPolyfillChecks } from '@/lib/polyfill-check';
+import { usePush } from '@/notifications/use-push';
 import { usePrefs } from '@/store/prefs';
 import { useSession } from '@/store/session';
 import { useWallet } from '@/store/wallet';
@@ -106,6 +107,9 @@ export default function RootLayout() {
     if (!ready) return;
     prefetchSharedData(queryClient, wallet);
   }, [ready, wallet]);
+
+  // Push: registers once there is a session, and routes a tapped notification.
+  usePush();
 
   // First launch: the intro replaces whatever route the app opened on.
   useEffect(() => {

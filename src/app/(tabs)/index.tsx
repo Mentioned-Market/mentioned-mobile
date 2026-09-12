@@ -32,6 +32,7 @@ import { mergeMarkets, type MarketKind, type MarketSummary } from '@/markets/mer
 import { fromFree, fromPaidMajority, fromPaidYesNo, groupPositions } from '@/markets/positions';
 import { useActiveWallet } from '@/store/active-wallet';
 import { Pill } from '@/ui/pill';
+import { NotificationBell } from '@/ui/notification-bell';
 import { SignInCard } from '@/ui/sign-in-card';
 import { Wordmark } from '@/ui/wordmark';
 import { ErrorState, Skeleton } from '@/ui/states';
@@ -108,6 +109,8 @@ export default function HomeScreen() {
         <View style={styles.brand}>
           <Wordmark />
           {FLAVOR !== 'production' ? <Pill label={FLAVOR.toUpperCase()} tone="orange" /> : null}
+          <View style={{ flex: 1 }} />
+          <NotificationBell focused={focused} />
         </View>
 
         {wallet ? (

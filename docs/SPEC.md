@@ -440,27 +440,56 @@ Results screens use `paid-majority/[id]/results`, `paid-markets` history, and
 
 ## 8. v5: engagement and polish
 
-- **Push.** FCM via `expo-notifications`. Register on sign-in and on token
-  refresh: `POST /api/notifications/push-token` `{ token, platform: 'android', deviceId }`.
+- **Push.** App side BUILT Sep 12 2026; server side still missing (section 12).
+  `expo-notifications` with the Firebase config at `google-services.json` in
+  the repo root, wired through `android.googleServicesFile` so prebuild copies
+  it to `android/app/` and applies the Gradle plugin. The token is the device's
+  own FCM token (`getDevicePushTokenAsync`), not an Expo push token, because
+  the worker sends through Firebase Admin: no Expo push service in the path and
+  no EAS project id. Permission is asked at first sign-in rather than at first
+  launch, then `POST /api/notifications/push-token`
+  `{ token, platform: 'android', deviceId }`. A tap reads `data.link` and
+  routes it through the same mapping the feed uses, falling back to the feed
+  itself. The dev screen reports permission and token so a silent failure is
+  visible. Still needed on the web: the route, a `push_tokens` table,
+  `push_*` settings columns, and the worker.
   Triggers (server side): resolution of any market the wallet traded, new
-  market, dev update. Tap deep-links to the market. Settings screen exposes the
-  push toggles from `GET/PUT /api/notifications/settings`; Discord and Telegram
-  rows are hidden in the app.
-- **Notification feed.** `GET /api/notifications` with cursor paging,
-  `POST /api/notifications/read`, unread badge from `unread-count` on focus
-  (no SSE in the app).
-- **Profile.** `PUT`/`PATCH /api/profile` for username and emoji PFP; toast
-  `newAchievements`. Public profiles already exist from v1.
-- **Share.** Result screens open the Android share sheet with the existing
-  share image URL; `POST /api/paid-majority/share` and `/api/paid-markets/share`
-  for the tweet-proof points flow.
+  market, dev update.
+- **Notification settings.** BLOCKED with push, and for the same reason: the
+  only flags `GET/PUT /api/notifications/settings` holds today are the Discord
+  and Telegram ones, which the app hides. A settings screen would be empty
+  until the `push_*` flags exist.
+- **Notification feed.** BUILT Sep 12 2026. `GET /api/notifications` with
+  cursor paging, `POST /api/notifications/read`, unread badge from
+  `unread-count` on focus (no SSE in the app), `DELETE` to clear. The bell sits
+  in the Home header. Opening the feed marks its rows read. A tapped row maps
+  the server's website path to an app route (`src/notifications/link.ts`); a
+  free market arrives as a slug, so its id and market type are resolved first,
+  and anything unrecognised opens nothing rather than the wrong market.
+- **Profile.** BUILT Sep 12 2026. Username (`PUT`, shipped early in v4 because
+  free markets need a profile row) and emoji (`PATCH`). The emoji picker is the
+  achievement list from `GET /api/achievements`: the server only accepts an
+  emoji from an achievement this wallet has unlocked, so locked ones are shown
+  with what they take. Public profiles already exist from v1.
+- **Share.** BUILT Sep 12 2026. A result screen offers a card only to a wallet
+  that actually has a position in that market, which is also what the server
+  enforces. The Android share sheet goes out with the sharer's referral link,
+  which unfurls into the website's card image; `POST /api/share/record` then
+  unlocks the sharing achievements. Share points need proof of a real post, so
+  pasting the X link is a separate step afterwards, never a condition of
+  sharing (`/api/paid-markets/share`, `/api/paid-majority/share`). Free markets
+  pay tokens, so they never produce a card claiming dollars.
 - **Ranks, AMM sheet design and the polish list** shipped in v1 (section 4);
   deep links are in v6 (section 9). v5 adds only the pieces that need the web
   repo or a session.
-- **Mobile config.** `GET /api/mobile/config` on launch: `minVersion`,
-  `killSwitch`, `cluster`, `features` (paid trading, free trading, seeker
-  perk, onramp). A forced-update screen when below `minVersion`.
-- **Bug report.** `POST /api/bug-report` with `platform`, app version, device.
+- **Mobile config.** BLOCKED: `/api/mobile` does not exist on the web yet.
+  `GET /api/mobile/config` on launch: `minVersion`, `killSwitch`, `cluster`,
+  `features` (paid trading, free trading, seeker perk, onramp). A forced-update
+  screen when below `minVersion`.
+- **Bug report.** BUILT Sep 12 2026. `POST /api/bug-report` from the You tab,
+  300 characters with a counter, attaching build, device, OS, cluster and
+  wallet, because the report lands in a Discord channel where nobody can ask a
+  follow-up question.
 
 ## 9. v6: store release
 
