@@ -1,0 +1,49 @@
+# Answers @claude mentions on issues and pull requests.
+#
+# Separate from `claude-review.yml` because the two do different jobs: that one
+# reviews unprompted and posts findings, this one waits to be asked and may
+# push commits to the PR branch in reply.
+#
+# GitHub runs `issue_comment` workflows only from the default branch, so
+# @claude stays inert until this file is merged to main.
+name: claude
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  claude:
+    # Cheap textual gate so a runner never starts for an ordinary comment. The
+    # action checks the trigger phrase again itself.
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read # Lets Claude read the test.yml results on a PR.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # npm install, not npm ci, for the same reason test.yml uses it: this
+          # lockfile is written on macOS and npm rejects it as out of sync on
+          # Linux. Typecheck and test are pre-approved so Claude can check its
+          # own work without a permission round trip.
+          claude_args: |
+            --max-turns 15
+            --allowedTools "Bash(npm install),Bash(npm install --no-audit --no-fund),Bash(npm run typecheck),Bash(npm run lint),Bash(npm test),Bash(npm test -- *)"

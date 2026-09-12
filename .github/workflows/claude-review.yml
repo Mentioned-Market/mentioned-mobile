@@ -1,0 +1,51 @@
+# AI co-review on every pull request.
+#
+# Runs the same `/code-review` skill that `claude` runs locally, on Anthropic's
+# hosted action, and posts each finding as an inline comment on the diff. It is
+# advisory: findings never block a merge, and `test.yml` stays the only gate.
+#
+# Auth is a subscription token, not an API key, so runs draw on the Claude plan
+# rather than API credits. Mint it with `claude setup-token` and store it with
+# `gh secret set CLAUDE_CODE_OAUTH_TOKEN`.
+name: claude review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+concurrency:
+  # Per PR, not per ref. A force-push while a review is mid-flight should
+  # replace that review rather than race it.
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    # Read-only except for the comments the action posts through the Claude
+    # GitHub App. The reviewer has no business pushing to the branch.
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+    # A runaway review on a large PR should not eat the private repo's Actions
+    # minutes. Reviews here finish in a few minutes.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The skill reads the diff through the GitHub API, so the full
+          # history is not needed.
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
+          plugins: 'code-review@claude-code-plugins'
+          prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
+          # --allowedTools is not redundant with the skill's own frontmatter:
+          # the action only starts the MCP server that posts inline comments
+          # when --allowedTools names the tool here.
+          claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
