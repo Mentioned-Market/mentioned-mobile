@@ -2,17 +2,19 @@
 // so only publishable keys and public ids belong in this file.
 //
 // The flavour is chosen by EXPO_PUBLIC_FLAVOR, which Expo inlines at build
-// time (eas.json sets it per profile). Anything other than the literal
-// 'devnet' resolves to production, so an unset or mistyped value fails safe to
-// the live configuration rather than to a half-configured devnet.
+// time (eas.json sets it per profile). Anything other than a known non-live
+// name resolves to production, so an unset or mistyped value fails safe to the
+// live configuration rather than to a half-configured test environment.
 //
 // Program ids and mints are copied from the web repo's lib/solanaConfig.ts.
 // Verified Sep 10 2026 by asking each environment's RPC proxy for the two AMM
 // program ids: the dev deployment answers on devnet, production on mainnet.
 
-export type Flavor = 'production' | 'devnet';
+export type Flavor = 'production' | 'devnet' | 'staging';
 
-export const FLAVOR: Flavor = process.env.EXPO_PUBLIC_FLAVOR === 'devnet' ? 'devnet' : 'production';
+const NON_LIVE: Flavor[] = ['devnet', 'staging'];
+
+export const FLAVOR: Flavor = NON_LIVE.find((f) => f === process.env.EXPO_PUBLIC_FLAVOR) ?? 'production';
 
 const CONFIG = {
   production: {
@@ -26,6 +28,18 @@ const CONFIG = {
     // Railway dev deployment. Runs the merged Openfort code against devnet,
     // with its own database, so it has few or no markets.
     apiBase: 'https://mentioned-web-dev-dev.up.railway.app',
+    cluster: 'devnet',
+    paidProgramId: '9kSuebrHKKnFsgFcv5fc8S2gBazHA9Gki2NEWt2ft9tk',
+    majorityProgramId: 'FYEiiL1iBRqHEGA8kU3gxVLDcGjSdE7aFRgjnYKxnisr',
+    usdcMint: '6duUhxsjpsRasCSmvejAad4hH7aSyuBba99iZvsCsDum',
+  },
+  staging: {
+    // Railway staging. Same devnet programs and USDC mint as the dev
+    // deployment, verified Sep 12 2026 by deriving each market PDA and asking
+    // staging's own RPC proxy which one exists (scripts/probe-env.ts). What it
+    // has that dev does not is the notification worker, which is why push and
+    // the notification feed are tested here.
+    apiBase: 'https://mentioned-staging.up.railway.app',
     cluster: 'devnet',
     paidProgramId: '9kSuebrHKKnFsgFcv5fc8S2gBazHA9Gki2NEWt2ft9tk',
     majorityProgramId: 'FYEiiL1iBRqHEGA8kU3gxVLDcGjSdE7aFRgjnYKxnisr',

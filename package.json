@@ -75,6 +75,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "bundle:devnet": "EXPO_PUBLIC_FLAVOR=devnet expo export --platform android --clear",
+    "bundle:staging": "EXPO_PUBLIC_FLAVOR=staging expo export --platform android --clear",
     "bundle:production": "EXPO_PUBLIC_FLAVOR=production expo export --platform android --clear"
   },
   "private": true

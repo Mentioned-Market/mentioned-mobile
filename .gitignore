@@ -47,3 +47,6 @@ coverage/
 
 # Claude Code local settings (personal, not shared)
 .claude/settings.local.json
+
+# Firebase service account keys: secrets, never committed
+*firebase-adminsdk*.json

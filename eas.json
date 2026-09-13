@@ -7,6 +7,12 @@
       "android": { "buildType": "apk" },
       "env": { "EXPO_PUBLIC_FLAVOR": "devnet" }
     },
+    "staging": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": { "EXPO_PUBLIC_FLAVOR": "staging" }
+    },
     "devnet-preview": {
       "distribution": "internal",
       "android": { "buildType": "apk" },
