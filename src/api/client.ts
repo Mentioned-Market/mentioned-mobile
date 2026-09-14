@@ -89,9 +89,9 @@ export async function patch<S extends z.ZodType>(path: string, body: unknown, sc
   return send('PATCH', path, body, schema);
 }
 
-/** A DELETE. No body: every route that takes one is a POST. */
-export async function del<S extends z.ZodType>(path: string, schema: S): Promise<z.infer<S>> {
-  return send('DELETE', path, undefined, schema);
+/** A DELETE, with a body only for the routes that read one (e.g. which push token). */
+export async function del<S extends z.ZodType>(path: string, schema: S, body?: unknown): Promise<z.infer<S>> {
+  return send('DELETE', path, body, schema);
 }
 
 async function send<S extends z.ZodType>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, body: unknown, schema: S): Promise<z.infer<S>> {

@@ -13,7 +13,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-import { registerPushToken } from '@/api/notifications';
+import { registerPushToken, unregisterPushToken } from '@/api/notifications';
 import { colors } from '@/ui/theme';
 
 // A push that arrives while the app is open still shows: these are market
@@ -59,6 +59,24 @@ export async function getPushToken(): Promise<string | null> {
   if (!Device.isDevice) return null;
   const token = await Notifications.getDevicePushTokenAsync();
   return typeof token.data === 'string' ? token.data : null;
+}
+
+/**
+ * Unregister this device, for sign-out. Must run BEFORE the session is cleared:
+ * the route needs the bearer to know whose registration to remove. Never asks
+ * for permission and never throws; without permission there was never a token
+ * to remove, and a failure here must not stop someone signing out.
+ */
+export async function unregisterForPush(): Promise<void> {
+  try {
+    const permission = await Notifications.getPermissionsAsync();
+    if (!permission.granted) return;
+    const token = await getPushToken();
+    if (token) await unregisterPushToken(token);
+  } catch {
+    // The server prunes a token once Firebase reports it dead, so a missed
+    // unregister costs at most a push to a phone that has signed out.
+  }
 }
 
 /**

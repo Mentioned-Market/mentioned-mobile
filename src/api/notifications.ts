@@ -7,7 +7,7 @@
 // so the app can show them whether or not a push ever arrives.
 import { z } from 'zod';
 
-import { del, get, post, q } from './client';
+import { del, get, post, put, q } from './client';
 
 /** Postgres bigints arrive as strings; a number would still be safe, so take both. */
 const id = z.union([z.string(), z.number()]).transform(String);
@@ -53,6 +53,37 @@ export const markNotificationsRead = (ids?: string[]) =>
  */
 export const registerPushToken = (token: string, deviceId?: string) =>
   post('/api/notifications/push-token', { token, platform: 'android', deviceId }, z.object({ ok: z.boolean() }).partial().passthrough());
+
+/**
+ * Stop pushing to this device for the signed-in wallet. Scoped server side to
+ * the caller's own wallet, so it can only ever remove its own registration.
+ */
+export const unregisterPushToken = (token: string) =>
+  del('/api/notifications/push-token', z.object({ ok: z.boolean() }).partial().passthrough(), { token });
+
+/**
+ * Push preferences. The same route also carries the website's Discord and
+ * Telegram flags, which the app never shows, so only the push keys are read.
+ * Optional because a server without the push migration returns none of them,
+ * and the settings screen says so rather than showing switches that do nothing.
+ */
+export const NotificationSettings = z
+  .object({
+    push_new_markets: z.boolean().optional(),
+    push_resolutions: z.boolean().optional(),
+    push_dev_updates: z.boolean().optional(),
+  })
+  .passthrough();
+export type NotificationSettings = z.infer<typeof NotificationSettings>;
+
+export type PushSettingKey = 'push_new_markets' | 'push_resolutions' | 'push_dev_updates';
+
+export const getNotificationSettings = () =>
+  get('/api/notifications/settings', z.object({ settings: NotificationSettings })).then((r) => r.settings);
+
+/** Change some push preferences; the server returns the whole row as it now stands. */
+export const updateNotificationSettings = (patch: Partial<Record<PushSettingKey, boolean>>) =>
+  put('/api/notifications/settings', patch, z.object({ settings: NotificationSettings })).then((r) => r.settings);
 
 /** Remove every notification for the wallet. */
 export const clearNotifications = () => del('/api/notifications', z.object({ cleared: z.number() })).then((r) => r.cleared);

@@ -21,6 +21,7 @@ import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
 import { achievementLines, checkFreeCoinedWord, useApiTrade, type FreePick } from '@/trade/free';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
+import { useFeatures } from '@/ui/config-gate';
 import { Button } from '@/ui/button';
 import { MarketHeader } from '@/ui/market-header';
 import { Pill } from '@/ui/pill';
@@ -41,6 +42,8 @@ export default function FreeMajorityScreen() {
   const board = useFreeBoard(id, viewed, focused);
   const api = useApiTrade();
   const sheetRef = useRef<BottomSheetHandle>(null);
+  // The server can pause trading; claims elsewhere are never paused.
+  const features = useFeatures();
 
   const [picks, setPicks] = useState<FreePick[]>([]);
   const [draft, setDraft] = useState('');
@@ -262,7 +265,7 @@ export default function FreeMajorityScreen() {
           title={`${picks.length} of ${required} picked`}
           subtitle={barSubtitle}
           button={{ label: full ? 'Review' : `Pick ${required - picks.length} more`, disabled: !full || !sessionWallet, onPress: openSheet }}
-          note={!sessionWallet ? 'Sign in to enter' : undefined}
+          note={!features.freeTrading ? 'Entries are paused right now' : !sessionWallet ? 'Sign in to enter' : undefined}
         />
       ) : null}
 
@@ -283,7 +286,7 @@ export default function FreeMajorityScreen() {
           ) : api.state.status === 'failed' ? (
             <Button label="Try again" tone="gold" onPress={api.reset} />
           ) : (
-            <Button label={`Enter with ${tokens(m.play_tokens)} tokens`} tone="gold" disabled={picks.length !== required || !sessionWallet} onPress={submit} />
+            <Button label={`Enter with ${tokens(m.play_tokens)} tokens`} tone="gold" disabled={!features.freeTrading || picks.length !== required || !sessionWallet} onPress={submit} />
           )
         }
       >

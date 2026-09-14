@@ -10,6 +10,7 @@ import { base64ToBytes } from '@/lib/bytes';
 import { fetchAmmClaim } from '@/trade/claim';
 import * as achievements from './achievements';
 import * as free from './free';
+import * as mobileConfig from './mobileConfig';
 import * as notifications from './notifications';
 import * as paidMajority from './paidMajority';
 import * as paidMarkets from './paidMarkets';
@@ -67,6 +68,8 @@ export const keys = {
   notifications: ['notifications'] as const,
   notificationsUnread: ['notifications', 'unread'] as const,
   achievements: (wallet: string) => ['achievements', wallet] as const,
+  notificationSettings: ['notifications', 'settings'] as const,
+  mobileConfig: ['mobile', 'config'] as const,
   ammClaimAll: ['chain', 'amm-claim'] as const,
   ammClaim: (wallet: string, id: string) => ['chain', 'amm-claim', wallet, id] as const,
 };
@@ -233,4 +236,24 @@ export const useAchievements = (wallet: string | null) =>
     queryFn: () => achievements.listAchievements(wallet as string),
     enabled: !!wallet,
     staleTime: 60_000,
+  });
+
+/** Push preferences for the signed-in wallet. */
+export const useNotificationSettings = (signedIn: boolean) =>
+  useQuery({
+    queryKey: keys.notificationSettings,
+    queryFn: notifications.getNotificationSettings,
+    enabled: signedIn,
+    staleTime: 30_000,
+  });
+
+// The server's rules for this build. Persisted with the rest of the cache, so a
+// kill switch or a required update still applies on a launch with no signal,
+// and refreshed every few minutes rather than on every screen.
+export const useMobileConfig = () =>
+  useQuery({
+    queryKey: keys.mobileConfig,
+    queryFn: mobileConfig.getMobileConfig,
+    staleTime: 5 * 60_000,
+    refetchInterval: 10 * 60_000,
   });

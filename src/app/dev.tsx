@@ -12,6 +12,11 @@ import { ensureChannel, getPushToken, requestPermission } from '@/notifications/
 import * as Linking from 'expo-linking';
 
 import { API_BASE, FLAVOR, isOpenfortConfigured } from '@/config';
+import * as Application from 'expo-application';
+
+import type { MobileConfig } from '@/api/mobileConfig';
+import { useMobileConfig } from '@/api/queries';
+import { evaluateMobileConfig } from '@/lib/mobile-config';
 import { usePrefs } from '@/store/prefs';
 import { useSession } from '@/store/session';
 import { useWallet } from '@/store/wallet';
@@ -26,6 +31,7 @@ export default function DevScreen() {
 
   const sessionWallet = useSession((st) => st.wallet);
   const sessionToken = useSession((st) => st.token);
+  const mobile = useMobileConfig();
 
   // Printed so the address can be copied off the wire exactly, rather than read
   // off a screenshot. A wallet address is public; the bearer never gets logged.
@@ -88,6 +94,10 @@ export default function DevScreen() {
           ) : null}
           {/* The exact string to allowlist as an OAuth redirect in the
               Openfort dashboard. The SDK derives it the same way. */}
+          <Text style={type.muted}>
+            app {Application.nativeApplicationVersion ?? '?'} · mobile config{' '}
+            {mobile.isPending ? 'loading' : mobile.isError ? 'unreachable' : describeConfig(mobile.data)}
+          </Text>
           <Text style={type.muted}>OAuth redirect</Text>
           <Text style={[type.body, { color: colors.gold }]} selectable>
             {Linking.createURL('/oauth/callback')}
@@ -137,6 +147,14 @@ export default function DevScreen() {
   );
 }
 
+/** The server's mobile config in one line: what it does to this build, and what it switches off. */
+function describeConfig(config: MobileConfig | null | undefined): string {
+  if (!config) return 'none (route not deployed, so no rules)';
+  const { gate, features } = evaluateMobileConfig(config, Application.nativeApplicationVersion ?? null);
+  const off = (Object.keys(features) as (keyof typeof features)[]).filter((k) => !features[k]);
+  return `${gate.kind} · server cluster ${config.cluster ?? '?'} · off: ${off.join(', ') || 'nothing'}`;
+}
+
 /** Permission in a word, from whichever call reported it. */
 const describe = (p: Notifications.NotificationPermissionsStatus) => (p.granted ? 'granted' : p.canAskAgain ? 'not asked yet' : 'denied');
 
@@ -177,7 +195,9 @@ function PushSection() {
       await readPermission();
       const next = granted ? await getPushToken() : null;
       setToken(next);
-      console.log(`[push] device token ${next ?? 'none'}`);
+      // Never the whole token in a log: it is what a sender addresses this phone
+      // with, and device logs are easy to share by accident.
+      console.log(`[push] device token ${next ? `${next.slice(0, 12)}… (${next.length} chars)` : 'none'}`);
     } catch (e) {
       console.log(`[push] failed ${e instanceof Error ? e.message : String(e)}`);
       setToken(null);

@@ -8,7 +8,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { useRouter, type Href } from 'expo-router';
+import { Link, useRouter, type Href } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -115,7 +115,20 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <Screen title="Notifications" back backLabel="Back">
+    <Screen
+      title="Notifications"
+      back
+      backLabel="Back"
+      right={
+        signedIn ? (
+          <Link href="/notification-settings" asChild>
+            <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Notification settings" style={styles.gear}>
+              <Ionicons name="settings-outline" size={22} color={colors.text} />
+            </Pressable>
+          </Link>
+        ) : undefined
+      }
+    >
       {!signedIn ? (
         <SignInCard />
       ) : (
@@ -203,4 +216,5 @@ const styles = StyleSheet.create({
   rowUnread: { borderColor: 'rgba(242,183,31,0.45)' },
   avatar: { width: 36, height: 36, borderRadius: 10, overflow: 'hidden', backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.gold },
+  gear: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
 });

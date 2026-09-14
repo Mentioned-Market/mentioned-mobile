@@ -24,6 +24,7 @@ import { TradeInputError } from '@/trade/amm';
 import { BUYS_PER_TX, checkCoinedWord, friendlyMajorityError, MIN_SOL_FOR_FEES, planMajorityBuy } from '@/trade/majority';
 import { useTrade } from '@/trade/use-trade';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
+import { PAUSED_NOTE, useFeatures } from '@/ui/config-gate';
 import { Button } from '@/ui/button';
 import { MarketHeader, statusFromLock } from '@/ui/market-header';
 import { Pill } from '@/ui/pill';
@@ -50,6 +51,8 @@ export default function PaidMajorityScreen() {
   const sol = useSolBalance(viewed, focused);
   const trade = useTrade();
   const sheetRef = useRef<BottomSheetHandle>(null);
+  // The server can pause trading; claims elsewhere are never paused.
+  const features = useFeatures();
 
   // The basket: normalised words, in the order they were picked.
   const [basket, setBasket] = useState<string[]>([]);
@@ -326,7 +329,7 @@ export default function PaidMajorityScreen() {
           title={barTitle}
           subtitle={barSubtitle}
           button={{ label: basket.length === 0 ? 'Review' : `Review ${usd(total)}`, disabled: basket.length === 0 || !signedIn, onPress: openSheet }}
-          note={!signedIn ? 'Sign in to pick' : undefined}
+          note={!features.paidTrading ? PAUSED_NOTE : !signedIn ? 'Sign in to pick' : undefined}
         />
       ) : null}
 
@@ -350,8 +353,8 @@ export default function PaidMajorityScreen() {
             <Button
               label={`Buy ${basket.length} for ${usd(total)}`}
               tone="gold"
-              disabled={basket.length === 0 || !signedIn}
-              note={inputError ?? undefined}
+              disabled={!features.paidTrading || basket.length === 0 || !signedIn}
+              note={inputError ?? (!features.paidTrading ? PAUSED_NOTE : undefined)}
               onPress={submit}
             />
           )
