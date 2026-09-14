@@ -44,3 +44,21 @@ export function eventDate(ms: number | null): string | null {
   const d = new Date(ms);
   return d.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
+
+/**
+ * How long ago something happened, in the shortest form that is still exact
+ * enough to act on: "just now", "4m", "3h", "2d", then a date once the day
+ * itself is what matters more than the gap.
+ */
+export function ago(ms: number | null, now = Date.now()): string {
+  if (ms === null) return '';
+  const seconds = Math.max(0, Math.floor((now - ms) / 1000));
+  if (seconds < 45) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${Math.max(1, minutes)}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}

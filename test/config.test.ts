@@ -27,9 +27,28 @@ describe('flavour selection', () => {
 
   it('fails safe to production on an unknown value', () => {
     // A typo must not leave the app half-configured.
-    for (const bad of ['dev', 'DEVNET', 'staging', '']) {
+    for (const bad of ['dev', 'DEVNET', 'Staging', 'stage', '']) {
       expect(load(bad).FLAVOR).toBe('production');
     }
+  });
+
+  it('switches to staging on the exact value', () => {
+    const c = load('staging');
+    expect(c.FLAVOR).toBe('staging');
+    expect(c.CLUSTER).toBe('devnet');
+    expect(c.API_BASE).toBe('https://mentioned-staging.up.railway.app');
+  });
+
+  it('points staging at the same chain as devnet, and only the API elsewhere', () => {
+    // Verified against staging's own RPC proxy (scripts/probe-env.ts): the same
+    // devnet programs and mint. What differs is the deployment, which is the
+    // one with the notification worker.
+    const dev = load('devnet');
+    const staging = load('staging');
+    expect(staging.API_BASE).not.toBe(dev.API_BASE);
+    expect(staging.PAID_PROGRAM_ID).toBe(dev.PAID_PROGRAM_ID);
+    expect(staging.MAJORITY_PROGRAM_ID).toBe(dev.MAJORITY_PROGRAM_ID);
+    expect(staging.USDC_MINT).toBe(dev.USDC_MINT);
   });
 
   it('switches to devnet on the exact value', () => {
@@ -50,7 +69,7 @@ describe('flavour selection', () => {
   });
 
   it('derives the RPC proxy and the encryption session from the API base', () => {
-    for (const flavor of [undefined, 'devnet']) {
+    for (const flavor of [undefined, 'devnet', 'staging']) {
       const c = load(flavor);
       expect(c.RPC_URL).toBe(`${c.API_BASE}/api/paid-rpc`);
       expect(c.OPENFORT.encryptionSessionUrl).toBe(`${c.API_BASE}/api/openfort/encryption-session`);
@@ -92,8 +111,9 @@ describe('Openfort keys', () => {
 });
 
 describe('app identity', () => {
-  it('is the same on both flavours, because the wallet shows it to the user', () => {
+  it('is the same on every flavour, because the wallet shows it to the user', () => {
     expect(load('devnet').APP_IDENTITY).toEqual(load(undefined).APP_IDENTITY);
+    expect(load('staging').APP_IDENTITY).toEqual(load(undefined).APP_IDENTITY);
     expect(load(undefined).APP_IDENTITY.name).toBe('Mentioned');
   });
 });

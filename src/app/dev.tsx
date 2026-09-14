@@ -6,9 +6,17 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { runSmokeTests, type SmokeResult } from '@/dev/smoke';
+import * as Notifications from 'expo-notifications';
+
+import { ensureChannel, getPushToken, requestPermission } from '@/notifications/push';
 import * as Linking from 'expo-linking';
 
 import { API_BASE, FLAVOR, isOpenfortConfigured } from '@/config';
+import * as Application from 'expo-application';
+
+import type { MobileConfig } from '@/api/mobileConfig';
+import { useMobileConfig } from '@/api/queries';
+import { evaluateMobileConfig } from '@/lib/mobile-config';
 import { usePrefs } from '@/store/prefs';
 import { useSession } from '@/store/session';
 import { useWallet } from '@/store/wallet';
@@ -23,6 +31,7 @@ export default function DevScreen() {
 
   const sessionWallet = useSession((st) => st.wallet);
   const sessionToken = useSession((st) => st.token);
+  const mobile = useMobileConfig();
 
   // Printed so the address can be copied off the wire exactly, rather than read
   // off a screenshot. A wallet address is public; the bearer never gets logged.
@@ -85,11 +94,16 @@ export default function DevScreen() {
           ) : null}
           {/* The exact string to allowlist as an OAuth redirect in the
               Openfort dashboard. The SDK derives it the same way. */}
+          <Text style={type.muted}>
+            app {Application.nativeApplicationVersion ?? '?'} · mobile config{' '}
+            {mobile.isPending ? 'loading' : mobile.isError ? 'unreachable' : describeConfig(mobile.data)}
+          </Text>
           <Text style={type.muted}>OAuth redirect</Text>
           <Text style={[type.body, { color: colors.gold }]} selectable>
             {Linking.createURL('/oauth/callback')}
           </Text>
         </View>
+        <PushSection />
         <View style={styles.row}>
           <Text style={type.heading}>View as any address</Text>
           <Text style={type.muted}>QA helper: sets the viewed wallet without MWA. Current: {viewedAddress ?? 'none'}</Text>
@@ -130,6 +144,79 @@ export default function DevScreen() {
         ))}
       </ScrollView>
     </Screen>
+  );
+}
+
+/** The server's mobile config in one line: what it does to this build, and what it switches off. */
+function describeConfig(config: MobileConfig | null | undefined): string {
+  if (!config) return 'none (route not deployed, so no rules)';
+  const { gate, features } = evaluateMobileConfig(config, Application.nativeApplicationVersion ?? null);
+  const off = (Object.keys(features) as (keyof typeof features)[]).filter((k) => !features[k]);
+  return `${gate.kind} · server cluster ${config.cluster ?? '?'} · off: ${off.join(', ') || 'nothing'}`;
+}
+
+/** Permission in a word, from whichever call reported it. */
+const describe = (p: Notifications.NotificationPermissionsStatus) => (p.granted ? 'granted' : p.canAskAgain ? 'not asked yet' : 'denied');
+
+/**
+ * Push, before the server can take a token: does this build have Firebase, does
+ * the permission stick, and does a device token come back. The token is printed
+ * to logcat in full and shown here in part, which is enough to tell a real
+ * registration from a silent failure.
+ */
+function PushSection() {
+  const [permission, setPermission] = useState('checking');
+  const [token, setToken] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const readPermission = async () => {
+    const current = await Notifications.getPermissionsAsync();
+    setPermission(describe(current));
+    return current.granted;
+  };
+
+  // Written as a promise callback rather than an awaited call: the compiler's
+  // lint refuses a setState reachable synchronously from an effect body.
+  useEffect(() => {
+    let cancelled = false;
+    Notifications.getPermissionsAsync().then((current) => {
+      if (!cancelled) setPermission(describe(current));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const register = async () => {
+    setBusy(true);
+    try {
+      await ensureChannel();
+      const granted = await requestPermission();
+      await readPermission();
+      const next = granted ? await getPushToken() : null;
+      setToken(next);
+      // Never the whole token in a log: it is what a sender addresses this phone
+      // with, and device logs are easy to share by accident.
+      console.log(`[push] device token ${next ? `${next.slice(0, 12)}… (${next.length} chars)` : 'none'}`);
+    } catch (e) {
+      console.log(`[push] failed ${e instanceof Error ? e.message : String(e)}`);
+      setToken(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={styles.row}>
+      <Text style={type.heading}>Push</Text>
+      <Text style={type.muted}>permission {permission}</Text>
+      <Text style={type.muted} selectable>
+        token {token ? `${token.slice(0, 12)}…${token.slice(-6)} (${token.length} chars)` : 'none yet'}
+      </Text>
+      <Pressable onPress={register} disabled={busy} style={[styles.button, busy && styles.buttonDisabled]}>
+        <Text style={styles.buttonLabel}>{busy ? 'Asking' : 'Ask and get token'}</Text>
+      </Pressable>
+    </View>
   );
 }
 

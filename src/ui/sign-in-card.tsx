@@ -1,3 +1,4 @@
+import { useState } from 'react';
 // Sign-in is the primary identity in the app: it is what gives you an account
 // and a wallet you can trade from. The Seeker wallet is a separate, secondary
 // thing (a funding source and a way to look at a wallet's positions), so it
@@ -9,10 +10,21 @@ import { shortAddress } from '@/lib/format';
 import { useSession } from '@/store/session';
 import { Button } from '@/ui/button';
 import { colors, spacing, type } from '@/ui/theme';
+import { unregisterForPush } from '@/notifications/push';
 
 export function SignInCard({ compact = false }: { compact?: boolean }) {
   const wallet = useSession((s) => s.wallet);
   const clear = useSession((s) => s.clear);
+  const [signingOut, setSigningOut] = useState(false);
+  // Unregister push first: the route needs this session's bearer to know whose
+  // device registration to remove, so clearing first would orphan it and the
+  // phone would keep receiving the previous account's notifications.
+  const signOut = async () => {
+    setSigningOut(true);
+    await unregisterForPush();
+    clear();
+    setSigningOut(false);
+  };
 
   if (wallet) {
     return (
@@ -21,7 +33,7 @@ export function SignInCard({ compact = false }: { compact?: boolean }) {
           <Text style={type.muted}>Signed in</Text>
           <Text style={type.money}>{shortAddress(wallet)}</Text>
         </View>
-        <Button label="Sign out" tone="neutral" onPress={clear} style={{ minWidth: 120 }} />
+        <Button label={signingOut ? 'Signing out' : 'Sign out'} tone="neutral" onPress={signOut} disabled={signingOut} style={{ minWidth: 120 }} />
       </View>
     );
   }

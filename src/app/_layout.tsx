@@ -16,6 +16,8 @@ import { prefetchSharedData } from '@/api/prefetch';
 import { restoreQueryCache, startPersistingQueryCache } from '@/api/persist';
 import { OpenfortAuthProvider } from '@/auth/openfort-provider';
 import { logPolyfillChecks } from '@/lib/polyfill-check';
+import { usePush } from '@/notifications/use-push';
+import { ConfigGate } from '@/ui/config-gate';
 import { usePrefs } from '@/store/prefs';
 import { useSession } from '@/store/session';
 import { useWallet } from '@/store/wallet';
@@ -107,6 +109,9 @@ export default function RootLayout() {
     prefetchSharedData(queryClient, wallet);
   }, [ready, wallet]);
 
+  // Push: registers once there is a session, and routes a tapped notification.
+  usePush();
+
   // First launch: the intro replaces whatever route the app opened on.
   useEffect(() => {
     if (ready && !introSeen && segments[0] !== 'intro') router.replace('/intro');
@@ -122,10 +127,12 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <ThemeProvider value={theme}>
             <StatusBar style="light" />
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="intro" options={{ animation: 'fade' }} />
-            </Stack>
+            <ConfigGate>
+              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="intro" options={{ animation: 'fade' }} />
+              </Stack>
+            </ConfigGate>
           </ThemeProvider>
         </QueryClientProvider>
       </OpenfortAuthProvider>

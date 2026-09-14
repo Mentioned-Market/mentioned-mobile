@@ -32,6 +32,7 @@ import { MIN_SOL_FOR_FEES } from '@/trade/majority';
 import { effectiveSpend, MAX_POSITION_USDC, remainingAllowance, spendKey, useSessionSpend } from '@/trade/spend';
 import { useTrade } from '@/trade/use-trade';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
+import { PAUSED_NOTE, useFeatures } from '@/ui/config-gate';
 import { Button } from '@/ui/button';
 import { LineChart, type ChartSeries } from '@/ui/line-chart';
 import { MarketHeader, statusFromLock } from '@/ui/market-header';
@@ -78,6 +79,8 @@ export default function PaidYesNoScreen() {
   const [formHeight, setFormHeight] = useState(0);
   const trade = useTrade();
   const sheetRef = useRef<BottomSheetHandle>(null);
+  // The server can pause trading; claims elsewhere are never paused.
+  const features = useFeatures();
   const queryClient = useQueryClient();
   const sessionWallet = useSession((st) => st.wallet);
 
@@ -402,8 +405,8 @@ export default function PaidYesNoScreen() {
             <Button
               label={open ? actionLabel : 'Market closed'}
               tone={side === 'YES' ? 'yes' : 'no'}
-              disabled={!open || !trade.ready || amountNum <= 0 || (mode === 'buy' && remaining <= 0)}
-              note={inputError ?? (!open ? undefined : !trade.ready ? 'Sign in to trade' : undefined)}
+              disabled={!features.paidTrading || !open || !trade.ready || amountNum <= 0 || (mode === 'buy' && remaining <= 0)}
+              note={inputError ?? (!features.paidTrading ? PAUSED_NOTE : !open ? undefined : !trade.ready ? 'Sign in to trade' : undefined)}
               onPress={submit}
             />
           )

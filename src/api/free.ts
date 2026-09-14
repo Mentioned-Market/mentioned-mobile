@@ -220,3 +220,13 @@ export type FreeEntryResult = z.infer<typeof FreeEntryResult>;
 /** A free majority entry: exactly the market's number of picks, each an existing word or a new one. */
 export const enterFreeMajority = (id: number, words: ({ wordId: number } | { newWord: string })[]) =>
   post(`/api/custom/${id}/entry`, { words }, FreeEntryResult);
+
+/**
+ * The numeric id behind a free market's slug.
+ *
+ * Notifications and website links carry the slug ("/free/vikings-packers"),
+ * while every app route and API call takes the id, so a tapped link has to be
+ * resolved before it can be opened.
+ */
+export const getFreeMarketIdBySlug = (slug: string) =>
+  get(`/api/custom/by-slug/${encodeURIComponent(slug)}`, z.object({ id: z.number() })).then((r) => r.id);

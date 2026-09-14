@@ -1,7 +1,7 @@
 // Profile, weekly leaderboard and prize pool. Shapes captured Sep 9 2026.
 import { z } from 'zod';
 
-import { get, put, q } from './client';
+import { get, patch, put, q } from './client';
 
 export const Profile = z.object({
   username: z.string().nullable(),
@@ -131,3 +131,13 @@ export const setUsername = (username: string) =>
 
 /** The website's rule for usernames, checked on the device first. */
 export const USERNAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
+
+/**
+ * Set or clear the profile emoji.
+ *
+ * The server only accepts an emoji belonging to an achievement this wallet has
+ * unlocked, which is why the picker is built from `/api/achievements` rather
+ * than from a list of its own.
+ */
+export const setPfpEmoji = (pfpEmoji: string | null) =>
+  patch('/api/profile', { pfpEmoji }, z.object({ success: z.boolean(), pfpEmoji: z.string().nullable() }));

@@ -26,6 +26,7 @@
     "expo-haptics": "~57.0.2",
     "expo-image": "~57.0.4",
     "expo-linking": "~57.0.9",
+    "expo-notifications": "~57.0.18",
     "expo-router": "~57.0.20",
     "expo-secure-store": "~57.0.3",
     "expo-splash-screen": "~57.0.8",
@@ -74,6 +75,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "bundle:devnet": "EXPO_PUBLIC_FLAVOR=devnet expo export --platform android --clear",
+    "bundle:staging": "EXPO_PUBLIC_FLAVOR=staging expo export --platform android --clear",
     "bundle:production": "EXPO_PUBLIC_FLAVOR=production expo export --platform android --clear"
   },
   "private": true

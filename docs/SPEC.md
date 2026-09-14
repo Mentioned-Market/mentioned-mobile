@@ -440,27 +440,66 @@ Results screens use `paid-majority/[id]/results`, `paid-markets` history, and
 
 ## 8. v5: engagement and polish
 
-- **Push.** FCM via `expo-notifications`. Register on sign-in and on token
-  refresh: `POST /api/notifications/push-token` `{ token, platform: 'android', deviceId }`.
+- **Push.** BUILT, and verified end to end on staging Sep 14 2026.
+  `expo-notifications` with the Firebase config at `google-services.json` in
+  the repo root, wired through `android.googleServicesFile` so prebuild copies
+  it to `android/app/` and applies the Gradle plugin. The token is the device's
+  own FCM token (`getDevicePushTokenAsync`), not an Expo push token, because
+  the worker sends through Firebase Admin: no Expo push service in the path and
+  no EAS project id. Permission is asked at first sign-in rather than at first
+  launch, then `POST /api/notifications/push-token`
+  `{ token, platform: 'android', deviceId }`. A tap reads `data.link` and
+  routes it through the same mapping the feed uses, falling back to the feed
+  itself. The dev screen reports permission and token so a silent failure is
+  visible. The web side (route, `push_tokens`, `push_*` settings, worker sender)
+  is on `feat/mobile-api-updates`, deployed to staging: real pushes reached the
+  Seeker, and a tap opened the right screen.
   Triggers (server side): resolution of any market the wallet traded, new
-  market, dev update. Tap deep-links to the market. Settings screen exposes the
-  push toggles from `GET/PUT /api/notifications/settings`; Discord and Telegram
-  rows are hidden in the app.
-- **Notification feed.** `GET /api/notifications` with cursor paging,
-  `POST /api/notifications/read`, unread badge from `unread-count` on focus
-  (no SSE in the app).
-- **Profile.** `PUT`/`PATCH /api/profile` for username and emoji PFP; toast
-  `newAchievements`. Public profiles already exist from v1.
-- **Share.** Result screens open the Android share sheet with the existing
-  share image URL; `POST /api/paid-majority/share` and `/api/paid-markets/share`
-  for the tweet-proof points flow.
+  market, dev update.
+- **Notification settings.** BUILT Sep 14 2026. The three push switches from
+  `GET/PUT /api/notifications/settings` (new markets, resolutions, product
+  updates), changed optimistically and put back if the server refuses. The
+  Discord and Telegram flags on the same route stay hidden. The screen also
+  shows the phone's own notification permission, because a switch that is on
+  while Android blocks the app delivers nothing.
+- **Notification feed.** BUILT Sep 12 2026. `GET /api/notifications` with
+  cursor paging, `POST /api/notifications/read`, unread badge from
+  `unread-count` on focus (no SSE in the app), `DELETE` to clear. The bell sits
+  in the Home header. Opening the feed marks its rows read. A tapped row maps
+  the server's website path to an app route (`src/notifications/link.ts`); a
+  free market arrives as a slug, so its id and market type are resolved first,
+  and anything unrecognised opens nothing rather than the wrong market.
+- **Profile.** BUILT Sep 12 2026. Username (`PUT`, shipped early in v4 because
+  free markets need a profile row) and emoji (`PATCH`). The emoji picker is the
+  achievement list from `GET /api/achievements`: the server only accepts an
+  emoji from an achievement this wallet has unlocked, so locked ones are shown
+  with what they take. Saving an emoji is untested (section 10). Public
+  profiles already exist from v1.
+- **Share.** BUILT Sep 12 2026. A result screen offers a card only to a wallet
+  that actually has a position in that market, which is also what the server
+  enforces. The Android share sheet goes out with the sharer's referral link,
+  which unfurls into the website's card image; `POST /api/share/record` then
+  unlocks the sharing achievements. Share points need proof of a real post, so
+  pasting the X link is a separate step afterwards, never a condition of
+  sharing (`/api/paid-markets/share`, `/api/paid-majority/share`). Free markets
+  pay tokens, so they never produce a card claiming dollars. Claiming share
+  points is untested (section 10).
 - **Ranks, AMM sheet design and the polish list** shipped in v1 (section 4);
   deep links are in v6 (section 9). v5 adds only the pieces that need the web
   repo or a session.
-- **Mobile config.** `GET /api/mobile/config` on launch: `minVersion`,
-  `killSwitch`, `cluster`, `features` (paid trading, free trading, seeker
-  perk, onramp). A forced-update screen when below `minVersion`.
-- **Bug report.** `POST /api/bug-report` with `platform`, app version, device.
+- **Mobile config.** App side BUILT Sep 14 2026; the route is still missing on
+  the web (handover: `docs/WEB_MOBILE_CONFIG_TASK.md`). `GET /api/mobile/config`
+  on launch: `minVersion`, `killSwitch`, `cluster`, `features` (paid trading,
+  free trading, seeker perk, onramp). A maintenance screen for the kill switch,
+  a forced-update screen below `minVersion`, and the paid and free trade
+  buttons disabled when their flag is off. Claims are never disabled: they
+  return the user's own money. A 404 or a malformed value means "no rules",
+  so a bad config can never lock users out; the last config seen is kept, so a
+  kill switch still holds offline.
+- **Bug report.** BUILT Sep 12 2026. `POST /api/bug-report` from the You tab,
+  300 characters with a counter, attaching build, device, OS, cluster and
+  wallet, because the report lands in a Discord channel where nobody can ask a
+  follow-up question. Sending one is untested (section 10).
 
 ## 9. v6: store release
 
@@ -524,24 +563,40 @@ checks, loose ends and the production run. The rest of v4 is assumed to work.
    Needs the production cutover (Openfort mobile key, bearer changes deployed).
    Overlaps the release checklist in section 9.
 5. **Load check** (section 15) once wallet-keyed rate limits exist.
+6. **Profile emoji save** (v5). Nothing is unlocked on the test account, so
+   the picker has nothing to save. Share a card (it unlocks First Share), then
+   pick the emoji on the You tab and confirm it saves and shows on the
+   leaderboard.
+7. **Share points claim** (v5). Needs a real X post link and the season
+   switched on for the environment. Share a paid market card, paste the post
+   link, and confirm the points land once and only once.
+8. **Bug report send** (v5). Needs `DISCORD_BUG_REPORT_WEBHOOK_URL` on the
+   environment. Send one and confirm it reaches Discord with build, device,
+   cluster and wallet attached.
+9. **Mobile config on a real route** (v5). Once the web route exists: flip
+   `MOBILE_KILL_SWITCH`, raise `MOBILE_MIN_VERSION` above the installed build,
+   and switch each trading flag off, confirming each screen appears and clears.
 
 **Decisions and web changes**
 
-6. **Discord gate on free markets.** Retire it behind the env flag in
+10. **Discord gate on free markets.** Retire it behind the env flag in
    section 12 so web and app flip together, or keep it and leave the app's
    message as it is. The app works either way.
-7. **Wallet-keyed rate limits** on authenticated routes and `/api/paid-rpc`
+11. **Wallet-keyed rate limits** on authenticated routes and `/api/paid-rpc`
    (section 12). Carrier NAT would otherwise throttle whole networks of phones.
 
 **Cleanup**
 
-8. The per-step progress plumbing (`SendStep`, `onStep`) no longer reaches the
+12. The per-step progress plumbing (`SendStep`, `onStep`) no longer reaches the
    screen, which only says "Placing trade". Keep it for logging or remove it.
-9. `PositionRow.cta` now only ranks finished rows; the actions live on the
+13. `PositionRow.cta` now only ranks finished rows; the actions live on the
    claim cards. Simplify it to a rank if nothing else needs the labels.
-10. The devnet scripts (`scripts/try-buy.ts`, `try-majority.ts`, `try-claim.ts`,
+14. The devnet scripts (`scripts/try-buy.ts`, `try-majority.ts`, `try-claim.ts`,
     `check-resolved.ts`) are read-only simulators. Keep them documented in
     section 15 or move them under `scripts/dev/`.
+
+15. A market opened from the notification feed shows "Markets" as its back
+    label, although Back returns to the feed. Label it by where it came from.
 
 Gate: every item above is either checked on a Seeker or decided, and a fresh
 `npm test`, `npm run lint` and `npx tsc --noEmit` are clean.
@@ -584,7 +639,7 @@ goes through it.
 | Retire the Discord gate | `lib/db.ts` (`assertDiscordTradingEligible`, `insertPointEvent`), free trade + entry routes | Behind an env flag so web and app flip together. Keep the lock check and rate limits. Watch Sybil pressure on free points | v7 |
 | Wallet-keyed rate limits | `lib/rateLimit.ts`, `/api/paid-rpc` | Carrier NAT puts thousands of phones behind one IP. Key authenticated calls on the wallet; the proxy on the wallet when a bearer is present, IP otherwise | v7 |
 | Push channel | `scripts/migrate.ts`, `lib/notifications.ts`, `services/notification-worker` | `push_tokens` table, `notification_settings.push_*`, `push` outbox rows, worker `push.ts` with Firebase Admin (`FCM_SERVICE_ACCOUNT_JSON`), remove tokens on `UNREGISTERED`. Delivery gate applies. Change both copies of delivery logic | v5 |
-| Mobile config | `app/api/mobile/config` | Static JSON from env: `minVersion`, `killSwitch`, `cluster`, `features` | v5 |
+| Mobile config | `app/api/mobile/config` | Static JSON from env: `minVersion`, `killSwitch`, `cluster`, `features`. Handover with the exact route: `docs/WEB_MOBILE_CONFIG_TASK.md` | v5 |
 | App Links | `public/.well-known/assetlinks.json` | Package name + release cert SHA-256 | v6 |
 | Seeker perk | `app/api/seeker/free-pick`, `lib/seekerPerk.ts` | Requires `seeker_verified_at`; one row per (wallet, cluster); budget cap | v6.1 |
 | Widget endpoint | `app/api/mobile/widget` | User's best-ranked open pick, cached 15s | v6.1 |

@@ -20,6 +20,7 @@ import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
 import { achievementLines, useApiTrade } from '@/trade/free';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
+import { PAUSED_NOTE, useFeatures } from '@/ui/config-gate';
 import { Button } from '@/ui/button';
 import { LineChart, type ChartSeries } from '@/ui/line-chart';
 import { MarketHeader } from '@/ui/market-header';
@@ -48,6 +49,8 @@ export default function FreeYesNoScreen() {
   const sessionWallet = useSession((st) => st.wallet);
   const api = useApiTrade();
   const sheetRef = useRef<BottomSheetHandle>(null);
+  // The server can pause trading; claims elsewhere are never paused.
+  const features = useFeatures();
   const [result, setResult] = useState<{ title: string; detail: string } | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const [formHeight, setFormHeight] = useState(0);
@@ -272,8 +275,8 @@ export default function FreeYesNoScreen() {
             <Button
               label={open ? actionLabel : 'Market closed'}
               tone={side === 'YES' ? 'yes' : 'no'}
-              disabled={!open || !sessionWallet || amountNum <= 0}
-              note={inputError ?? (!open ? undefined : !sessionWallet ? 'Sign in to trade' : undefined)}
+              disabled={!features.freeTrading || !open || !sessionWallet || amountNum <= 0}
+              note={inputError ?? (!features.freeTrading ? PAUSED_NOTE : !open ? undefined : !sessionWallet ? 'Sign in to trade' : undefined)}
               onPress={submit}
             />
           )
