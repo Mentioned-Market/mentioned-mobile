@@ -8,6 +8,8 @@ import { FreeActivityPosition, FreeBoard, FreeChart, FreeListEntry, FreeMarketDe
 import { PaidMajorityListEntry, PaidMajorityMarket, PaidMajorityMetadata, PaidMajorityUserPosition } from '@/api/paidMajority';
 import { PaidMarketAccount, PaidMarketChart, PaidMarketListEntry, PaidMarketMetadata, PaidMarketTrade, PaidMarketUserPosition } from '@/api/paidMarkets';
 import { FreeResults, PaidMajorityResults } from '@/api/results';
+import { MyTeam, TeamLeaderboard, TeamProfile } from '@/api/arena';
+import { Referral } from '@/api/referral';
 import { Leaderboard, PrizePool, Profile, PublicProfile, Raffle, SearchResults } from '@/api/user';
 
 import customBoard from '../fixtures/custom-board.json';
@@ -18,6 +20,10 @@ import customPositions from '../fixtures/custom-positions.json';
 import customResults from '../fixtures/custom-results.json';
 import customActivity from '../fixtures/custom-user-activity.json';
 import leaderboard from '../fixtures/leaderboard.json';
+import referral from '../fixtures/referral.json';
+import teamMyTeam from '../fixtures/team-my-team.json';
+import teamProfile from '../fixtures/team-profile.json';
+import teamsLeaderboard from '../fixtures/teams-leaderboard.json';
 import majList from '../fixtures/paid-majority-list.json';
 import majMarket from '../fixtures/paid-majority-market.json';
 import majMetadata from '../fixtures/paid-majority-metadata.json';
@@ -147,4 +153,21 @@ describe('PaidMajorityMarket nulls', () => {
     const parsed = PaidMajorityMarket.safeParse({ account: null, vaultAmount: '0', board: [], totalUnits: '0', traderCount: 0 });
     expect(parsed.success).toBe(true);
   });
+});
+
+describe('arena and referral schemas', () => {
+  it('parses the team standings', () => expectParses(TeamLeaderboard, teamsLeaderboard));
+
+  it('parses a team profile', () => expectParses(TeamProfile, teamProfile));
+
+  it('drops the stored avatar rather than carrying a megabyte around', () => {
+    const parsed = TeamProfile.parse(teamProfile);
+    expect('pfp_data' in parsed.team).toBe(false);
+  });
+
+  it('parses my-team, which carries the member role', () => {
+    expectParses(MyTeam, teamMyTeam.team);
+  });
+
+  it('parses the referral route', () => expectParses(Referral, referral));
 });

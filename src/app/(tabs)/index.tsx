@@ -24,6 +24,7 @@ import {
   usePrizePool,
   useUsdcBalance,
 } from '@/api/queries';
+import { CURRENT_ARENA, arenaStatus } from '@/arena/arenas';
 import { FLAVOR } from '@/config';
 import { compact as compactNumber, shortAddress, tokens as fmtTokens, usd } from '@/lib/format';
 import { closesIn, countdown } from '@/lib/time';
@@ -136,6 +137,21 @@ export default function HomeScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.poolAmount}>{usd(pool.data.poolUsd)} prize pool</Text>
                 <Text style={styles.meta}>{weekEnd ? `Ends in ${countdown(weekEnd, now)}` : 'This week'}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.gold} />
+            </Pressable>
+          </Link>
+        ) : null}
+
+        {arenaStatus(CURRENT_ARENA) !== 'ended' ? (
+          <Link href="/arena" asChild>
+            <Pressable style={styles.poolStrip} accessibilityRole="link" accessibilityLabel={`${CURRENT_ARENA.name} Arena`}>
+              <Text style={{ fontSize: 18 }}>{CURRENT_ARENA.emoji}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.poolAmount}>{CURRENT_ARENA.name} Arena</Text>
+                <Text style={styles.meta}>
+                  Top {CURRENT_ARENA.prizes.length} teams share {CURRENT_ARENA.prizePool}
+                </Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.gold} />
             </Pressable>

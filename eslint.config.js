@@ -12,6 +12,7 @@ module.exports = defineConfig([
     ignores: [
       'dist/*',
       'android/*',
+      'src/arena/arenas.ts',
       'src/chain/amm.ts',
       'src/chain/fetchRetry.ts',
       'src/chain/majority.ts',

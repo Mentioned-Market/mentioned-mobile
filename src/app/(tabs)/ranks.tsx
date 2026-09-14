@@ -10,6 +10,8 @@ import { useIsScreenFocused, useLeaderboard, usePrizePool, useRaffle } from '@/a
 import type { LeaderboardEntry, LeaderboardWeek } from '@/api/user';
 import { shortAddress, usd } from '@/lib/format';
 import { useActiveWallet } from '@/store/active-wallet';
+import { CURRENT_ARENA, arenaStatus } from '@/arena/arenas';
+import { statusLabel } from '@/lib/arena-view';
 import { Pill } from '@/ui/pill';
 import { Screen } from '@/ui/screen';
 import { EmptyState, ErrorState, Skeleton } from '@/ui/states';
@@ -61,7 +63,7 @@ export default function RanksScreen() {
   const pinned = board.data?.userEntry ?? null;
 
   return (
-    <Screen title="Ranks" subtitle="Weekly points, prize pool and raffle">
+    <Screen title="Ranks" subtitle="Arena, points, prize pool and raffle">
       {/* A FlatList rather than a ScrollView: the board runs to a hundred rows,
           and mounting all of them left several hundred views attached to this
           screen at all times, which the navigator re-attached on every focus.
@@ -81,6 +83,21 @@ export default function RanksScreen() {
         removeClippedSubviews
         ListHeaderComponent={
           <View style={styles.header}>
+        <Link href="/arena" asChild>
+          <Pressable style={styles.arenaCard} accessibilityRole="link" accessibilityLabel={`${CURRENT_ARENA.name} Arena`}>
+            <Text style={{ fontSize: 26 }}>{CURRENT_ARENA.emoji}</Text>
+            <View style={{ flex: 1, gap: 2 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[type.body, { fontFamily: fonts.semibold }]}>{CURRENT_ARENA.name} Arena</Text>
+                <Pill label={statusLabel(arenaStatus(CURRENT_ARENA), true)} tone={arenaStatus(CURRENT_ARENA) === 'active' ? 'green' : 'neutral'} />
+              </View>
+              <Text style={type.muted}>
+                Team competition · top {CURRENT_ARENA.prizes.length} share {CURRENT_ARENA.prizePool}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.gold} />
+          </Pressable>
+        </Link>
         <View style={styles.weekRow}>
           <Pressable
             onPress={() => setWeek('last')}
@@ -92,7 +109,8 @@ export default function RanksScreen() {
             <Text style={styles.arrowLabel}>‹</Text>
           </Pressable>
           <View style={{ alignItems: 'center' }}>
-            <Text style={type.heading}>{week === 'current' ? 'This week' : 'Last week'}</Text>
+            {/* While a season runs the server scores the board over the season, not the week. */}
+            <Text style={type.heading}>{week === 'current' ? (arenaStatus(CURRENT_ARENA) === 'active' ? 'This season' : 'This week') : 'Last week'}</Text>
             <Text style={type.muted}>{rangeLabel(board.data?.weekStart, board.data?.weekEnd ?? pool.data?.weekEnd)}</Text>
           </View>
           <Pressable
@@ -246,6 +264,7 @@ const styles = StyleSheet.create({
   split: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.sm },
   splitItem: { minWidth: 90, gap: 2 },
   card: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
+  arenaCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(242,183,31,0.45)' },
   row: { padding: spacing.md, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
   rowYou: { borderColor: colors.gold },
   rank: { width: 32, textAlign: 'center', fontFamily: fonts.bold, fontSize: 16, color: colors.textMuted, fontVariant: ['tabular-nums'] },

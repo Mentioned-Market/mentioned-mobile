@@ -2,9 +2,12 @@
 // contract`). A web change that breaks a shape fails here, not in a shipped APK.
 import { address as toAddress } from '@solana/kit';
 
+import * as arena from '../src/api/arena';
 import * as free from '../src/api/free';
 import * as paidMajority from '../src/api/paidMajority';
 import * as paidMarkets from '../src/api/paidMarkets';
+import * as referral from '../src/api/referral';
+import { CURRENT_ARENA } from '../src/arena/arenas';
 import * as results from '../src/api/results';
 import * as user from '../src/api/user';
 import { getAssociatedTokenAddress } from '../src/chain/amm';
@@ -52,6 +55,29 @@ async function main() {
   const freeBoard = freeList.find((m) => m.market_type === 'majority') ?? freeList[0];
 
   add('paid-majority/list', async () => `${majList.length} markets`);
+
+  // Arena. The season list is a port of the website's lib/arenas.ts, so this is
+  // also where a new season on the web shows up before the app knows about it.
+  add('teams/leaderboard: ported season is the current one', async () => {
+    const current = await arena.getTeamLeaderboard();
+    if (current.arena !== CURRENT_ARENA.slug) {
+      throw new Error(`the web's current season is "${current.arena}" but the app's is "${CURRENT_ARENA.slug}": re-port lib/arenas.ts`);
+    }
+    return `${current.arena}, ${current.data.length} teams`;
+  });
+  add('teams/[slug] and my-team', async () => {
+    const standings = await arena.getTeamLeaderboard(CURRENT_ARENA.slug);
+    const top = standings.data[0];
+    if (!top) return 'no teams this season, nothing to check';
+    const profile = await arena.getTeam(top.team_slug);
+    const member = profile.members[0];
+    const mine = member ? await arena.getMyTeam(member.wallet, CURRENT_ARENA.slug) : null;
+    return `${profile.team.name}: ${profile.members.length} members, my-team ${mine ? 'found' : 'null'}`;
+  });
+  add('referral', async () => {
+    const r = await referral.getReferral(WALLET);
+    return `code ${r.referralCode ? 'present' : 'missing'}, ${r.referralCount} referrals, $${r.earningsUsd.toFixed(2)} earned`;
+  });
   add('paid-majority/market/[id]', async () => `${(await paidMajority.getPaidMajorityMarket(maj.marketId)).board.length} board words`);
   add('paid-majority/metadata', async () => `${(await paidMajority.getPaidMajorityMetadata()).length} rows`);
   add('paid-majority/my-positions', async () => `${(await paidMajority.getPaidMajorityPositions(maj.marketId, WALLET)).length} positions`);

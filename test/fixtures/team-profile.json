@@ -1,0 +1,48 @@
+{
+  "team": {
+    "id": 58,
+    "name": "Sovereign Order",
+    "slug": "sovereign-order",
+    "created_by": "9164nUKQVa2N8v6PBTtreGQbXmKFw8JvwZNuP1dQ9JT9",
+    "created_at": "2026-06-20T08:26:57.028Z",
+    "pfp_data": null,
+    "bio": "Big Web3 Indonesia Gaming Community: https://discord.gg/xHYG6vHXJm\nLets Go! Road to the Top!",
+    "x_url": "ZeroXirem",
+    "arena_id": 2
+  },
+  "members": [
+    {
+      "team_id": 58,
+      "wallet": "9164nUKQVa2N8v6PBTtreGQbXmKFw8JvwZNuP1dQ9JT9",
+      "role": "captain",
+      "joined_at": "2026-06-20T08:26:57.028Z",
+      "arena_id": 2,
+      "username": "ZeroXirem",
+      "pfp_emoji": "🎮",
+      "weekly_points": 5148,
+      "all_time_points": 32897
+    },
+    {
+      "team_id": 58,
+      "wallet": "CGo4M6suWCj9FExeqEUZnyW4guYJuWfaBW43XcsgBnmt",
+      "role": "member",
+      "joined_at": "2026-06-20T08:27:55.222Z",
+      "arena_id": 2,
+      "username": "BALI69",
+      "pfp_emoji": null,
+      "weekly_points": 3967,
+      "all_time_points": 15655
+    }
+  ],
+  "weeklyTotal": 9115,
+  "allTimeTotal": 48552,
+  "compStart": "2026-06-26T00:00:00.000Z",
+  "compEnd": "2026-07-20T00:00:00.000Z",
+  "arena": {
+    "slug": "world-cup",
+    "name": "World Cup",
+    "emoji": "⚽",
+    "displayRange": "Jun 26 – Jul 19, 2026",
+    "status": "ended"
+  }
+}
