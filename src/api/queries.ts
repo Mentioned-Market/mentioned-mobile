@@ -9,11 +9,13 @@ import { getSolBalance, getUsdcBalance } from '@/chain/balance';
 import { base64ToBytes } from '@/lib/bytes';
 import { fetchAmmClaim } from '@/trade/claim';
 import * as achievements from './achievements';
+import * as arena from './arena';
 import * as free from './free';
 import * as mobileConfig from './mobileConfig';
 import * as notifications from './notifications';
 import * as paidMajority from './paidMajority';
 import * as paidMarkets from './paidMarkets';
+import * as referral from './referral';
 import * as results from './results';
 import * as user from './user';
 
@@ -70,6 +72,11 @@ export const keys = {
   achievements: (wallet: string) => ['achievements', wallet] as const,
   notificationSettings: ['notifications', 'settings'] as const,
   mobileConfig: ['mobile', 'config'] as const,
+  teamLeaderboard: (arenaSlug: string) => ['arena', 'leaderboard', arenaSlug] as const,
+  myTeam: (wallet: string, arenaSlug: string) => ['arena', 'my-team', wallet, arenaSlug] as const,
+  team: (slug: string, wallet: string) => ['arena', 'team', slug, wallet] as const,
+  arenaAll: ['arena'] as const,
+  referral: (wallet: string) => ['referral', wallet] as const,
   ammClaimAll: ['chain', 'amm-claim'] as const,
   ammClaim: (wallet: string, id: string) => ['chain', 'amm-claim', wallet, id] as const,
 };
@@ -256,4 +263,37 @@ export const useMobileConfig = () =>
     queryFn: mobileConfig.getMobileConfig,
     staleTime: 5 * 60_000,
     refetchInterval: 10 * 60_000,
+  });
+
+// Arena. A live season's standings move as markets resolve, so the board polls
+// while it is on screen; a finished season never changes, so it does not.
+export const useTeamLeaderboard = (arenaSlug: string, live: boolean, focused: boolean) =>
+  useQuery({
+    queryKey: keys.teamLeaderboard(arenaSlug),
+    queryFn: () => arena.getTeamLeaderboard(arenaSlug),
+    staleTime: live ? 30_000 : 10 * 60_000,
+    ...poll(focused && live, LIST_POLL_MS * 2),
+  });
+
+export const useMyTeam = (wallet: string | null, arenaSlug: string) =>
+  useQuery({
+    queryKey: keys.myTeam(wallet ?? '', arenaSlug),
+    queryFn: () => arena.getMyTeam(wallet as string, arenaSlug),
+    enabled: !!wallet,
+    staleTime: 30_000,
+  });
+
+export const useTeam = (slug: string, wallet: string | null) =>
+  useQuery({
+    queryKey: keys.team(slug, wallet ?? ''),
+    queryFn: () => arena.getTeam(slug, wallet ?? undefined),
+    staleTime: 30_000,
+  });
+
+export const useReferral = (wallet: string | null) =>
+  useQuery({
+    queryKey: keys.referral(wallet ?? ''),
+    queryFn: () => referral.getReferral(wallet as string),
+    enabled: !!wallet,
+    staleTime: 60_000,
   });

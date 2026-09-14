@@ -83,6 +83,22 @@ async function main() {
   write('paid-majority-user-positions', await get(`/api/paid-majority/user-positions?wallet=${WALLET}`));
   write('paid-markets-user-positions', await get(`/api/paid-markets/user-positions?wallet=${WALLET}`));
   write('profile', await get(`/api/profile?wallet=${WALLET}`));
+
+  // Arena and referrals. The team avatar is a data URL of up to a megabyte, and
+  // the app never reads it from this route, so it is not stored.
+  const teams = await get<{ data: { team_slug: string }[] }>('/api/teams/leaderboard?arena=world-cup');
+  write('teams-leaderboard', { ...teams, data: teams.data.slice(0, 4) });
+  const teamSlug = teams.data[0]?.team_slug;
+  if (teamSlug) {
+    const profile = await get<{ team: Record<string, unknown>; members: { wallet: string }[] }>(`/api/teams/${teamSlug}`);
+    write('team-profile', { ...profile, team: { ...profile.team, pfp_data: null } });
+    const member = profile.members[0]?.wallet;
+    if (member) {
+      const mine = await get<{ team: Record<string, unknown> | null }>(`/api/teams/my-team?wallet=${member}&arena=world-cup`);
+      write('team-my-team', { team: mine.team ? { ...mine.team, pfp_data: null } : null });
+    }
+  }
+  write('referral', trim(await get(`/api/referral?wallet=${WALLET}`), 'referredUsers', 5));
   const publicProfile = await get<Record<string, unknown>>(`/api/profile/${USERNAME}`);
   const { pointHistory, freeMarket, ...restProfile } = publicProfile as Record<string, unknown> & { freeMarket: Record<string, unknown> };
   write('public-profile', { ...restProfile, pointHistory: (pointHistory as unknown[]).slice(0, 3), freeMarket: trim(trim(freeMarket, 'positions', 3), 'trades', 3) });

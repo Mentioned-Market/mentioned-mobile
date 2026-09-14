@@ -1,0 +1,39 @@
+{
+  "data": [
+    {
+      "team_id": 58,
+      "team_name": "Sovereign Order",
+      "team_slug": "sovereign-order",
+      "member_count": 2,
+      "weekly_points": 9115,
+      "all_time_points": 48552
+    },
+    {
+      "team_id": 55,
+      "team_name": "The Winners!",
+      "team_slug": "the-winners",
+      "member_count": 2,
+      "weekly_points": 6370,
+      "all_time_points": 24289
+    },
+    {
+      "team_id": 79,
+      "team_name": "BANDO babies ☔️",
+      "team_slug": "bando-babies-",
+      "member_count": 2,
+      "weekly_points": 5665,
+      "all_time_points": 21622
+    },
+    {
+      "team_id": 81,
+      "team_name": "Pg boys",
+      "team_slug": "pg-boys",
+      "member_count": 2,
+      "weekly_points": 5566,
+      "all_time_points": 12872
+    }
+  ],
+  "arena": "world-cup",
+  "compStart": "2026-06-26T00:00:00.000Z",
+  "compEnd": "2026-07-20T00:00:00.000Z"
+}

@@ -45,6 +45,12 @@
           "color": "#F2B71F",
           "defaultChannel": "default"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Mentioned uses your photos to set a team picture."
+        }
       ]
     ],
     "experiments": {

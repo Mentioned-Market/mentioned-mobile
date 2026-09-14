@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useProfile } from '@/api/queries';
 import { usd } from '@/lib/format';
@@ -12,7 +13,7 @@ import { EmojiPicker } from '@/ui/emoji-picker';
 import { Screen } from '@/ui/screen';
 import { SignInCard } from '@/ui/sign-in-card';
 import { ErrorState, Skeleton } from '@/ui/states';
-import { colors, spacing, type } from '@/ui/theme';
+import { colors, fonts, spacing, type } from '@/ui/theme';
 import { UsernameForm } from '@/ui/username-form';
 
 export default function YouScreen() {
@@ -67,6 +68,18 @@ export default function YouScreen() {
                 <Stat label="Bonus points" value={String(profile.data.bonusPointsEarned)} />
                 <Stat label="Referrals" value={String(profile.data.referralCount)} />
               </View>
+              {sessionWallet && sessionWallet === active ? (
+                <Link href="/referrals" asChild>
+                  <Pressable style={styles.linkRow} accessibilityRole="link" accessibilityLabel="Referrals">
+                    <Text style={{ fontSize: 20 }}>🤝</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[type.body, { fontFamily: fonts.semibold }]}>Referrals</Text>
+                      <Text style={type.muted}>Earned {usd(profile.data.earningsUsd)} · share your link</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                  </Pressable>
+                </Link>
+              ) : null}
               {/* Only the signed-in account can change its own profile. */}
               {sessionWallet && sessionWallet === active ? <EmojiPicker wallet={sessionWallet} current={profile.data.pfpEmoji} /> : null}
             </View>
@@ -109,5 +122,6 @@ const styles = StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing.xl },
   card: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.md },
   stats: { flexDirection: 'row', gap: spacing.sm },
+  linkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: 12, backgroundColor: colors.surfaceRaised },
   secondary: { gap: spacing.sm, marginTop: spacing.sm },
 });
