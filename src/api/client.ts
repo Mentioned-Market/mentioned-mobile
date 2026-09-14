@@ -5,7 +5,6 @@ import type { z } from 'zod';
 
 import { fetchWith429Retry } from '@/chain/fetchRetry';
 import { API_BASE } from '@/config';
-import { useSession } from '@/store/session';
 
 export class ApiError extends Error {
   constructor(
@@ -23,17 +22,34 @@ export class ApiError extends Error {
 const TIMEOUT_MS = 10_000;
 
 /**
+ * Where the session token comes from. The session store registers itself here
+ * when it loads (src/store/session.ts), which the root layout does before any
+ * screen can make a request.
+ *
+ * This module deliberately does not import the store. The store persists to
+ * expo-secure-store, a native module, and anything that imports it can no longer
+ * run under Node: `npm run contract` imports this client, and a direct import
+ * broke it for three days before anyone noticed. Nothing registered means no
+ * token, which is exactly right for a script reading public routes.
+ */
+let tokenGetter: () => string | null = () => null;
+
+export function setAuthTokenGetter(getter: () => string | null) {
+  tokenGetter = getter;
+}
+
+/**
  * The session token, as an Authorization header, or nothing when signed out.
  *
- * Read from the store rather than passed in, so every route gets it without
- * each caller remembering to. The web equivalent is a cookie the browser
- * attaches on its own; a native app has no cookie jar, so this is that.
+ * Attached here rather than passed in, so every route gets it without each
+ * caller remembering to. The web equivalent is a cookie the browser attaches on
+ * its own; a native app has no cookie jar, so this is that.
  *
  * Read at call time, never captured: a token can arrive or be cleared between
  * a query being defined and it running.
  */
 function authHeader(): Record<string, string> {
-  const token = useSession.getState().token;
+  const token = tokenGetter();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 

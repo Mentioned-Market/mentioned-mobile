@@ -5,6 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import { setAuthTokenGetter } from '@/api/client';
 import { FLAVOR } from '@/config';
 
 type SessionState = {
@@ -45,3 +46,7 @@ export const useSession = create<SessionState>()(
     },
   ),
 );
+
+// Hand the API client its token source. The client cannot import this store
+// itself (see setAuthTokenGetter), so the store registers on load instead.
+setAuthTokenGetter(() => useSession.getState().token);
