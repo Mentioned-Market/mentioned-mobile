@@ -35,7 +35,15 @@ export function useIsScreenFocused(): boolean {
 }
 
 function poll(focused: boolean, ms: number) {
-  return { refetchInterval: focused ? ms : false, refetchIntervalInBackground: false } as const;
+  // A query that has failed stops polling until something asks again (pull to
+  // refresh, a remount, a trade). Polling on regardless made every failing
+  // list flip to "pending" on each attempt, which swapped the whole screen for
+  // a loader every fifteen seconds; a failure that stays put is one the user
+  // reads once and clears themselves.
+  return {
+    refetchInterval: (query: { state: { status: string } }) => (focused && query.state.status !== 'error' ? ms : false),
+    refetchIntervalInBackground: false,
+  } as const;
 }
 
 export const keys = {

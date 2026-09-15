@@ -1,76 +1,67 @@
+// The top of a market screen: the cover as a thumbnail, the title, and one
+// line saying where the market is in its life. The rules sit under it,
+// folded, because they are read once and the board is read every visit.
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { compact } from '@/lib/format';
 import { countdown, eventDate } from '@/lib/time';
 import type { MarketStatus } from '@/markets/merge';
-import { Pill, type PillTone } from '@/ui/pill';
-import { colors, spacing, type } from '@/ui/theme';
-
-const STATUS: Record<MarketStatus, { label: string; tone: PillTone }> = {
-  open: { label: 'Open', tone: 'green' },
-  pending: { label: 'Pending resolution', tone: 'orange' },
-  resolved: { label: 'Resolved', tone: 'neutral' },
-  cancelled: { label: 'Cancelled', tone: 'red' },
-};
+import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
 export function statusFromLock(lockAt: number | null, finished: 'resolved' | 'cancelled' | null, now: number): MarketStatus {
   if (finished) return finished;
   return lockAt && now >= lockAt ? 'pending' : 'open';
 }
 
+/** The one line under a market title. */
+export function statusLine(status: MarketStatus, lockAt: number | null, eventAt: number | null, now: number): { text: string; live: boolean } {
+  if (status === 'open') {
+    const when = eventDate(eventAt ?? lockAt);
+    return { text: lockAt ? `Closes in ${countdown(lockAt, now)}${when ? ` · ${when}` : ''}` : (when ?? 'Open'), live: true };
+  }
+  if (status === 'pending') return { text: 'Locked, awaiting the result', live: false };
+  if (status === 'resolved') return { text: 'Resolved', live: false };
+  return { text: 'Cancelled', live: false };
+}
+
 type Props = {
   title: string;
   cover: string | null;
   status: MarketStatus;
-  paid: boolean;
-  majority: boolean;
   lockAt: number | null;
   eventAt: number | null;
-  traderCount: number | null;
   now: number;
   description?: string | null;
 };
 
-export function MarketHeader({ title, cover, status, paid, majority, lockAt, eventAt, traderCount, now, description }: Props) {
+export function MarketHeader({ title, cover, status, lockAt, eventAt, now, description }: Props) {
   const [imgFailed, setImgFailed] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
-  const st = STATUS[status];
-  const when = eventDate(eventAt ?? lockAt);
-  const locksIn = status === 'open' && lockAt ? countdown(lockAt, now) : null;
+  const line = statusLine(status, lockAt, eventAt, now);
   return (
     <View style={styles.wrap}>
-      <View style={styles.cover}>
-        {cover && !imgFailed ? (
-          <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} onError={() => setImgFailed(true)} />
-        ) : (
-          <View style={[StyleSheet.absoluteFill, styles.coverFallback]}>
-            <Text style={{ fontSize: 32 }}>🎯</Text>
-          </View>
-        )}
-        <View style={styles.overlay}>
-          <Pill label={st.label} tone="dark" />
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            <Pill label={paid ? 'PAID' : 'FREE'} tone={paid ? 'goldDark' : 'dark'} />
-            {majority ? <Pill label="MAJORITY" tone="dark" /> : null}
-          </View>
+      <View style={styles.row}>
+        <View style={styles.thumb}>
+          {cover && !imgFailed ? (
+            <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} onError={() => setImgFailed(true)} />
+          ) : (
+            <Text style={{ fontSize: 26 }}>🎯</Text>
+          )}
         </View>
-      </View>
-      <Text style={type.title} accessibilityRole="header">
-        {title}
-      </Text>
-      <View style={styles.meta}>
-        {when ? <Text style={type.muted}>{when}</Text> : null}
-        {traderCount !== null ? <Text style={type.muted}>{compact(traderCount)} traders</Text> : null}
-        {locksIn ? <Text style={[type.muted, { color: colors.gold }]}>Locks in {locksIn}</Text> : null}
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={styles.title} accessibilityRole="header">
+            {title}
+          </Text>
+          <Text style={[type.muted, line.live && { color: colors.gold }]} numberOfLines={1}>
+            {line.text}
+          </Text>
+        </View>
       </View>
       {description ? (
         <Pressable onPress={() => setRulesOpen((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: rulesOpen }} style={styles.rules}>
-          <Text style={type.muted} numberOfLines={rulesOpen ? undefined : 2}>
-            {description.trim()}
-          </Text>
-          <Text style={[type.muted, { color: colors.gold }]}>{rulesOpen ? 'Hide rules' : 'Read the rules'}</Text>
+          {rulesOpen ? <Text style={type.muted}>{description.trim()}</Text> : null}
+          <Text style={styles.rulesLink}>{rulesOpen ? 'Hide rules' : 'Rules'}</Text>
         </Pressable>
       ) : null}
     </View>
@@ -79,21 +70,9 @@ export function MarketHeader({ title, cover, status, paid, majority, lockAt, eve
 
 const styles = StyleSheet.create({
   wrap: { gap: spacing.sm },
-  cover: {
-    height: 160,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: colors.surfaceRaised,
-  },
-  coverFallback: { alignItems: 'center', justifyContent: 'center' },
-  overlay: {
-    position: 'absolute',
-    top: spacing.sm,
-    left: spacing.sm,
-    right: spacing.sm,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  meta: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  rules: { gap: 4 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 4 },
+  thumb: { width: 60, height: 60, borderRadius: radius.thumb, overflow: 'hidden', backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  title: { fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, color: colors.text },
+  rules: { gap: 4, paddingHorizontal: spacing.xs },
+  rulesLink: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.textMuted },
 });

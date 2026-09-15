@@ -29,7 +29,7 @@ import {
 import { useTrade } from '@/trade/use-trade';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
-import { colors, fonts, spacing, type } from '@/ui/theme';
+import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 import { TradeProgress } from '@/ui/trade-progress';
 
 export type ClaimTarget =
@@ -206,10 +206,8 @@ export function useClaimFlow(wallet: string | null): ClaimFlow {
 const styles = StyleSheet.create({
   card: {
     padding: spacing.md,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: 'rgba(61,220,132,0.45)',
+    borderRadius: radius.card,
+    backgroundColor: colors.yesTint,
     gap: spacing.sm,
   },
   eyebrow: { fontFamily: fonts.semibold, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.yes },

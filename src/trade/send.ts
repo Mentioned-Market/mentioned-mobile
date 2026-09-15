@@ -22,6 +22,7 @@ import {
   address as toAddress,
   type Blockhash,
   type Instruction,
+  type Transaction,
 } from '@solana/kit';
 
 import { openfortSignOnly, type OpenfortRawSign } from '@/auth/signer';
@@ -54,12 +55,12 @@ async function rpc<T>(method: string, params: unknown[]): Promise<T> {
 }
 
 /**
- * Compile the instructions into an unsigned wire transaction.
+ * Compile the instructions into an unsigned transaction for `feePayer`.
  *
- * Exported because simulation is useful on its own: the whole trade path can be
- * checked against the real programs without a wallet that can sign.
+ * The compiled form is what the Seeker wallet signs over MWA; everything else
+ * in the app wants the wire bytes from `buildTransaction` below.
  */
-export async function buildTransaction(feePayer: string, instructions: Instruction[]): Promise<Uint8Array> {
+export async function buildUnsignedTransaction(feePayer: string, instructions: Instruction[]): Promise<Transaction> {
   const { value } = await rpc<{ value: { blockhash: string; lastValidBlockHeight: number } }>(
     'getLatestBlockhash',
     [{ commitment: 'confirmed' }],
@@ -78,7 +79,17 @@ export async function buildTransaction(feePayer: string, instructions: Instructi
     (m) => appendTransactionMessageInstructions(instructions, m),
   );
 
-  return new Uint8Array(getTransactionEncoder().encode(compileTransaction(message)));
+  return compileTransaction(message);
+}
+
+/**
+ * Compile the instructions into an unsigned wire transaction.
+ *
+ * Exported because simulation is useful on its own: the whole trade path can be
+ * checked against the real programs without a wallet that can sign.
+ */
+export async function buildTransaction(feePayer: string, instructions: Instruction[]): Promise<Uint8Array> {
+  return new Uint8Array(getTransactionEncoder().encode(await buildUnsignedTransaction(feePayer, instructions)));
 }
 
 /**

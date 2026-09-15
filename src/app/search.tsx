@@ -9,10 +9,10 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { getFreeMarket } from '@/api/free';
 import { useFreeList, usePaidMajorityList, usePaidMarketsList, useSearch } from '@/api/queries';
 import { shortAddress } from '@/lib/format';
-import { Pill } from '@/ui/pill';
+import { Card, SectionTitle, rowStyle } from '@/ui/card';
 import { Screen } from '@/ui/screen';
-import { EmptyState, ErrorState, Skeleton } from '@/ui/states';
-import { colors, fonts, spacing, type } from '@/ui/theme';
+import { EmptyState, ErrorState, RowsSkeleton } from '@/ui/states';
+import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
 function useDebounced(value: string, ms: number) {
   const [v, setV] = useState(value);
@@ -37,8 +37,8 @@ export default function SearchScreen() {
     if (q.length < 2) return [];
     const needle = q.toLowerCase();
     return [
-      ...(paidMajority.data ?? []).filter((m) => m.title.toLowerCase().includes(needle)).map((m) => ({ key: `pm${m.marketId}`, title: m.title, cover: m.coverImageUrl, href: `/majority/${m.marketId}`, kind: 'PAID · MAJORITY' })),
-      ...(paidYesNo.data ?? []).filter((m) => m.title.toLowerCase().includes(needle)).map((m) => ({ key: `pa${m.marketId}`, title: m.title, cover: m.coverImageUrl, href: `/paid/${m.marketId}`, kind: 'PAID' })),
+      ...(paidMajority.data ?? []).filter((m) => m.title.toLowerCase().includes(needle)).map((m) => ({ key: `pm${m.marketId}`, title: m.title, cover: m.coverImageUrl, href: `/majority/${m.marketId}`, kind: 'Paid majority' })),
+      ...(paidYesNo.data ?? []).filter((m) => m.title.toLowerCase().includes(needle)).map((m) => ({ key: `pa${m.marketId}`, title: m.title, cover: m.coverImageUrl, href: `/paid/${m.marketId}`, kind: 'Paid' })),
     ];
   }, [q, paidMajority.data, paidYesNo.data]);
 
@@ -64,7 +64,7 @@ export default function SearchScreen() {
   const nothing = q.length >= 2 && !search.isPending && users.length + freeHits.length + paidHits.length === 0;
 
   return (
-    <Screen title="Search" back backLabel="Markets">
+    <Screen title="Search" back>
       <View style={styles.field}>
         <Ionicons name="search" size={18} color={colors.textMuted} />
         <TextInput
@@ -89,57 +89,63 @@ export default function SearchScreen() {
         {q.length < 2 ? (
           <Text style={type.muted}>Type at least two characters.</Text>
         ) : search.isPending ? (
-          <View style={{ gap: spacing.sm }}>
-            <Skeleton height={60} radius={12} />
-            <Skeleton height={60} radius={12} />
-          </View>
+          <RowsSkeleton rows={2} />
         ) : search.isError ? (
           <ErrorState error={search.error} onRetry={() => search.refetch()} title="Search failed" />
         ) : nothing ? (
           <EmptyState title="Nothing found" body={`No markets or players match "${q}".`} />
         ) : (
           <>
-            {users.length > 0 ? <Text style={type.heading}>Players</Text> : null}
-            {users.map((u) => (
-              <Link key={u.wallet} href={u.username ? (`/u/${encodeURIComponent(u.username)}` as Href) : (`/positions?wallet=${u.wallet}` as Href)} asChild>
-                <Pressable style={styles.row} accessibilityRole="button">
-                  <Text style={{ fontSize: 22 }}>{u.pfpEmoji ?? '🙂'}</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[type.body, { fontFamily: fonts.semibold }]}>{u.username ?? shortAddress(u.wallet)}</Text>
-                    <Text style={type.muted}>{shortAddress(u.wallet)}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-                </Pressable>
-              </Link>
-            ))}
-            {paidHits.length + freeHits.length > 0 ? <Text style={type.heading}>Markets</Text> : null}
-            {paidHits.map((m) => (
-              <Link key={m.key} href={m.href as Href} asChild>
-                <Pressable style={styles.row} accessibilityRole="button">
-                  <Cover uri={m.cover} />
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={[type.body, { fontFamily: fonts.semibold }]} numberOfLines={2}>
-                      {m.title}
-                    </Text>
-                    <Pill label={m.kind} tone="gold" />
-                  </View>
-                </Pressable>
-              </Link>
-            ))}
-            {freeHits.map((m) => (
-              <Pressable key={m.id} style={[styles.row, opening === m.id && { opacity: 0.6 }]} onPress={() => openFree(m.id)} accessibilityRole="button">
-                <Cover uri={m.coverImageUrl} />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[type.body, { fontFamily: fonts.semibold }]} numberOfLines={2}>
-                    {m.title}
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 6 }}>
-                    <Pill label="FREE" />
-                    <Pill label={m.status.toUpperCase()} tone={m.status === 'open' ? 'green' : 'neutral'} />
-                  </View>
-                </View>
-              </Pressable>
-            ))}
+            {users.length > 0 ? (
+              <View style={styles.section}>
+                <SectionTitle title="Players" />
+                <Card padded={false} style={styles.listCard}>
+                  {users.map((u, i) => (
+                    <Link key={u.wallet} href={u.username ? (`/u/${encodeURIComponent(u.username)}` as Href) : (`/positions?wallet=${u.wallet}` as Href)} asChild>
+                      <Pressable style={rowStyle(i === 0)} accessibilityRole="button">
+                        <Text style={{ fontSize: 22 }}>{u.pfpEmoji ?? '🙂'}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.name}>{u.username ?? shortAddress(u.wallet)}</Text>
+                          <Text style={type.muted}>{shortAddress(u.wallet)}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                      </Pressable>
+                    </Link>
+                  ))}
+                </Card>
+              </View>
+            ) : null}
+            {paidHits.length + freeHits.length > 0 ? (
+              <View style={styles.section}>
+                <SectionTitle title="Markets" />
+                <Card padded={false} style={styles.listCard}>
+                  {paidHits.map((m, i) => (
+                    <Link key={m.key} href={m.href as Href} asChild>
+                      <Pressable style={rowStyle(i === 0)} accessibilityRole="button">
+                        <Cover uri={m.cover} />
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <Text style={styles.name} numberOfLines={2}>
+                            {m.title}
+                          </Text>
+                          <Text style={type.muted}>{m.kind}</Text>
+                        </View>
+                      </Pressable>
+                    </Link>
+                  ))}
+                  {freeHits.map((m, i) => (
+                    <Pressable key={m.id} style={[rowStyle(paidHits.length + i === 0), opening === m.id && { opacity: 0.6 }]} onPress={() => openFree(m.id)} accessibilityRole="button">
+                      <Cover uri={m.coverImageUrl} />
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.name} numberOfLines={2}>
+                          {m.title}
+                        </Text>
+                        <Text style={type.muted}>Free · {m.status.charAt(0).toUpperCase() + m.status.slice(1)}</Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </Card>
+              </View>
+            ) : null}
           </>
         )}
       </ScrollView>
@@ -153,10 +159,13 @@ function Cover({ uri }: { uri: string | null }) {
   );
 }
 
+// Rows that are `<Link asChild>`'s child are given the flat style from rowStyle().
 const styles = StyleSheet.create({
-  field: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, height: 48, paddingHorizontal: spacing.md, borderRadius: 14, backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md },
+  field: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, height: 48, paddingHorizontal: spacing.md, borderRadius: radius.control, backgroundColor: colors.surfaceRaised, marginBottom: spacing.md },
   input: { flex: 1, fontFamily: fonts.medium, fontSize: 16, color: colors.text, paddingVertical: 0 },
-  content: { gap: spacing.sm, paddingBottom: spacing.xl },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  cover: { width: 56, height: 56, borderRadius: 10, overflow: 'hidden', backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
+  content: { gap: spacing.md, paddingBottom: spacing.xl },
+  section: { gap: spacing.sm },
+  listCard: { paddingHorizontal: spacing.md },
+  name: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 22, color: colors.text },
+  cover: { width: 48, height: 48, borderRadius: radius.thumb, overflow: 'hidden', backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
 });

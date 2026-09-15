@@ -8,7 +8,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { Link, useRouter, type Href } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -19,10 +19,12 @@ import { ago, toMs } from '@/lib/time';
 import { notificationTarget } from '@/notifications/link';
 import { useSession } from '@/store/session';
 import { Button } from '@/ui/button';
+import { Card, rowStyle } from '@/ui/card';
+import { IconButton } from '@/ui/icon-button';
 import { Screen } from '@/ui/screen';
 import { SignInCard } from '@/ui/sign-in-card';
-import { EmptyState, ErrorState, Skeleton } from '@/ui/states';
-import { colors, fonts, spacing, type } from '@/ui/theme';
+import { EmptyState, ErrorState, RowsSkeleton } from '@/ui/states';
+import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
 /** The website's own per-type emoji, for rows with no market cover. */
 const ICON: Record<string, string> = {
@@ -115,20 +117,7 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <Screen
-      title="Notifications"
-      back
-      backLabel="Back"
-      right={
-        signedIn ? (
-          <Link href="/notification-settings" asChild>
-            <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel="Notification settings" style={styles.gear}>
-              <Ionicons name="settings-outline" size={22} color={colors.text} />
-            </Pressable>
-          </Link>
-        ) : undefined
-      }
-    >
+    <Screen title="Notifications" back right={signedIn ? <IconButton name="settings-outline" label="Notification settings" href="/notification-settings" /> : undefined}>
       {!signedIn ? (
         <SignInCard />
       ) : (
@@ -138,51 +127,49 @@ export default function NotificationsScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.gold} />}
         >
           {feed.isPending ? (
-            <View style={{ gap: spacing.sm }}>
-              <Skeleton height={64} radius={12} />
-              <Skeleton height={64} radius={12} />
-              <Skeleton height={64} radius={12} />
-            </View>
+            <RowsSkeleton />
           ) : feed.isError ? (
             <ErrorState error={feed.error} onRetry={refresh} title="Could not load notifications" />
           ) : rows.length === 0 ? (
             <EmptyState title="Nothing yet" body="Market resolutions, new markets and updates land here." />
           ) : (
             <>
-              {rows.map((n) => {
-                const { emoji, imageUrl } = meta(n);
-                const tappable = notificationTarget(n.link) !== null;
-                return (
-                  <Pressable
-                    key={n.id}
-                    onPress={() => open(n)}
-                    disabled={!tappable || opening === n.id}
-                    style={[styles.row, !n.read_at && styles.rowUnread]}
-                    accessibilityRole={tappable ? 'link' : 'text'}
-                  >
-                    <View style={styles.avatar}>
-                      {imageUrl ? (
-                        <Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
-                      ) : (
-                        <Text style={{ fontSize: 18 }}>{emoji ?? ICON[n.type] ?? '🔔'}</Text>
-                      )}
-                    </View>
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={[type.body, { fontFamily: fonts.semibold }]} numberOfLines={2}>
-                        {n.title}
-                      </Text>
-                      {n.body ? (
-                        <Text style={type.muted} numberOfLines={3}>
-                          {n.body}
+              <Card padded={false} style={styles.listCard}>
+                {rows.map((n, i) => {
+                  const { emoji, imageUrl } = meta(n);
+                  const tappable = notificationTarget(n.link) !== null;
+                  return (
+                    <Pressable
+                      key={n.id}
+                      onPress={() => open(n)}
+                      disabled={!tappable || opening === n.id}
+                      style={({ pressed }) => [rowStyle(i === 0), pressed && tappable && { opacity: 0.7 }]}
+                      accessibilityRole={tappable ? 'link' : 'text'}
+                    >
+                      <View style={styles.avatar}>
+                        {imageUrl ? (
+                          <Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} contentFit="cover" />
+                        ) : (
+                          <Text style={{ fontSize: 18 }}>{emoji ?? ICON[n.type] ?? '🔔'}</Text>
+                        )}
+                      </View>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.title} numberOfLines={2}>
+                          {n.title}
                         </Text>
-                      ) : null}
-                      <Text style={type.muted}>{ago(toMs(n.created_at))}</Text>
-                    </View>
-                    {!n.read_at ? <View style={styles.dot} /> : null}
-                    {tappable ? <Ionicons name="chevron-forward" size={16} color={colors.textMuted} /> : null}
-                  </Pressable>
-                );
-              })}
+                        {n.body ? (
+                          <Text style={type.muted} numberOfLines={3}>
+                            {n.body}
+                          </Text>
+                        ) : null}
+                        <Text style={type.muted}>{ago(toMs(n.created_at))}</Text>
+                      </View>
+                      {!n.read_at ? <View style={styles.dot} /> : null}
+                      {tappable ? <Ionicons name="chevron-forward" size={16} color={colors.textMuted} /> : null}
+                    </Pressable>
+                  );
+                })}
+              </Card>
 
               {feed.hasNextPage ? (
                 <Button
@@ -202,19 +189,9 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { gap: spacing.sm, paddingBottom: spacing.xl },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  rowUnread: { borderColor: 'rgba(242,183,31,0.45)' },
-  avatar: { width: 36, height: 36, borderRadius: 10, overflow: 'hidden', backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
+  content: { gap: spacing.md, paddingBottom: spacing.xl },
+  listCard: { paddingHorizontal: spacing.md },
+  title: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 22, color: colors.text },
+  avatar: { width: 40, height: 40, borderRadius: radius.thumb, overflow: 'hidden', backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.gold },
-  gear: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
 });

@@ -1,7 +1,7 @@
 // Error copy. Users see these strings, so the mapping from a raw failure to
 // plain language is worth pinning; a Java stack trace once reached the screen.
 import { ApiError } from '@/api/client';
-import { errorMessage } from '@/ui/states';
+import { errorMessage } from '@/lib/error-message';
 
 describe('errorMessage', () => {
   it('explains a not found', () => {

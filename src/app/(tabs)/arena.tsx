@@ -22,7 +22,6 @@ import {
   joinCodeError,
   placeLabel,
   seasonCountdown,
-  statusLabel,
   teamNameError,
   teamSizeCopy,
 } from '@/lib/arena-view';
@@ -30,13 +29,18 @@ import { useNow } from '@/lib/use-now';
 import { useSession } from '@/store/session';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
+import { Card, SectionTitle, Stat, rowStyle } from '@/ui/card';
 import { Pill } from '@/ui/pill';
 import { Screen } from '@/ui/screen';
-import { EmptyState, ErrorState, Skeleton } from '@/ui/states';
-import { colors, fonts, spacing, type } from '@/ui/theme';
+import { Segmented } from '@/ui/segmented';
+import { EmptyState, ErrorState, RowsSkeleton } from '@/ui/states';
+import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
 /** Newest season first, as the website's switcher lists them. */
 const SEASONS = [...ARENAS].sort((a, b) => b.id - a.id);
+const SEASON_OPTIONS = SEASONS.map((a) => ({ key: a.slug, label: `${a.emoji} ${a.name}` }));
+
+const PLACES = ['1st', '2nd', '3rd'];
 
 type SheetKind = 'prizes' | 'earn' | 'create' | 'join';
 
@@ -48,7 +52,6 @@ export default function ArenaScreen() {
   // A minute is fine for deciding status; the ticking countdown has its own clock.
   const now = new Date(useNow(60_000));
   const status = arenaStatus(selected, now);
-  const isCurrent = selected.id === CURRENT_ARENA.id;
   const entryOpen = canEnter(selected, CURRENT_ARENA, now);
   const board = useTeamLeaderboard(selected.slug, status === 'active', focused);
   const mine = useMyTeam(wallet, selected.slug);
@@ -104,62 +107,61 @@ export default function ArenaScreen() {
 
   const myTeam = wallet ? mine.data : null;
 
+  const switcher =
+    SEASONS.length > 1 ? (
+      <Segmented
+        options={SEASON_OPTIONS}
+        value={selected.slug}
+        onChange={(slug) => {
+          const next = SEASONS.find((a) => a.slug === slug);
+          if (next) setSelected(next);
+        }}
+        stretch={false}
+        size="sm"
+      />
+    ) : null;
+
   return (
-    <Screen title="" back backLabel="Back">
+    <Screen title="Arena">
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.gold} />}
       >
-        {SEASONS.length > 1 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.seasons}>
-            {SEASONS.map((a) => (
-              <Pressable
-                key={a.id}
-                onPress={() => setSelected(a)}
-                style={[styles.seasonChip, a.id === selected.id && styles.seasonChipOn]}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: a.id === selected.id }}
-              >
-                <Text style={[styles.seasonChipText, a.id === selected.id && { color: colors.gold }]}>
-                  {a.emoji} {a.name}
-                </Text>
-              </Pressable>
-            ))}
+        {SEASONS.length > 3 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {switcher}
           </ScrollView>
-        ) : null}
+        ) : (
+          switcher
+        )}
 
-        <View style={styles.hero}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <Text style={styles.eyebrow}>The Arena</Text>
-            <Pill label={statusLabel(status, isCurrent)} tone={status === 'active' ? 'green' : status === 'upcoming' ? 'orange' : 'neutral'} />
+        <Card style={{ gap: spacing.sm }}>
+          <View style={styles.heroHead}>
+            <Text style={[type.title, { flex: 1 }]} numberOfLines={1}>
+              {selected.emoji} {selected.name}
+            </Text>
+            {status === 'ended' ? <Pill label="Ended" tone="neutral" /> : null}
           </View>
-          <Text style={styles.heroTitle}>
-            {selected.emoji} {selected.name}
-          </Text>
           <Text style={type.muted}>{selected.tagline}</Text>
           <Text style={type.body}>
             {selected.displayRange} · <Text style={{ color: colors.gold }}>Top {selected.prizes.length} share {selected.prizePool}</Text>
           </Text>
           <Countdown arena={selected} />
-          <View style={styles.prizeRow}>
+          <View style={styles.statRow}>
             {selected.prizes.slice(0, 3).map((p, i) => (
-              <View key={p.place} style={styles.prizeChip}>
-                <Text style={type.body}>
-                  {MEDALS[i]} {p.amount}
-                </Text>
-              </View>
+              <Stat key={p.place} label={`${MEDALS[i]} ${PLACES[i]}`} value={p.amount} align={i === 0 ? 'left' : i === 1 ? 'center' : 'right'} />
             ))}
-            <Pressable onPress={() => openSheet('prizes')} style={styles.linkChip} accessibilityRole="button">
-              <Text style={styles.linkChipText}>{selected.prizes.length > 3 ? `+${selected.prizes.length - 3} more` : 'All prizes'}</Text>
-            </Pressable>
           </View>
-        </View>
+          <Pressable onPress={() => openSheet('prizes')} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'flex-start' }}>
+            <Text style={styles.textButton}>All prizes</Text>
+          </Pressable>
+        </Card>
 
         {wallet && myTeam ? (
           <MyTeamCard team={myTeam} />
         ) : entryOpen ? (
-          <View style={styles.card}>
+          <Card style={{ gap: spacing.sm }}>
             <Text style={type.heading}>⚔️ Enter the Arena</Text>
             <Text style={type.muted}>{teamSizeCopy(selected)}</Text>
             <Text style={type.muted}>
@@ -167,17 +169,17 @@ export default function ArenaScreen() {
             </Text>
             <Text style={[type.muted, styles.discordNote]}>Discord must be linked, and at least 30 days old, to enter the Arena.</Text>
             {wallet ? (
-              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              <View style={{ flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.xs }}>
                 <Button label="Create a team" onPress={() => openSheet('create')} style={{ flex: 1 }} />
                 <Button label="Join with a code" tone="neutral" onPress={() => openSheet('join')} style={{ flex: 1 }} />
               </View>
             ) : (
               <Text style={type.muted}>Sign in to create or join a team.</Text>
             )}
-          </View>
+          </Card>
         ) : null}
 
-        <View style={styles.card}>
+        <Card style={{ gap: spacing.sm }}>
           <Text style={type.heading}>⭐ How the Arena works</Text>
           {[
             ['🛡️', 'Create a team or join one with a code'],
@@ -185,34 +187,35 @@ export default function ArenaScreen() {
             ['🏆', 'Team score is the sum of every member’s points'],
             ['🎯', `Top ${selected.prizes.length} teams share the ${selected.prizePool} prize pool`],
           ].map(([emoji, text]) => (
-            <View key={text} style={{ flexDirection: 'row', gap: spacing.sm }}>
-              <Text>{emoji}</Text>
+            <View key={text} style={styles.howRow}>
+              <Text style={{ fontSize: 18 }}>{emoji}</Text>
               <Text style={[type.body, { flex: 1 }]}>{text}</Text>
             </View>
           ))}
-          <Pressable onPress={() => openSheet('earn')} accessibilityRole="button" style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text style={styles.linkChipText}>How to earn points</Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.gold} />
+          <Pressable onPress={() => openSheet('earn')} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'flex-start' }}>
+            <Text style={styles.textButton}>How to earn points</Text>
           </Pressable>
-        </View>
+        </Card>
 
-        <Text style={type.heading}>{status === 'ended' ? 'Final standings' : 'Standings'}</Text>
-        {board.isPending ? (
-          <View style={{ gap: spacing.sm }}>
-            <Skeleton height={60} radius={12} />
-            <Skeleton height={60} radius={12} />
-            <Skeleton height={60} radius={12} />
-          </View>
-        ) : board.isError ? (
-          <ErrorState error={board.error} onRetry={() => board.refetch()} title="Could not load the standings" />
-        ) : rows.length === 0 ? (
-          <EmptyState
-            title={status === 'ended' ? 'No teams competed in this season' : 'No teams yet'}
-            body={status === 'ended' ? undefined : 'Create the first one.'}
-          />
-        ) : (
-          rows.map((row, i) => <TeamRow key={row.team_id} row={row} rank={i} mine={myTeam?.slug === row.team_slug} />)
-        )}
+        <View style={styles.section}>
+          <SectionTitle title={status === 'ended' ? 'Final standings' : 'Standings'} />
+          {board.isPending ? (
+            <RowsSkeleton />
+          ) : board.isError ? (
+            <ErrorState error={board.error} onRetry={() => board.refetch()} title="Could not load the standings" />
+          ) : rows.length === 0 ? (
+            <EmptyState
+              title={status === 'ended' ? 'No teams competed in this season' : 'No teams yet'}
+              body={status === 'ended' ? undefined : 'Create the first one.'}
+            />
+          ) : (
+            <Card padded={false} style={styles.listCard}>
+              {rows.map((row, i) => (
+                <TeamRow key={row.team_id} row={row} rank={i} mine={myTeam?.slug === row.team_slug} first={i === 0} />
+              ))}
+            </Card>
+          )}
+        </View>
       </ScrollView>
 
       <BottomSheet
@@ -257,13 +260,15 @@ export default function ArenaScreen() {
         }
       >
         {sheet === 'prizes' ? (
-          selected.prizes.map((p) => (
-            <View key={p.place} style={styles.prizeLine}>
-              <Text style={{ width: 28, textAlign: 'center' }}>{p.place <= 3 ? MEDALS[p.place - 1] : p.place}</Text>
-              <Text style={[type.body, { flex: 1 }]}>{placeLabel(p.place)}</Text>
-              <Text style={[type.money, { color: colors.gold }]}>{p.amount}</Text>
-            </View>
-          ))
+          <Card padded={false} style={styles.listCard}>
+            {selected.prizes.map((p, i) => (
+              <View key={p.place} style={rowStyle(i === 0)}>
+                <Text style={styles.rank}>{p.place <= 3 ? MEDALS[p.place - 1] : p.place}</Text>
+                <Text style={[type.body, { flex: 1 }]}>{placeLabel(p.place)}</Text>
+                <Text style={[type.money, { color: colors.gold }]}>{p.amount}</Text>
+              </View>
+            ))}
+          </Card>
         ) : sheet === 'earn' ? (
           <EarnRules />
         ) : sheet === 'create' || sheet === 'join' ? (
@@ -329,16 +334,16 @@ function Countdown({ arena }: { arena: Arena }) {
 function MyTeamCard({ team }: { team: MyTeam }) {
   const captain = team.role === 'captain';
   return (
-    <View style={[styles.card, { borderColor: 'rgba(242,183,31,0.45)' }]}>
+    <Card style={{ gap: spacing.sm }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-        <Text style={type.muted}>🛡️ Your team</Text>
+        <Text style={type.heading}>🛡️ Your team</Text>
         {captain ? <Pill label="CAPTAIN" tone="gold" /> : null}
       </View>
       <Text style={styles.teamName}>{team.name}</Text>
       {captain && team.join_code ? (
         <View style={styles.codeBox}>
           <View style={{ flex: 1 }}>
-            <Text style={type.muted}>Join code</Text>
+            <Text style={type.label}>Join code</Text>
             <Text style={styles.code} selectable>
               {team.join_code}
             </Text>
@@ -346,28 +351,29 @@ function MyTeamCard({ team }: { team: MyTeam }) {
           <Button
             label="Share"
             tone="neutral"
+            size="sm"
             onPress={() => Share.share({ message: `Join my team "${team.name}" in the Mentioned Arena. My code is ${team.join_code}.` })}
           />
         </View>
       ) : null}
       <Link href={`/arena/${team.slug}` as Href} asChild>
-        <Pressable style={styles.viewTeam} accessibilityRole="link">
-          <Text style={styles.linkChipText}>View team</Text>
-          <Ionicons name="chevron-forward" size={14} color={colors.gold} />
+        <Pressable style={rowStyle(false)} accessibilityRole="link" accessibilityLabel="View team">
+          <Text style={styles.rowLabel}>View team</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </Pressable>
       </Link>
-    </View>
+    </Card>
   );
 }
 
-function TeamRow({ row, rank, mine }: { row: TeamLeaderboardEntry; rank: number; mine: boolean }) {
+function TeamRow({ row, rank, mine, first }: { row: TeamLeaderboardEntry; rank: number; mine: boolean; first: boolean }) {
   return (
     <Link href={`/arena/${row.team_slug}` as Href} asChild>
-      <Pressable style={StyleSheet.flatten([styles.row, mine && styles.rowMine])} accessibilityRole="link" accessibilityLabel={`${row.team_name}, rank ${rank + 1}`}>
+      <Pressable style={rowStyle(first)} accessibilityRole="link" accessibilityLabel={`${row.team_name}, rank ${rank + 1}`}>
         <Text style={styles.rank}>{MEDALS[rank] ?? rank + 1}</Text>
         <View style={{ flex: 1, gap: 2 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={[type.body, { fontFamily: fonts.semibold, flexShrink: 1 }]} numberOfLines={1}>
+            <Text style={styles.rowTitle} numberOfLines={1}>
               {row.team_name}
             </Text>
             {mine ? <Pill label="YOU" tone="gold" /> : null}
@@ -377,7 +383,6 @@ function TeamRow({ row, rank, mine }: { row: TeamLeaderboardEntry; rank: number;
           </Text>
         </View>
         <Text style={type.money}>{row.weekly_points.toLocaleString()}</Text>
-        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
       </Pressable>
     </Link>
   );
@@ -397,18 +402,18 @@ function EarnRules() {
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={type.muted}>Your points add to your team&apos;s score. Every point counts the same, but paid markets pay out far more than free play.</Text>
-      <View style={[styles.card, { borderColor: 'rgba(242,183,31,0.45)' }]}>
-        <Text style={[styles.eyebrow, { color: colors.gold }]}>💰 Paid markets · main event</Text>
+      <Card style={{ gap: spacing.sm }}>
+        <Text style={type.heading}>💰 Paid markets · main event</Text>
         <Rule title="+100 just for playing." body="Hold at least $1 to the close and you bank it, win or lose. Once per market." />
         <Rule title="+150 per $1 of profit." body="The more you win, the more you earn." />
         <Rule title="Trades cap at 2 USDC." body="It rewards being right, not staking big, so small traders compete on an even field." />
-      </View>
-      <View style={styles.card}>
-        <Text style={styles.eyebrow}>🎮 Free markets · warm up</Text>
+      </Card>
+      <Card style={{ gap: spacing.sm }}>
+        <Text style={type.heading}>🎮 Free markets · warm up</Text>
         <Rule title="Start with 300 play tokens." body="No real money, just predict and trade." />
         <Rule title="Earn half your token profit as points." body="Turn a profit and half of it converts to points." />
         <Rule title="Capped at 200 points per market." body="Free play is the on-ramp; paid markets are where it adds up." />
-      </View>
+      </Card>
       <Text style={type.muted}>Points land when a market resolves, so hold your position to the close. Link Discord to earn: points only count for linked wallets.</Text>
     </View>
   );
@@ -416,36 +421,26 @@ function EarnRules() {
 
 const styles = StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing.xl },
-  seasons: { gap: spacing.sm },
-  seasonChip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  seasonChipOn: { borderColor: colors.gold, backgroundColor: 'rgba(242,183,31,0.12)' },
-  seasonChipText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
-  hero: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(242,183,31,0.45)', gap: spacing.sm },
-  eyebrow: { fontFamily: fonts.semibold, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.textMuted },
-  heroTitle: { fontFamily: fonts.bold, fontSize: 32, lineHeight: 38, color: colors.gold },
+  heroHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   countdown: { ...type.body, fontVariant: ['tabular-nums'] },
-  prizeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: 2 },
-  prizeChip: { paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: 10, backgroundColor: colors.surfaceRaised },
-  linkChip: { paddingHorizontal: spacing.sm, paddingVertical: 6, justifyContent: 'center' },
-  linkChipText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.gold },
-  card: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
+  statRow: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.xs },
+  textButton: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.textMuted },
   discordNote: { color: '#8C95F5' },
   warnNote: { color: colors.gold },
+  howRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 4 },
   teamName: { fontFamily: fonts.bold, fontSize: 22, lineHeight: 28, color: colors.text },
-  codeBox: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm, borderRadius: 12, backgroundColor: colors.surfaceRaised },
-  code: { fontFamily: fonts.bold, fontSize: 22, letterSpacing: 3, color: colors.gold },
-  viewTeam: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  rowMine: { borderColor: colors.gold },
+  codeBox: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.sm + 4, borderRadius: radius.key, backgroundColor: colors.surfaceRaised },
+  code: { fontFamily: fonts.bold, fontSize: 22, lineHeight: 28, letterSpacing: 3, color: colors.gold },
+  rowLabel: { ...type.body, flex: 1, fontFamily: fonts.semibold },
+  section: { gap: spacing.sm },
+  listCard: { paddingHorizontal: spacing.md },
+  rowTitle: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: colors.text, flexShrink: 1 },
   rank: { width: 32, textAlign: 'center', fontFamily: fonts.bold, fontSize: 16, color: colors.textMuted, fontVariant: ['tabular-nums'] },
-  prizeLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 6 },
   input: {
     height: 52,
     paddingHorizontal: spacing.md,
-    borderRadius: 12,
+    borderRadius: radius.key,
     backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.border,
     color: colors.text,
     fontFamily: fonts.medium,
     fontSize: 16,

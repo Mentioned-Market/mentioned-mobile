@@ -7,7 +7,8 @@ import { get, post, q } from './client';
 const numStr = z.string().regex(/^-?\d+$/);
 
 export const PaidMajorityListWord = z.object({
-  word: z.string(),
+  // Null until the server has resolved the word's text, as on the market route.
+  word: z.string().nullable(),
   wordHash: z.string(),
   oddsPct: z.number(),
   outcome: z.number(),

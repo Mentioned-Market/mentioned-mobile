@@ -36,7 +36,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, spacing, type } from '@/ui/theme';
+import { IconButton } from '@/ui/icon-button';
+import { colors, radius, spacing, type } from '@/ui/theme';
 
 /** Drag past this many points and the release dismisses rather than settles. */
 const DISMISS_DISTANCE = 120;
@@ -78,12 +79,19 @@ type Props = {
    * without stopping it.
    */
   locked?: boolean;
+  /**
+   * Fill the screen below the status bar, with an X to leave. For the trade
+   * sheet, which is a whole screen of its own rather than a note on top of one.
+   */
+  full?: boolean;
+  /** Drawn in place of the title, e.g. a thumbnail and two lines of text. */
+  header?: ReactNode;
   children: ReactNode;
 };
 
 const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 
-export function BottomSheet({ ref, visible, onClose, title, subtitle, footer, locked = false, children }: Props) {
+export function BottomSheet({ ref, visible, onClose, title, subtitle, footer, locked = false, full = false, header, children }: Props) {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
 
@@ -181,7 +189,7 @@ export function BottomSheet({ ref, visible, onClose, title, subtitle, footer, lo
         </Animated.View>
         <GestureDetector gesture={pan}>
           <Animated.View
-            style={[styles.sheet, sheetStyle, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}
+            style={[styles.sheet, sheetStyle, { paddingBottom: Math.max(insets.bottom, spacing.sm) }, full && { height: height - insets.top, maxHeight: '100%' }]}
             onLayout={(e) => sheetHeight.set(e.nativeEvent.layout.height)}
           >
             <View
@@ -193,16 +201,21 @@ export function BottomSheet({ ref, visible, onClose, title, subtitle, footer, lo
             >
               <View style={[styles.handle, locked && { opacity: 0 }]} />
             </View>
-            {title ? (
+            {title || header || full ? (
               <View style={styles.header}>
-                <Text style={type.heading} numberOfLines={1}>
-                  {title}
-                </Text>
-                {subtitle ? (
-                  <Text style={styles.subtitle} numberOfLines={1}>
-                    {subtitle}
-                  </Text>
-                ) : null}
+                {header ?? (
+                  <View style={{ flex: 1 }}>
+                    <Text style={type.heading} numberOfLines={1}>
+                      {title}
+                    </Text>
+                    {subtitle ? (
+                      <Text style={styles.subtitle} numberOfLines={1}>
+                        {subtitle}
+                      </Text>
+                    ) : null}
+                  </View>
+                )}
+                {full ? <IconButton name="close" label="Close" onPress={close} style={locked ? { opacity: 0.3 } : undefined} /> : null}
               </View>
             ) : null}
             {/* flexShrink lets the body give up height to the header and footer
@@ -210,7 +223,7 @@ export function BottomSheet({ ref, visible, onClose, title, subtitle, footer, lo
                 bottom of the sheet. */}
             <GestureDetector gesture={bodyScroll}>
               <AnimatedScrollView
-                style={styles.body}
+                style={[styles.body, full && { flex: 1 }]}
                 bounces={false}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.bodyContent}
@@ -235,17 +248,15 @@ const styles = StyleSheet.create({
   sheet: {
     maxHeight: '94%',
     backgroundColor: colors.bg,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: radius.card,
+    borderTopRightRadius: radius.card,
     paddingHorizontal: spacing.md,
-    borderTopWidth: 1,
-    borderColor: colors.border,
   },
   // A generous touch target around the handle: the bar itself is 5pt tall and
   // is an affordance, not a hit area.
   grabber: { alignItems: 'center', paddingTop: spacing.sm, paddingBottom: spacing.sm },
   handle: { width: 44, height: 5, borderRadius: 3, backgroundColor: colors.border },
-  header: { paddingBottom: spacing.sm },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 4, paddingBottom: spacing.sm },
   subtitle: { ...type.muted, fontSize: 13, lineHeight: 18 },
   body: { flexShrink: 1 },
   bodyContent: { gap: spacing.sm },

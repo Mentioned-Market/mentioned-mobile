@@ -9,7 +9,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { shortAddress } from '@/lib/format';
 import { useSession } from '@/store/session';
 import { Button } from '@/ui/button';
-import { colors, spacing, type } from '@/ui/theme';
+import { colors, radius, spacing, type } from '@/ui/theme';
 import { unregisterForPush } from '@/notifications/push';
 
 export function SignInCard({ compact = false }: { compact?: boolean }) {
@@ -33,7 +33,7 @@ export function SignInCard({ compact = false }: { compact?: boolean }) {
           <Text style={type.muted}>Signed in</Text>
           <Text style={type.money}>{shortAddress(wallet)}</Text>
         </View>
-        <Button label={signingOut ? 'Signing out' : 'Sign out'} tone="neutral" onPress={signOut} disabled={signingOut} style={{ minWidth: 120 }} />
+        <Button label={signingOut ? 'Signing out' : 'Sign out'} tone="neutral" size="sm" onPress={signOut} disabled={signingOut} />
       </View>
     );
   }
@@ -54,6 +54,6 @@ export function SignInCard({ compact = false }: { compact?: boolean }) {
 }
 
 const styles = StyleSheet.create({
-  card: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(242,183,31,0.35)', gap: spacing.md },
+  card: { padding: spacing.md, borderRadius: radius.card, backgroundColor: colors.surface, gap: spacing.md },
   row: { flexDirection: 'row', alignItems: 'center' },
 });

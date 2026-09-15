@@ -1,6 +1,6 @@
-// Paid YES/NO market. Words list vertically with YES and NO prices; tapping a
-// side opens the trade sheet from the bottom. Your positions sit under the
-// rules. Quotes use the ported AMM maths against the decoded account.
+// Paid YES/NO market. Each word shows the chance it happens; tapping one opens
+// the trade sheet as a full screen, where the side and the amount are chosen.
+// Quotes use the ported AMM maths against the decoded account.
 import * as Haptics from 'expo-haptics';
 import { Link, useLocalSearchParams, type Href } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
@@ -12,7 +12,6 @@ import {
   keys,
   useIsScreenFocused,
   usePaidMarket,
-  usePaidMarketsList,
   usePaidMarketChart,
   usePaidMarketMetadata,
   usePaidMarketTrades,
@@ -22,7 +21,7 @@ import {
 } from '@/api/queries';
 import { deserializeMarketAccount, estimateBuyCost, estimateSellReturn, impliedYesPrice, MarketStatus, sharesForUsdc } from '@/chain/amm';
 import { base64ToBytes } from '@/lib/bytes';
-import { compact as compactNumber, shares as fmtShares, shortAddress, usd, usdc } from '@/lib/format';
+import { pct, shares as fmtShares, shortAddress, usd, usdc } from '@/lib/format';
 import { fromBaseUnits, fromBaseUnitsFloor2, toBaseUnits } from '@/lib/units';
 import { useNow } from '@/lib/use-now';
 import { useSession } from '@/store/session';
@@ -32,15 +31,18 @@ import { MIN_SOL_FOR_FEES } from '@/trade/majority';
 import { effectiveSpend, MAX_POSITION_USDC, remainingAllowance, spendKey, useSessionSpend } from '@/trade/spend';
 import { useTrade } from '@/trade/use-trade';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
-import { PAUSED_NOTE, useFeatures } from '@/ui/config-gate';
 import { Button } from '@/ui/button';
+import { Card, SectionTitle, rowStyle } from '@/ui/card';
+import { Chip } from '@/ui/chip';
+import { PAUSED_NOTE, useFeatures } from '@/ui/config-gate';
 import { LineChart, type ChartSeries } from '@/ui/line-chart';
 import { MarketHeader, statusFromLock } from '@/ui/market-header';
 import { Screen } from '@/ui/screen';
 import { CardSkeleton, ErrorState } from '@/ui/states';
-import { colors, spacing, type } from '@/ui/theme';
+import { SwipeButton } from '@/ui/swipe-button';
+import { colors, fonts, spacing, type } from '@/ui/theme';
 import { TradeProgress } from '@/ui/trade-progress';
-import { TradeSheet, type Preset, type QuoteLine, type SheetWord, type Side, type TradeMode } from '@/ui/trade-sheet';
+import { TradeSheet, TradeSheetHeader, type Preset, type SheetChip, type SheetWord, type Side, type TradeMode } from '@/ui/trade-sheet';
 import { WordList } from '@/ui/word-list';
 import { YourPositions, type HeldRow } from '@/ui/your-positions';
 
@@ -53,9 +55,6 @@ export default function PaidYesNoScreen() {
   const now = useNow(1000);
   const viewed = useActiveWallet();
   const market = usePaidMarket(id, focused);
-  // Trader count comes from the list route: the detail route does not carry it
-  // on either environment. The list is prefetched at launch, so this is warm.
-  const marketsList = usePaidMarketsList(focused);
   const meta = usePaidMarketMetadata(id);
   const chart = usePaidMarketChart(id, focused);
   const trades = usePaidMarketTrades(id, focused);
@@ -87,24 +86,25 @@ export default function PaidYesNoScreen() {
   const acct = useMemo(() => (market.data ? deserializeMarketAccount(base64ToBytes(market.data.account)) : null), [market.data]);
   if (market.isPending) {
     return (
-      <Screen title="Loading" back>
+      <Screen back>
         <CardSkeleton />
       </Screen>
     );
   }
   if (market.isError || !acct) {
     return (
-      <Screen title="Paid YES/NO" back>
+      <Screen back>
         <ErrorState error={market.error ?? new Error('Could not decode the market account')} onRetry={() => market.refetch()} />
       </Screen>
     );
   }
 
-  const listEntry = (marketsList.data ?? []).find((m) => m.marketId === id);
   const b = acct.liquidityParamB;
   const lockAt = Number(acct.locksAt) * 1000;
   const status = statusFromLock(lockAt, acct.status === MarketStatus.Resolved ? 'resolved' : null, now);
   const open = status === 'open';
+  const title = meta.data?.title ?? `Market ${id}`;
+  const cover = meta.data?.cover_image_url ?? null;
   const words: SheetWord[] = acct.words.map((w) => {
     const yes = impliedYesPrice(w, b);
     return { key: String(w.wordIndex), label: w.label, yesPrice: yes, noPrice: 1 - yes, outcome: w.outcome };
@@ -123,31 +123,13 @@ export default function PaidYesNoScreen() {
     // against it means nothing, so the row is left untoned.
     const costText = cost > 0 ? `cost ${usd(cost)}` : 'cost updating';
     const tone: HeldRow['tone'] = cost <= 0 ? undefined : value > cost ? 'up' : value < cost ? 'down' : undefined;
-    if (yes > 0n)
-      rows.push({
-        key: `${p.wordIndex}y`,
-        word: p.wordLabel,
-        side: 'YES',
-        amount: `${fmtShares(yes)} shares · ${costText}`,
-        value: `Worth ${usd(value)}`,
-        tone,
-      });
-    if (no > 0n)
-      rows.push({
-        key: `${p.wordIndex}n`,
-        word: p.wordLabel,
-        side: 'NO',
-        amount: `${fmtShares(no)} shares · ${costText}`,
-        value: `Worth ${usd(value)}`,
-        tone,
-      });
+    if (yes > 0n) rows.push({ key: `${p.wordIndex}y`, word: p.wordLabel, side: 'YES', amount: `${fmtShares(yes)} shares · ${costText}`, value: `Worth ${usd(value)}`, tone });
+    if (no > 0n) rows.push({ key: `${p.wordIndex}n`, word: p.wordLabel, side: 'NO', amount: `${fmtShares(no)} shares · ${costText}`, value: `Worth ${usd(value)}`, tone });
     return rows;
   });
   const heldBadges: Record<string, string> = {};
   for (const p of mine) {
-    const parts = [BigInt(p.yesShares) > 0n ? `${fmtShares(p.yesShares)} YES` : null, BigInt(p.noShares) > 0n ? `${fmtShares(p.noShares)} NO` : null].filter(
-      Boolean,
-    );
+    const parts = [BigInt(p.yesShares) > 0n ? `${fmtShares(p.yesShares)} YES` : null, BigInt(p.noShares) > 0n ? `${fmtShares(p.noShares)} NO` : null].filter(Boolean);
     if (parts.length) heldBadges[String(p.wordIndex)] = parts.join(' · ');
   }
 
@@ -177,33 +159,30 @@ export default function PaidYesNoScreen() {
 
   const amountNum = Number(amount) || 0;
   const feeBps = BigInt(acct.tradeFeeBps);
-  let headline = { label: 'Est. shares', value: '0' };
-  let lines: QuoteLine[] = [];
+  const sheetWord = pick ? words[pick.idx] : null;
+  const chance = sheetWord ? (side === 'YES' ? sheetWord.yesPrice : sheetWord.noPrice) : 0;
+  let headline = { label: 'Potential return', value: '$0.00' };
+  let detail: string | null = null;
+  let chips: SheetChip[] = [];
   let warning: string | null = null;
   let presets: Preset[] = [];
-  let capLine: string | undefined;
-  let actionLabel = `Buy ${side}`;
+  let actionLabel = `Swipe to Predict ${side === 'YES' ? 'Yes' : 'No'}`;
   if (word && mode === 'buy') {
     // Presets are shares of what is left under the cap, as on the website, so
     // no quick amount can be refused by it.
     presets = [25, 50, 75, 100].map((n) => ({ label: n === 100 ? 'Max' : `${n}%`, value: centsDown((remainingUsd * n) / 100) }));
-    capLine =
-      remaining <= 0
-        ? `Position full. $${(MAX_POSITION_USDC / 1e6).toFixed(2)} is the most on ${side} while paid markets are in testing.`
-        : `$${centsDown(Math.max(0, remainingUsd - amountNum))} left of $${(MAX_POSITION_USDC / 1e6).toFixed(2)} max on ${side}`;
     const usdcUnits = toBaseUnits(amount);
     const sharesOut = usdcUnits > 0n ? sharesForUsdc(word, b, side, usdcUnits) : 0n;
     const cost = sharesOut > 0n ? estimateBuyCost(word, b, side, sharesOut) : 0n;
     const fee = (cost * feeBps) / 10000n;
     const avg = sharesOut > 0n ? Number(cost + fee) / Number(sharesOut) : 0;
-    headline = { label: 'Est. shares', value: fmtShares(sharesOut) };
-    lines = [
-      { label: 'Average price', value: sharesOut > 0n ? `${Math.round(avg * 100)}c` : '–' },
-      { label: `Fee (${acct.tradeFeeBps / 100}%)`, value: usdc(fee) },
-      { label: 'Total cost', value: usdc(cost + fee) },
-      { label: `If ${word.label} resolves ${side}`, value: usdc(sharesOut), strong: true },
+    headline = { label: 'Potential return', value: usdc(sharesOut) };
+    detail = sharesOut > 0n ? `${fmtShares(sharesOut)} shares · avg ${pct(avg)} · fee ${usdc(fee)} · total ${usdc(cost + fee)}` : null;
+    chips = [
+      { value: pct(chance), caption: 'chance', tone: side === 'YES' ? 'yes' : 'no' },
+      { value: `$${centsDown(Math.max(0, remainingUsd - amountNum))}`, caption: `left of $${(MAX_POSITION_USDC / 1e6).toFixed(0)} max` },
     ];
-    actionLabel = sharesOut > 0n ? `Buy ${side} for ${usdc(cost + fee)}` : `Buy ${side}`;
+    if (remaining <= 0) warning = `Position full. $${(MAX_POSITION_USDC / 1e6).toFixed(2)} is the most on ${side} while paid markets are in testing.`;
   } else if (word) {
     const sharesIn = toBaseUnits(amount);
     const capped = sharesIn > heldSide ? heldSide : sharesIn;
@@ -212,10 +191,10 @@ export default function PaidYesNoScreen() {
     const net = gross - fee;
     const avg = capped > 0n ? Number(net) / Number(capped) : 0;
     headline = { label: 'You receive', value: usdc(net) };
-    lines = [
-      { label: 'Average price', value: capped > 0n ? `${Math.round(avg * 100)}c` : '–' },
-      { label: `Fee (${acct.tradeFeeBps / 100}%)`, value: usdc(fee) },
-      { label: `${side} shares held`, value: fmtShares(heldSide) },
+    detail = capped > 0n ? `avg ${pct(avg)} · fee ${usdc(fee)}` : null;
+    chips = [
+      { value: pct(chance), caption: 'chance', tone: side === 'YES' ? 'yes' : 'no' },
+      { value: fmtShares(heldSide), caption: `${side} held` },
     ];
     if (!viewed) warning = 'Connect a wallet to see what you hold.';
     else if (sharesIn > heldSide) warning = `You hold ${fmtShares(heldSide)} ${side} shares on this word.`;
@@ -227,7 +206,7 @@ export default function PaidYesNoScreen() {
       label: n === 100 ? 'Max' : `${n}%`,
       value: n === 100 ? fromBaseUnits(heldSide) : fromBaseUnitsFloor2((heldSide * BigInt(n)) / 100n),
     }));
-    actionLabel = capped > 0n ? `Sell ${side} for ${usdc(net)}` : `Sell ${side}`;
+    actionLabel = `Swipe to Sell ${side === 'YES' ? 'Yes' : 'No'}`;
   }
 
   // Put the trade on chain. The plan is built here so a bad input is named
@@ -258,13 +237,7 @@ export default function PaidYesNoScreen() {
     let spendDelta: number;
     try {
       if (mode === 'buy') {
-        const plan = await planBuy({
-          wallet: sessionWallet,
-          market: acct,
-          word,
-          side,
-          usdcUnits: toBaseUnits(amount),
-        });
+        const plan = await planBuy({ wallet: sessionWallet, market: acct, word, side, usdcUnits: toBaseUnits(amount) });
         instructions = plan.instructions;
         summary = { title: `You bought ${fmtShares(plan.shares)} ${side}`, detail: `${word.label} for ${usdc(plan.cost + plan.fee)}` };
         spendDelta = Number(plan.cost + plan.fee);
@@ -333,18 +306,17 @@ export default function PaidYesNoScreen() {
     setInputError(null);
   };
 
+  const recent = (trades.data ?? []).slice(0, 8);
+
   return (
-    <Screen title="" back>
+    <Screen back>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <MarketHeader
-          title={meta.data?.title ?? `Market ${id}`}
-          cover={meta.data?.cover_image_url ?? null}
+          title={title}
+          cover={cover}
           status={status}
-          paid
-          majority={false}
           lockAt={lockAt}
           eventAt={meta.data?.event_start_time ? Date.parse(meta.data.event_start_time) : null}
-          traderCount={null}
           now={now}
           description={meta.data?.description}
         />
@@ -354,47 +326,47 @@ export default function PaidYesNoScreen() {
             <Button label="See results" tone="neutral" />
           </Link>
         ) : null}
-        {/* Volume and traders: what the market is worth paying attention to.
-            The vault balance was here and is not that. It is an accounting
-            figure, it moves with every trade in either direction, and it tells
-            a trader nothing they can act on. */}
-        <View style={styles.stats}>
-          <Stat label="Volume" value={chart.data ? usd(chart.data.totalVolume / 1e6) : '–'} />
-          <Stat label="Traders" value={listEntry ? compactNumber(listEntry.traderCount) : '–'} />
-        </View>
-        <Text style={type.heading}>{open ? 'Pick a side' : 'Words'}</Text>
         <WordList words={words} onPick={openSheet} open={open} held={heldBadges} />
-        <Text style={type.heading}>Price history</Text>
-        <LineChart series={series} />
-        <Text style={type.heading}>Recent trades</Text>
-        {(trades.data ?? []).slice(0, 8).map((t) => (
-          <Link key={t.signature} href={(t.username ? `/u/${encodeURIComponent(t.username)}` : `/positions?wallet=${t.trader}`) as Href} asChild>
-            <Pressable style={styles.trade} accessibilityRole="button">
-              <Text style={[type.body, { flex: 1 }]} numberOfLines={1}>
-                <Text style={{ color: colors.gold }}>{t.username ?? shortAddress(t.trader)}</Text> {t.isBuy ? 'bought' : 'sold'}{' '}
-                <Text style={{ color: t.direction === 'YES' ? colors.yes : colors.no }}>{t.direction}</Text> {acct.words[t.wordIndex]?.label ?? ''}
-              </Text>
-              <Text style={type.money}>{usdc(t.cost)}</Text>
-            </Pressable>
-          </Link>
-        ))}
-        {trades.data && trades.data.length === 0 ? <Text style={type.muted}>No trades yet</Text> : null}
+
+        <SectionTitle title="Chance over time" right={chart.data ? <Chip value={usd(chart.data.totalVolume / 1e6)} caption="volume" /> : undefined} />
+        <Card>
+          <LineChart series={series} />
+        </Card>
+
+        {recent.length > 0 ? (
+          <>
+            <SectionTitle title="Recent trades" />
+            <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
+              {recent.map((t, i) => (
+                <Link key={t.signature} href={(t.username ? `/u/${encodeURIComponent(t.username)}` : `/positions?wallet=${t.trader}`) as Href} asChild>
+                  <Pressable style={rowStyle(i === 0)} accessibilityRole="button">
+                    <Text style={[type.body, { flex: 1 }]} numberOfLines={1}>
+                      <Text style={{ fontFamily: fonts.semibold }}>{t.username ?? shortAddress(t.trader)}</Text> {t.isBuy ? 'bought' : 'sold'}{' '}
+                      <Text style={{ color: t.direction === 'YES' ? colors.yes : colors.no, fontFamily: fonts.semibold }}>{t.direction}</Text> {acct.words[t.wordIndex]?.label ?? ''}
+                    </Text>
+                    <Text style={type.money}>{usdc(t.cost)}</Text>
+                  </Pressable>
+                </Link>
+              ))}
+            </Card>
+          </>
+        ) : null}
       </ScrollView>
 
       <BottomSheet
         ref={sheetRef}
         visible={!!pick && !!word}
         onClose={closeSheet}
-        title={word?.label ?? ''}
-        subtitle={meta.data?.title}
+        full
+        header={<TradeSheetHeader cover={cover} word={word?.label ?? ''} market={title} />}
         // Once a transaction is in flight, closing the sheet would hide its
         // outcome without stopping it, so every way out is refused until then.
         locked={trade.state.status === 'working'}
         footer={
           trade.state.status === 'working' ? (
-            // Same height as the button it stands in for, so the sheet does not
-            // drop while the trade runs and rise again when it lands.
-            <View style={{ height: 52 }} />
+            // Same height as the control it stands in for, so the sheet does
+            // not drop while the trade runs and rise again when it lands.
+            <View style={{ height: 64 }} />
           ) : trade.state.status === 'done' ? (
             <Button label="Done" tone="gold" onPress={() => sheetRef.current?.close()} />
           ) : trade.state.status === 'failed' && trade.state.indeterminate ? (
@@ -402,12 +374,12 @@ export default function PaidYesNoScreen() {
           ) : trade.state.status === 'failed' ? (
             <Button label="Try again" tone="gold" onPress={trade.reset} />
           ) : (
-            <Button
+            <SwipeButton
               label={open ? actionLabel : 'Market closed'}
               tone={side === 'YES' ? 'yes' : 'no'}
               disabled={!features.paidTrading || !open || !trade.ready || amountNum <= 0 || (mode === 'buy' && remaining <= 0)}
               note={inputError ?? (!features.paidTrading ? PAUSED_NOTE : !open ? undefined : !trade.ready ? 'Sign in to trade' : undefined)}
-              onPress={submit}
+              onConfirm={() => void submit()}
             />
           )
         }
@@ -419,10 +391,10 @@ export default function PaidYesNoScreen() {
             title={trade.state.status === 'done' ? result?.title : undefined}
             detail={trade.state.status === 'done' ? result?.detail : trade.state.status === 'failed' ? trade.state.message : undefined}
           />
-        ) : word && pick ? (
+        ) : word && pick && sheetWord ? (
           <View onLayout={(e) => setFormHeight(e.nativeEvent.layout.height)}>
             <TradeSheet
-              word={words[pick.idx]}
+              word={sheetWord}
               mode={mode}
               onMode={(m) => {
                 setMode(m);
@@ -441,13 +413,12 @@ export default function PaidYesNoScreen() {
                 setAmount(v);
                 setInputError(null);
               }}
-              balanceLine={mode === 'buy' ? capLine : undefined}
               unit={mode === 'buy' ? '$' : 'shares'}
               maxDecimals={2}
               presets={presets}
               headline={headline}
-              lines={lines}
-              holdings={viewed ? { yes: fmtShares(heldYes), no: fmtShares(heldNo) } : null}
+              chips={chips}
+              detail={detail}
               warning={warning}
               open={open}
             />
@@ -458,18 +429,6 @@ export default function PaidYesNoScreen() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={type.muted}>{label}</Text>
-      <Text style={type.money}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing.xl },
-  stats: { flexDirection: 'row', gap: spacing.sm },
-  stat: { flex: 1, padding: spacing.md, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: 2 },
-  trade: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 6 },
 });

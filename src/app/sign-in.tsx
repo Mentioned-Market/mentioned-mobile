@@ -9,7 +9,7 @@ import { OAuthProvider } from '@openfort/openfort-js';
 import { useEmailAuthOtp, useEmbeddedSolanaWallet, useOAuth, useUser } from '@openfort/react-native';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 
 import { getProfile } from '@/api/user';
 import { lastEncryptionSessionError, LegacyPrivyAccountError, WalletRoutingUnconfiguredError } from '@/auth/encryption-session';
@@ -17,6 +17,7 @@ import { chooseWalletAction, signInWithServer } from '@/auth/sign-in';
 import { isOpenfortConfigured } from '@/config';
 import { useSession } from '@/store/session';
 import { Button } from '@/ui/button';
+import { Card } from '@/ui/card';
 import { Screen } from '@/ui/screen';
 import { UsernameForm } from '@/ui/username-form';
 import { colors, fonts, spacing, type } from '@/ui/theme';
@@ -24,11 +25,11 @@ import { colors, fonts, spacing, type } from '@/ui/theme';
 export default function SignInScreen() {
   if (!isOpenfortConfigured) {
     return (
-      <Screen title="Sign in" back backLabel="Back">
-        <View style={styles.card}>
+      <Screen title="Sign in" back>
+        <Card style={styles.card}>
           <Text style={type.heading}>Not available in this build</Text>
           <Text style={type.muted}>This build was made without the Openfort keys, so sign-in is switched off. Browsing works as normal.</Text>
-        </View>
+        </Card>
       </Screen>
     );
   }
@@ -155,10 +156,10 @@ function SignInFlow() {
   };
 
   return (
-    <Screen title="Sign in" back backLabel="Back">
+    <Screen title="Sign in" back>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {step === 'email' ? (
-          <View style={styles.card}>
+          <Card style={styles.card}>
             <Text style={type.heading}>Email code</Text>
             <Text style={type.muted}>No password. We send a code to your email.</Text>
             <TextInput
@@ -173,11 +174,11 @@ function SignInFlow() {
               accessibilityLabel="Email address"
             />
             <Button label={busy ? 'Sending' : 'Send code'} onPress={sendCode} disabled={busy || !email.includes('@')} />
-          </View>
+          </Card>
         ) : null}
 
         {step === 'code' ? (
-          <View style={styles.card}>
+          <Card style={styles.card}>
             <Text style={type.heading}>Enter the code</Text>
             <TextInput
               value={code}
@@ -190,24 +191,24 @@ function SignInFlow() {
             />
             <Button label={busy ? 'Checking' : 'Confirm'} onPress={verifyCode} disabled={busy || code.trim().length < 4} />
             <Button label="Use a different email" tone="neutral" onPress={() => setStep('email')} disabled={busy} />
-          </View>
+          </Card>
         ) : null}
 
         {step === 'email' ? (
-          <View style={styles.card}>
+          <Card style={styles.card}>
             <Text style={type.heading}>Or continue with</Text>
             <Button label="Google" tone="neutral" onPress={withGoogle} disabled={busy} />
             <Button label="X" tone="neutral" onPress={withX} disabled={busy} />
             <Text style={type.muted}>Social sign-in needs the app redirect allowlisted in Openfort. Email works without it.</Text>
-          </View>
+          </Card>
         ) : null}
 
         {step === 'wallet' ? (
-          <View style={styles.card}>
+          <Card style={styles.card}>
             <Text style={type.heading}>Finish setting up</Text>
             <Text style={type.muted}>You are signed in with Openfort. This step recovers your Solana wallet, or creates one if you do not have it yet.</Text>
             <Button label={busy ? 'Working' : 'Set up wallet'} onPress={() => run(finish)} disabled={busy} />
-          </View>
+          </Card>
         ) : null}
 
         {step === 'username' && sessionWallet ? (
@@ -215,11 +216,11 @@ function SignInFlow() {
         ) : null}
 
         {step === 'done' ? (
-          <View style={styles.card}>
+          <Card style={styles.card}>
             <Text style={type.heading}>Signed in</Text>
             <Text style={type.muted}>{note}</Text>
             <Button label="Done" onPress={() => router.replace('/you')} />
-          </View>
+          </Card>
         ) : null}
 
         {note && step !== 'done' ? <Text style={type.muted}>{note}</Text> : null}
@@ -231,14 +232,12 @@ function SignInFlow() {
 
 const styles = StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing.xl },
-  card: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
+  card: { gap: spacing.sm },
   input: {
     height: 52,
     paddingHorizontal: spacing.md,
-    borderRadius: 12,
+    borderRadius: 16,
     backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.border,
     color: colors.text,
     fontFamily: fonts.medium,
     fontSize: 16,

@@ -1,7 +1,6 @@
 // A team's page, as mentioned.market/arena/<team> shows it: avatar, name, bio,
 // X account, season and all-time totals, and every member's points. The
 // captain can edit the details, change the picture and share the join code.
-import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -17,12 +16,19 @@ import { shortAddress } from '@/lib/format';
 import { useSession } from '@/store/session';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
+import { Card, SectionTitle, Stat, rowStyle } from '@/ui/card';
 import { Pill } from '@/ui/pill';
 import { Screen } from '@/ui/screen';
+import { Segmented } from '@/ui/segmented';
 import { CardSkeleton, ErrorState } from '@/ui/states';
-import { colors, fonts, spacing, type } from '@/ui/theme';
+import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
 type Sort = 'season' | 'all';
+
+const SORTS: { key: Sort; label: string }[] = [
+  { key: 'season', label: 'Season' },
+  { key: 'all', label: 'All time' },
+];
 
 export default function TeamScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -127,14 +133,14 @@ export default function TeamScreen() {
 
   if (team.isPending) {
     return (
-      <Screen title="" back backLabel="Arena">
+      <Screen back>
         <CardSkeleton />
       </Screen>
     );
   }
   if (team.isError || !team.data) {
     return (
-      <Screen title="Team" back backLabel="Arena">
+      <Screen title="Team" back>
         <ErrorState error={team.error} onRetry={() => team.refetch()} title="Could not load this team" />
       </Screen>
     );
@@ -144,17 +150,22 @@ export default function TeamScreen() {
   const since = new Date(t.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 
   return (
-    <Screen title="" back backLabel="Arena">
+    <Screen back>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.gold} />}
       >
         <View style={styles.header}>
-          <Pressable onPress={isCaptain ? changePicture : undefined} disabled={!isCaptain || uploading} accessibilityRole={isCaptain ? 'button' : 'image'} accessibilityLabel={isCaptain ? 'Change team picture' : t.name}>
+          <Pressable
+            onPress={isCaptain ? changePicture : undefined}
+            disabled={!isCaptain || uploading}
+            accessibilityRole={isCaptain ? 'button' : 'image'}
+            accessibilityLabel={isCaptain ? 'Change team picture' : t.name}
+          >
             <View style={styles.avatar}>
               {avatarFailed ? (
-                <Text style={{ fontSize: 34 }}>🛡️</Text>
+                <Text style={{ fontSize: 32 }}>🛡️</Text>
               ) : (
                 <Image
                   source={{ uri: teamAvatarUrl(slug, avatarVersion) }}
@@ -166,88 +177,79 @@ export default function TeamScreen() {
             </View>
             {isCaptain ? <Text style={styles.avatarEdit}>{uploading ? 'Uploading' : 'Change'}</Text> : null}
           </Pressable>
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={styles.teamName}>{t.name}</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-              <Pill label={`${arena.emoji} ${arena.name}${arena.status === 'ended' ? ' · ended' : ''}`} tone="gold" />
-              <Text style={type.muted}>
-                {members.length} {members.length === 1 ? 'member' : 'members'} · since {since}
-              </Text>
-            </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={type.title} numberOfLines={2}>
+              {t.name}
+            </Text>
+            <Text style={type.muted} numberOfLines={2}>
+              {arena.emoji} {arena.name}
+              {arena.status === 'ended' ? ' · ended' : ''} · {members.length} {members.length === 1 ? 'member' : 'members'} · since {since}
+            </Text>
           </View>
         </View>
         {avatarMessage ? <Text style={[type.muted, { color: colors.no }]}>{avatarMessage}</Text> : null}
 
         {t.bio || t.x_url || isCaptain ? (
-          <View style={styles.card}>
+          <Card style={{ gap: spacing.sm }}>
             {t.bio ? <Text style={type.body}>{t.bio}</Text> : isCaptain ? <Text style={type.muted}>No bio yet.</Text> : null}
             {t.x_url ? (
               <Pressable onPress={() => Linking.openURL(`https://x.com/${t.x_url}`)} accessibilityRole="link" style={{ alignSelf: 'flex-start' }}>
                 <Text style={styles.link}>@{t.x_url}</Text>
               </Pressable>
             ) : null}
-            {isCaptain ? <Button label="Edit team details" tone="neutral" onPress={startEditing} /> : null}
-          </View>
+            {isCaptain ? <Button label="Edit team details" tone="neutral" size="sm" onPress={startEditing} style={{ alignSelf: 'flex-start', paddingTop: spacing.xs }} /> : null}
+          </Card>
         ) : null}
 
         {isCaptain && t.join_code ? (
-          <View style={[styles.card, styles.codeBox]}>
-            <View style={{ flex: 1 }}>
-              <Text style={type.muted}>Join code</Text>
+          <Card style={styles.codeBox}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={type.label}>Join code</Text>
               <Text style={styles.code} selectable>
                 {t.join_code}
               </Text>
               <Text style={type.muted}>Share it so friends can join your team.</Text>
             </View>
-            <Button label="Share" tone="neutral" onPress={() => Share.share({ message: `Join my team "${t.name}" in the Mentioned Arena. My code is ${t.join_code}.` })} />
-          </View>
+            <Button
+              label="Share"
+              tone="neutral"
+              size="sm"
+              onPress={() => Share.share({ message: `Join my team "${t.name}" in the Mentioned Arena. My code is ${t.join_code}.` })}
+            />
+          </Card>
         ) : null}
 
-        <View style={styles.stats}>
-          <View style={styles.stat}>
-            <Text style={type.muted}>Season points</Text>
-            <Text style={styles.statValue}>{weeklyTotal.toLocaleString()}</Text>
-            <Text style={type.muted}>{arena.displayRange}</Text>
+        <Card>
+          <View style={styles.statRow}>
+            <Stat label="Season points" value={weeklyTotal.toLocaleString()} />
+            <Stat label="All-time points" value={allTimeTotal.toLocaleString()} align="right" />
           </View>
-          <View style={styles.stat}>
-            <Text style={type.muted}>All-time points</Text>
-            <Text style={[styles.statValue, { color: colors.text }]}>{allTimeTotal.toLocaleString()}</Text>
-            <Text style={type.muted}>{members.length} contributors</Text>
-          </View>
-        </View>
+        </Card>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={type.heading}>Members</Text>
-          <View style={styles.toggle}>
-            {(['season', 'all'] as const).map((k) => (
-              <Pressable key={k} onPress={() => setSort(k)} style={[styles.toggleItem, sort === k && styles.toggleOn]} accessibilityRole="tab" accessibilityState={{ selected: sort === k }}>
-                <Text style={[styles.toggleText, sort === k && { color: colors.bg }]}>{k === 'season' ? 'Season' : 'All time'}</Text>
-              </Pressable>
-            ))}
-          </View>
+        <View style={styles.section}>
+          <SectionTitle title="Members" right={<Segmented options={SORTS} value={sort} onChange={setSort} stretch={false} size="sm" />} />
+          <Card padded={false} style={styles.listCard}>
+            {members.map((m, i) => {
+              const href = (m.username ? `/u/${encodeURIComponent(m.username)}` : `/positions?wallet=${m.wallet}`) as Href;
+              return (
+                <Link key={m.wallet} href={href} asChild>
+                  <Pressable style={rowStyle(i === 0)} accessibilityRole="link" accessibilityLabel={m.username ?? shortAddress(m.wallet)}>
+                    <Text style={styles.rank}>{i + 1}</Text>
+                    <Text style={{ fontSize: 20 }}>{m.pfp_emoji ?? '🙂'}</Text>
+                    <View style={styles.rowName}>
+                      <Text style={styles.name} numberOfLines={1}>
+                        {m.username ?? shortAddress(m.wallet)}
+                      </Text>
+                      {m.role === 'captain' ? <Pill label="CAPTAIN" tone="gold" /> : null}
+                      {m.wallet === wallet ? <Pill label="YOU" tone="neutral" /> : null}
+                    </View>
+                    <Text style={type.money}>{(sort === 'season' ? m.weekly_points : m.all_time_points).toLocaleString()}</Text>
+                  </Pressable>
+                </Link>
+              );
+            })}
+          </Card>
         </View>
-        {members.map((m, i) => {
-          const href = (m.username ? `/u/${encodeURIComponent(m.username)}` : `/positions?wallet=${m.wallet}`) as Href;
-          return (
-            <Link key={m.wallet} href={href} asChild>
-              <Pressable style={StyleSheet.flatten([styles.row, m.wallet === wallet && styles.rowYou])} accessibilityRole="link">
-                <Text style={styles.rank}>{i + 1}</Text>
-                <Text style={{ fontSize: 20 }}>{m.pfp_emoji ?? '🙂'}</Text>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={[type.body, { fontFamily: fonts.semibold, flexShrink: 1 }]} numberOfLines={1}>
-                      {m.username ?? shortAddress(m.wallet)}
-                    </Text>
-                    {m.role === 'captain' ? <Pill label="CAPTAIN" tone="gold" /> : null}
-                    {m.wallet === wallet ? <Pill label="YOU" tone="neutral" /> : null}
-                  </View>
-                </View>
-                <Text style={type.money}>{(sort === 'season' ? m.weekly_points : m.all_time_points).toLocaleString()}</Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-              </Pressable>
-            </Link>
-          );
-        })}
       </ScrollView>
 
       <BottomSheet
@@ -259,9 +261,19 @@ export default function TeamScreen() {
         locked={saving}
         footer={<Button label={saving ? 'Saving' : 'Save'} onPress={save} disabled={saving} />}
       >
-        <Text style={type.muted}>Name</Text>
-        <TextInput value={name} onChangeText={(v) => { setName(v); setEditError(null); }} maxLength={30} style={styles.input} placeholderTextColor={colors.textMuted} accessibilityLabel="Team name" />
-        <Text style={type.muted}>Bio</Text>
+        <Text style={type.label}>Name</Text>
+        <TextInput
+          value={name}
+          onChangeText={(v) => {
+            setName(v);
+            setEditError(null);
+          }}
+          maxLength={30}
+          style={styles.input}
+          placeholderTextColor={colors.textMuted}
+          accessibilityLabel="Team name"
+        />
+        <Text style={type.label}>Bio</Text>
         <TextInput
           value={bio}
           onChangeText={(v) => {
@@ -278,7 +290,7 @@ export default function TeamScreen() {
         <Text style={type.muted}>
           {bio.length}/{BIO_MAX}
         </Text>
-        <Text style={type.muted}>X account</Text>
+        <Text style={type.label}>X account</Text>
         <TextInput
           value={xHandle}
           onChangeText={(v) => {
@@ -300,31 +312,23 @@ export default function TeamScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing.xl },
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  avatar: { width: 76, height: 76, borderRadius: 20, overflow: 'hidden', backgroundColor: colors.surfaceRaised, borderWidth: 1, borderColor: 'rgba(242,183,31,0.45)', alignItems: 'center', justifyContent: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingHorizontal: spacing.xs },
+  avatar: { width: 72, height: 72, borderRadius: 20, overflow: 'hidden', backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   avatarEdit: { ...type.muted, textAlign: 'center', marginTop: 4, color: colors.gold },
-  teamName: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 32, color: colors.text },
-  card: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
-  codeBox: { flexDirection: 'row', alignItems: 'center' },
-  code: { fontFamily: fonts.bold, fontSize: 24, letterSpacing: 3, color: colors.gold },
-  link: { fontFamily: fonts.semibold, fontSize: 15, color: colors.gold },
-  stats: { flexDirection: 'row', gap: spacing.sm },
-  stat: { flex: 1, padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: 2 },
-  statValue: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 32, color: colors.gold, fontVariant: ['tabular-nums'] },
-  toggle: { flexDirection: 'row', borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: 2 },
-  toggleItem: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 999 },
-  toggleOn: { backgroundColor: colors.gold },
-  toggleText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.text },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  rowYou: { borderColor: colors.gold },
+  link: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: colors.gold },
+  codeBox: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  code: { fontFamily: fonts.bold, fontSize: 24, lineHeight: 30, letterSpacing: 3, color: colors.gold },
+  statRow: { flexDirection: 'row', gap: spacing.sm },
+  section: { gap: spacing.sm },
+  listCard: { paddingHorizontal: spacing.md },
+  rowName: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  name: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: colors.text, flexShrink: 1 },
   rank: { width: 24, textAlign: 'center', fontFamily: fonts.bold, fontSize: 15, color: colors.textMuted, fontVariant: ['tabular-nums'] },
   input: {
-    minHeight: 50,
+    minHeight: 52,
     paddingHorizontal: spacing.md,
-    borderRadius: 12,
+    borderRadius: radius.key,
     backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.border,
     color: colors.text,
     fontFamily: fonts.medium,
     fontSize: 16,

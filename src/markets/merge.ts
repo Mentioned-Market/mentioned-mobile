@@ -50,7 +50,9 @@ export function fromPaidMajority(m: PaidMajorityListEntry, now = Date.now()): Ma
     lockAt,
     eventAt: toMs(m.eventStartTime),
     words: m.words.slice(0, 5).map((w) => ({
-      label: w.word,
+      // A word the server has not resolved to text yet (the market route says
+      // the same, see UNNAMED on the majority screen).
+      label: w.word ?? 'Word not shown yet',
       pct: w.oddsPct / 100,
       outcome: status === 'resolved' ? (w.outcome === 1 ? 'winner' : 'loser') : null,
     })),

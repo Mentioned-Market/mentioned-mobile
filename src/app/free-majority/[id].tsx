@@ -21,13 +21,16 @@ import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
 import { achievementLines, checkFreeCoinedWord, useApiTrade, type FreePick } from '@/trade/free';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
-import { useFeatures } from '@/ui/config-gate';
 import { Button } from '@/ui/button';
+import { Card, Row, SectionTitle, rowStyle } from '@/ui/card';
+import { Chip } from '@/ui/chip';
+import { useFeatures } from '@/ui/config-gate';
 import { MarketHeader } from '@/ui/market-header';
 import { Pill } from '@/ui/pill';
 import { PINNED_BAR_HEIGHT, PinnedBar } from '@/ui/pinned-bar';
 import { Screen } from '@/ui/screen';
 import { CardSkeleton, ErrorState } from '@/ui/states';
+import { SwipeButton } from '@/ui/swipe-button';
 import { colors, fonts, spacing, type } from '@/ui/theme';
 import { TradeProgress } from '@/ui/trade-progress';
 import { WordBoard, type BoardWord } from '@/ui/word-board';
@@ -56,14 +59,14 @@ export default function FreeMajorityScreen() {
 
   if (board.isPending) {
     return (
-      <Screen title="Loading" back>
+      <Screen back>
         <CardSkeleton />
       </Screen>
     );
   }
   if (board.isError || !board.data) {
     return (
-      <Screen title="Free majority" back>
+      <Screen back>
         <ErrorState error={board.error} onRetry={() => board.refetch()} />
       </Screen>
     );
@@ -163,9 +166,11 @@ export default function FreeMajorityScreen() {
     picks.length === 0
       ? `${tokens(pickSize)} tokens on each`
       : picks.map((p) => `${p.word} wins ${tokens(winFor(stakedFor(p)))}`).join(' · ');
+  const newPicks = picks.filter((p) => p.kind === 'new');
+  const recent = d.recentBets.slice(0, 6);
 
   return (
-    <Screen title="" back>
+    <Screen back>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView
           ref={scrollRef}
@@ -177,31 +182,28 @@ export default function FreeMajorityScreen() {
             title={m.title}
             cover={m.cover_image_url}
             status={status}
-            paid={false}
-            majority
             lockAt={toMs(m.lock_time)}
             eventAt={toMs(m.event_start_time)}
-            traderCount={d.traderCount}
             now={now}
             description={m.description}
           />
+          <View style={styles.chips}>
+            <Chip value={`${tokens(pool)} tokens`} caption="pool" />
+            <Chip value={`${tokens(pickSize)} tokens`} caption="per pick" />
+          </View>
           {status === 'resolved' || status === 'cancelled' ? (
             <Link href={`/result/free-majority/${id}` as Href} asChild>
               <Button label="See results" tone="neutral" />
             </Link>
           ) : null}
-          <View style={styles.stats}>
-            <Stat label="Pool" value={`${tokens(pool)} tokens`} />
-            <Stat label="Per pick" value={`${tokens(pickSize)} tokens`} />
-            <Stat label="Picks" value={`${required} each`} />
-          </View>
-          <Text style={type.heading}>{canEnter ? `Pick ${required} words` : 'Board'}</Text>
+
+          <SectionTitle title={canEnter ? `Pick ${required} words` : 'Board'} />
           {d.board.length === 0 && canEnter ? <Text style={type.muted}>No words yet. Add the first below.</Text> : null}
           <WordBoard words={words} selected={selectedKeys} onToggle={toggle} selectable={canEnter} />
           {entered ? <Text style={type.muted}>You are in with {(d.userEntry ?? []).map((e) => e.word).join(' and ')}.</Text> : null}
 
           {canEnter ? (
-            <View style={styles.card}>
+            <Card style={{ gap: spacing.sm }}>
               <Text style={type.heading}>Add your own word</Text>
               <Text style={type.muted}>3 to 12 letters, or 3 to 12 numbers. It goes on the board with your pick.</Text>
               <View style={styles.addRow}>
@@ -224,37 +226,37 @@ export default function FreeMajorityScreen() {
                   style={[styles.input, full && { opacity: 0.5 }]}
                   accessibilityLabel="Add your own word"
                 />
-                <Button label="Add" tone="neutral" onPress={addDraft} disabled={!draft.trim() || full} style={{ minWidth: 88 }} />
+                <Button label="Add" tone="neutral" size="sm" onPress={addDraft} disabled={!draft.trim() || full} />
               </View>
               {draftError ? <Text style={[type.muted, { color: colors.no }]}>{draftError}</Text> : null}
-              {picks.some((p) => p.kind === 'new') ? (
-                <View style={styles.chips}>
-                  {picks
-                    .filter((p) => p.kind === 'new')
-                    .map((p) => (
-                      <Pressable key={p.word} onPress={() => removePick(p.word)} style={styles.chip} accessibilityRole="button" accessibilityLabel={`Remove ${p.word}`}>
-                        <Text style={styles.chipLabel}>{p.word}</Text>
-                        <Text style={styles.chipX}>×</Text>
-                      </Pressable>
-                    ))}
+              {newPicks.length > 0 ? (
+                <View style={styles.wordChips}>
+                  {newPicks.map((p) => (
+                    <Pressable key={p.word} onPress={() => removePick(p.word)} style={styles.wordChip} accessibilityRole="button" accessibilityLabel={`Remove ${p.word}`}>
+                      <Text style={styles.wordChipLabel}>{p.word}</Text>
+                      <Text style={styles.wordChipX}>×</Text>
+                    </Pressable>
+                  ))}
                 </View>
               ) : null}
-            </View>
+            </Card>
           ) : null}
 
-          {d.recentBets.length > 0 ? (
+          {recent.length > 0 ? (
             <>
-              <Text style={type.heading}>Recent picks</Text>
-              {d.recentBets.slice(0, 6).map((r) => (
-                <Link key={r.id} href={(r.username ? `/u/${encodeURIComponent(r.username)}` : `/positions?wallet=${r.wallet}`) as Href} asChild>
-                  <Pressable style={styles.recent} accessibilityRole="button">
-                    <Text style={[type.body, { flex: 1 }]} numberOfLines={1}>
-                      <Text style={{ color: colors.gold }}>{r.username ?? `${r.wallet.slice(0, 4)}…${r.wallet.slice(-4)}`}</Text> picked {r.word}
-                    </Text>
-                    <Text style={type.muted}>{tokens(r.tokens)}</Text>
-                  </Pressable>
-                </Link>
-              ))}
+              <SectionTitle title="Recent picks" />
+              <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
+                {recent.map((r, i) => (
+                  <Link key={r.id} href={(r.username ? `/u/${encodeURIComponent(r.username)}` : `/positions?wallet=${r.wallet}`) as Href} asChild>
+                    <Pressable style={rowStyle(i === 0)} accessibilityRole="button">
+                      <Text style={[type.body, { flex: 1 }]} numberOfLines={1}>
+                        <Text style={{ fontFamily: fonts.semibold }}>{r.username ?? `${r.wallet.slice(0, 4)}…${r.wallet.slice(-4)}`}</Text> picked {r.word}
+                      </Text>
+                      <Text style={type.money}>{tokens(r.tokens)}</Text>
+                    </Pressable>
+                  </Link>
+                ))}
+              </Card>
             </>
           ) : null}
         </ScrollView>
@@ -274,11 +276,10 @@ export default function FreeMajorityScreen() {
         visible={sheetOpen}
         onClose={closeSheet}
         title="Your entry"
-        subtitle={m.title}
         locked={api.state.status === 'working'}
         footer={
           api.state.status === 'working' ? (
-            <View style={{ height: 52 }} />
+            <View style={{ height: 64 }} />
           ) : api.state.status === 'done' ? (
             <Button label="Done" tone="gold" onPress={() => sheetRef.current?.close()} />
           ) : api.state.status === 'failed' && !api.state.retryable ? (
@@ -286,7 +287,12 @@ export default function FreeMajorityScreen() {
           ) : api.state.status === 'failed' ? (
             <Button label="Try again" tone="gold" onPress={api.reset} />
           ) : (
-            <Button label={`Enter with ${tokens(m.play_tokens)} tokens`} tone="gold" disabled={!features.freeTrading || picks.length !== required || !sessionWallet} onPress={submit} />
+            <SwipeButton
+              tone="gold"
+              label={`Swipe to enter with ${tokens(m.play_tokens)} tokens`}
+              disabled={!features.freeTrading || picks.length !== required || !sessionWallet}
+              onConfirm={() => void submit()}
+            />
           )
         }
       >
@@ -299,18 +305,20 @@ export default function FreeMajorityScreen() {
           />
         ) : (
           <View style={{ gap: spacing.sm }}>
-            {picks.map((p) => (
-              <View key={p.word} style={styles.pickRow}>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={styles.pickWord}>{p.word}</Text>
-                    {p.kind === 'new' ? <Pill label="NEW" tone="gold" /> : null}
+            <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
+              {picks.map((p, i) => (
+                <Row key={p.word} first={i === 0}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.pickWord}>{p.word}</Text>
+                      {p.kind === 'new' ? <Pill label="NEW" tone="gold" /> : null}
+                    </View>
+                    <Text style={[type.muted, { color: colors.yes }]}>Wins {tokens(winFor(stakedFor(p)))} tokens if said most</Text>
                   </View>
-                  <Text style={[type.muted, { color: colors.yes }]}>Wins {tokens(winFor(stakedFor(p)))} tokens if said most</Text>
-                </View>
-                <Text style={type.money}>{tokens(pickSize)}</Text>
-              </View>
-            ))}
+                  <Text style={type.money}>{tokens(pickSize)}</Text>
+                </Row>
+              ))}
+            </Card>
             <Text style={type.muted}>One entry per market. Once you are in, these picks are locked.</Text>
           </View>
         )}
@@ -319,57 +327,31 @@ export default function FreeMajorityScreen() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={type.muted}>{label}</Text>
-      <Text style={type.money}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   content: { gap: spacing.md },
-  stats: { flexDirection: 'row', gap: spacing.sm },
-  stat: { flex: 1, padding: spacing.md, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: 2 },
-  card: { padding: spacing.md, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   input: {
     flex: 1,
     height: 52,
-    borderRadius: 12,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceRaised,
     color: colors.text,
     fontFamily: fonts.medium,
     fontSize: 16,
   },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: {
+  wordChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  wordChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    height: 34,
     borderRadius: 999,
-    backgroundColor: 'rgba(242,183,31,0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(242,183,31,0.4)',
+    backgroundColor: colors.surfaceRaised,
   },
-  chipLabel: { fontFamily: fonts.semibold, fontSize: 14, color: colors.gold },
-  chipX: { fontFamily: fonts.semibold, fontSize: 18, color: colors.textMuted, paddingHorizontal: 4 },
-  pickRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.sm + 4,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
+  wordChipLabel: { fontFamily: fonts.semibold, fontSize: 14, color: colors.gold },
+  wordChipX: { fontFamily: fonts.semibold, fontSize: 18, color: colors.textMuted, paddingHorizontal: 4 },
   pickWord: { fontFamily: fonts.semibold, fontSize: 16, color: colors.text },
-  recent: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 6 },
 });

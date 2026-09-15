@@ -99,14 +99,12 @@ export function UsernameForm({ wallet, onSaved, compact = false }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(242,183,31,0.35)', gap: spacing.sm },
+  card: { padding: spacing.md, borderRadius: 24, backgroundColor: colors.surface, gap: spacing.sm },
   input: {
     height: 52,
     paddingHorizontal: spacing.md,
-    borderRadius: 12,
+    borderRadius: 16,
     backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.border,
     color: colors.text,
     fontFamily: fonts.medium,
     fontSize: 16,

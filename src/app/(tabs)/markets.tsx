@@ -1,13 +1,15 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
+// Markets: every market, sectioned by where it is in its life. The filter is
+// the only control; the search button is the only other thing in the header.
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 
 import { useFreeList, useIsScreenFocused, usePaidMajorityList, usePaidMarketsList } from '@/api/queries';
 import { useNow } from '@/lib/use-now';
 import { filterMarkets, isHero, mergeMarkets, sectionMarkets, type MarketFilter, type MarketSummary } from '@/markets/merge';
+import { IconButton } from '@/ui/icon-button';
 import { MarketCard } from '@/ui/market-card';
 import { Screen } from '@/ui/screen';
+import { Segmented } from '@/ui/segmented';
 import { CardSkeleton, EmptyState, ErrorState } from '@/ui/states';
 import { colors, fonts, spacing } from '@/ui/theme';
 
@@ -15,13 +17,10 @@ import { colors, fonts, spacing } from '@/ui/theme';
 // on every render, so React tore down and rebuilt every separator in the list
 // each time anything on the screen changed.
 const ItemSeparator = () => <View style={styles.separator} />;
-const SectionSeparator = () => <View style={{ height: spacing.sm }} />;
+const SectionSeparator = () => <View style={{ height: spacing.xs }} />;
 
 const renderSectionHeader = ({ section }: { section: { title: string; data: unknown[] } }) => (
-  <View style={styles.sectionHeader}>
-    <Text style={styles.sectionTitle}>{section.title}</Text>
-    <Text style={styles.sectionCount}>{section.data.length}</Text>
-  </View>
+  <Text style={styles.sectionTitle}>{section.title}</Text>
 );
 
 const FILTERS: { key: MarketFilter; label: string }[] = [
@@ -40,7 +39,9 @@ export default function MarketsScreen() {
   const free = useFreeList(focused);
 
   const queries = [paidMajority, paidYesNo, free];
-  const loading = queries.some((q) => q.isPending);
+  // Only a first load shows the loader: once any list is on screen it stays
+  // there through every poll, and a list that fails is reported above it.
+  const loading = queries.every((q) => q.data === undefined) && queries.some((q) => q.isPending);
   const allFailed = queries.every((q) => q.isError);
   const someFailed = queries.some((q) => q.isError);
   const [refreshing, setRefreshing] = useState(false);
@@ -66,31 +67,12 @@ export default function MarketsScreen() {
   return (
     <Screen
       title="Markets"
-      right={
-        <Link href="/search" asChild>
-          <Pressable style={styles.searchButton} accessibilityRole="button" accessibilityLabel="Search">
-            <Ionicons name="search" size={20} color={colors.text} />
-          </Pressable>
-        </Link>
-      }>
-      <View style={styles.chips}>
-        {FILTERS.map((f) => {
-          const active = f.key === filter;
-          return (
-            <Pressable
-              key={f.key}
-              onPress={() => setFilter(f.key)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              style={[styles.chip, active && styles.chipActive]}>
-              <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>{f.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      right={<IconButton name="search" label="Search" href="/search" />}
+    >
+      <Segmented options={FILTERS} value={filter} onChange={setFilter} stretch={false} size="sm" style={{ marginBottom: spacing.md }} />
 
       {loading && !allFailed ? (
-        <View style={styles.list}>
+        <View style={{ gap: spacing.md }}>
           <CardSkeleton />
           <CardSkeleton />
         </View>
@@ -103,7 +85,7 @@ export default function MarketsScreen() {
           renderItem={renderItem}
           renderSectionHeader={renderSectionHeader}
           stickySectionHeadersEnabled={false}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={{ paddingBottom: spacing.xl }}
           ItemSeparatorComponent={ItemSeparator}
           SectionSeparatorComponent={SectionSeparator}
           // A market card is a tall view tree with a cover image in it. The
@@ -131,15 +113,6 @@ export default function MarketsScreen() {
 }
 
 const styles = StyleSheet.create({
-  chips: { flexDirection: 'row', gap: spacing.sm, paddingBottom: spacing.md },
-  chip: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  chipActive: { backgroundColor: colors.gold, borderColor: colors.gold },
-  chipLabel: { fontFamily: fonts.semibold, fontSize: 14, color: colors.textMuted },
-  chipLabelActive: { color: colors.bg },
-  list: { paddingBottom: spacing.xl },
-  sectionHeader: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm, paddingTop: spacing.sm, paddingBottom: spacing.sm },
-  sectionTitle: { fontFamily: fonts.bold, fontSize: 20, lineHeight: 26, color: colors.text },
-  sectionCount: { fontFamily: fonts.semibold, fontSize: 14, color: colors.textMuted },
-  separator: { height: spacing.lg },
-  searchButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  sectionTitle: { fontFamily: fonts.semibold, fontSize: 17, lineHeight: 24, color: colors.text, paddingTop: spacing.sm, paddingBottom: spacing.sm, paddingHorizontal: spacing.xs },
+  separator: { height: spacing.md },
 });

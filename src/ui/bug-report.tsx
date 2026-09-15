@@ -94,14 +94,12 @@ export function BugReport({ wallet }: { wallet: string | null }) {
 }
 
 const styles = StyleSheet.create({
-  card: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
+  card: { padding: spacing.md, borderRadius: 24, backgroundColor: colors.surface, gap: spacing.sm },
   input: {
     minHeight: 96,
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: 16,
     backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.border,
     color: colors.text,
     fontSize: 15,
     textAlignVertical: 'top',

@@ -1,10 +1,12 @@
 // Ranked list for majority boards (paid and free). Tap to select when the
-// board is open; your picks and settled outcomes are highlighted.
+// board is open; your picks and settled outcomes are marked. Each word shows
+// its share of the pool, which is the chance the crowd gives it.
+import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { pct } from '@/lib/format';
 import { Pill } from '@/ui/pill';
-import { colors, fonts, spacing, type } from '@/ui/theme';
+import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
 export type BoardWord = {
   key: string;
@@ -27,7 +29,7 @@ type Props = { words: BoardWord[]; selected: Set<string>; onToggle?: (key: strin
 
 export function WordBoard({ words, selected, onToggle, selectable }: Props) {
   return (
-    <View style={styles.list}>
+    <View style={styles.card}>
       {words.map((w, i) => {
         const isSelected = selected.has(w.key);
         const canPick = selectable && !w.locked;
@@ -38,8 +40,9 @@ export function WordBoard({ words, selected, onToggle, selectable }: Props) {
             onPress={() => onToggle?.(w.key)}
             accessibilityRole={canPick ? 'button' : undefined}
             accessibilityState={{ selected: isSelected }}
-            style={({ pressed }) => [styles.row, isSelected && styles.rowSelected, w.outcome === 'winner' && styles.rowWinner, pressed && canPick && { opacity: 0.85 }]}>
-            <View style={[styles.bar, { width: `${Math.max(2, Math.round(w.share * 100))}%` }, w.outcome === 'winner' && { backgroundColor: 'rgba(61,220,132,0.14)' }]} />
+            style={({ pressed }) => [styles.row, i > 0 && styles.divider, pressed && canPick && { opacity: 0.7 }]}
+          >
+            <View style={[styles.bar, { width: `${Math.max(1, Math.round(w.share * 100))}%` }, w.outcome === 'winner' && { backgroundColor: colors.yes }]} />
             <Text style={styles.rank}>{i + 1}</Text>
             <View style={{ flex: 1, gap: 2 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -49,10 +52,14 @@ export function WordBoard({ words, selected, onToggle, selectable }: Props) {
                 {w.yours ? <Pill label="YOURS" tone="gold" /> : null}
                 {w.outcome === 'winner' ? <Pill label="WON" tone="green" /> : null}
               </View>
-              <Text style={[type.muted, isSelected && w.winLabel ? { color: colors.yes } : null]}>{isSelected && w.winLabel ? w.winLabel : w.countLabel}</Text>
+              <Text style={[type.muted, { fontSize: 13, lineHeight: 18 }, isSelected && w.winLabel ? { color: colors.yes } : null]} numberOfLines={1}>
+                {isSelected && w.winLabel ? w.winLabel : w.countLabel}
+              </Text>
             </View>
-            <Text style={styles.share}>{pct(w.share)}</Text>
-            {canPick ? <View style={[styles.check, isSelected && styles.checkOn]}>{isSelected ? <Text style={styles.checkMark}>✓</Text> : null}</View> : null}
+            <Text style={[styles.share, w.outcome === 'winner' && { color: colors.yes }]}>{pct(w.share)}</Text>
+            {canPick ? (
+              <View style={[styles.check, isSelected && styles.checkOn]}>{isSelected ? <Ionicons name="checkmark" size={16} color={colors.bg} /> : null}</View>
+            ) : null}
           </Pressable>
         );
       })}
@@ -61,27 +68,13 @@ export function WordBoard({ words, selected, onToggle, selectable }: Props) {
 }
 
 const styles = StyleSheet.create({
-  list: { gap: spacing.sm },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    minHeight: 60,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  rowSelected: { borderColor: colors.gold },
-  rowWinner: { borderColor: 'rgba(61,220,132,0.5)' },
-  bar: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: 'rgba(242,183,31,0.10)' },
-  rank: { fontFamily: fonts.bold, fontSize: 14, color: colors.textMuted, width: 22, fontVariant: ['tabular-nums'] },
-  label: { ...type.body, fontFamily: fonts.semibold, flexShrink: 1 },
-  share: { ...type.money },
-  check: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  card: { borderRadius: radius.card, backgroundColor: colors.surface, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 2, minHeight: 64, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  bar: { position: 'absolute', left: 0, bottom: 0, height: 3, borderRadius: 2, backgroundColor: colors.goldDim },
+  rank: { fontFamily: fonts.semibold, fontSize: 14, color: colors.textMuted, width: 20, fontVariant: ['tabular-nums'] },
+  label: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: colors.text, flexShrink: 1 },
+  share: { fontFamily: fonts.bold, fontSize: 18, color: colors.text, fontVariant: ['tabular-nums'] },
+  check: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   checkOn: { backgroundColor: colors.gold, borderColor: colors.gold },
-  checkMark: { color: colors.bg, fontFamily: fonts.bold, fontSize: 14, lineHeight: 16 },
 });

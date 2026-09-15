@@ -1,17 +1,17 @@
-// Shared YES/NO trade sheet for paid (USDC) and free (play tokens) markets.
-// Side pair, amount with pad and presets, and a quote block led by the headline
-// number the website leads with. The parent computes the quote.
+// The YES/NO trade sheet, shared by paid (USDC) and free (play token) markets.
 //
-// Everything here is sized to fit one screen alongside the sheet's header and
-// its pinned action, because a buy screen you have to scroll to buy from is a
-// buy screen that hides its own purpose. The action itself is NOT rendered
-// here: it belongs in the sheet's footer, outside the scrolling body.
+// Top to bottom: which side, the amount being typed, what it returns, two or
+// three small facts, four presets, the pad. The parent computes every figure;
+// this file only lays them out. The action itself is NOT rendered here: it is
+// the sheet's footer, pinned under the pad, so it never scrolls away.
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { cents } from '@/lib/format';
+import { Chip } from '@/ui/chip';
 import { NumberPad } from '@/ui/number-pad';
-import { colors, fonts, spacing, type } from '@/ui/theme';
+import { Segmented } from '@/ui/segmented';
+import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
 export type SheetWord = {
   key: string;
@@ -22,8 +22,8 @@ export type SheetWord = {
 };
 export type Side = 'YES' | 'NO';
 export type TradeMode = 'buy' | 'sell';
-export type QuoteLine = { label: string; value: string; strong?: boolean };
 export type Preset = { label: string; value: string };
+export type SheetChip = { value: string; caption?: string; tone?: 'neutral' | 'yes' | 'no' | 'gold' };
 
 type Props = {
   word: SheetWord;
@@ -38,257 +38,142 @@ type Props = {
   unit: string;
   maxDecimals: number;
   presets: Preset[];
-  /** Big number at the top of the quote block. */
+  /** The line under the amount: what the trade gives back, e.g. "$3.07" "Potential return". */
   headline: { label: string; value: string };
-  lines: QuoteLine[];
-  balanceLine?: string;
-  /** Held shares per side for the selected word, shown in Sell mode. */
-  holdings?: { yes: string; no: string } | null;
+  /** Small facts beside each other: the chance, the balance, what is held. */
+  chips: SheetChip[];
+  /** One muted line of the working, e.g. "Avg 62% · Fee $0.02 · Total $2.02". */
+  detail?: string | null;
   warning?: string | null;
-  /** When false the sheet shows prices only: no pad, no quote. */
+  /** When false the sheet shows the sides only: no pad, no quote. */
   open?: boolean;
 };
 
 export function TradeSheet(p: Props) {
-  const word = p.word;
-  const tap = () => Haptics.selectionAsync();
+  const verb = p.mode === 'sell' ? 'Sell' : 'Predict';
   return (
     <View style={styles.wrap}>
-      {word ? (
+      <Segmented
+        options={[
+          { key: 'YES', label: `${verb} Yes`, tone: 'yes' },
+          { key: 'NO', label: `${verb} No`, tone: 'no' },
+        ]}
+        value={p.side}
+        onChange={p.onSide}
+      />
+
+      {p.open === false ? null : (
         <>
-          {p.canSell && p.open !== false ? (
-            <View style={styles.segment}>
-              {(['buy', 'sell'] as const).map((m) => {
-                const active = p.mode === m;
-                return (
-                  <Pressable
-                    key={m}
-                    onPress={() => {
-                      tap();
-                      p.onMode(m);
-                    }}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    style={[styles.segmentItem, active && styles.segmentActive]}
-                  >
-                    <Text style={[styles.segmentLabel, active && { color: colors.text }]}>{m === 'buy' ? 'Buy' : 'Sell'}</Text>
-                  </Pressable>
-                );
-              })}
+          {p.canSell ? (
+            <Segmented
+              size="sm"
+              stretch={false}
+              style={{ alignSelf: 'center' }}
+              options={[
+                { key: 'buy', label: 'Buy' },
+                { key: 'sell', label: 'Sell' },
+              ]}
+              value={p.mode}
+              onChange={p.onMode}
+            />
+          ) : null}
+
+          <View style={styles.amountBlock}>
+            <View style={styles.amountRow}>
+              {p.unit === '$' ? <Text style={styles.amountUnit}>$</Text> : null}
+              <Text style={[styles.amount, !p.amount && { color: colors.textMuted }]} numberOfLines={1} adjustsFontSizeToFit>
+                {p.amount || '0'}
+              </Text>
+              {p.unit !== '$' ? <Text style={styles.amountSuffix}>{p.unit}</Text> : null}
+            </View>
+            <Text style={styles.headline} numberOfLines={1}>
+              <Text style={styles.headlineValue}>{p.headline.value}</Text> {p.headline.label}
+            </Text>
+            {p.detail ? (
+              <Text style={styles.detail} numberOfLines={1}>
+                {p.detail}
+              </Text>
+            ) : null}
+          </View>
+
+          {p.chips.length > 0 ? (
+            <View style={styles.chips}>
+              {p.chips.map((c) => (
+                <Chip key={`${c.value}${c.caption ?? ''}`} value={c.value} caption={c.caption} tone={c.tone} />
+              ))}
             </View>
           ) : null}
 
-          <View style={styles.sides}>
-            {(['YES', 'NO'] as const).map((s) => {
-              const active = p.side === s;
-              const price = s === 'YES' ? word.yesPrice : word.noPrice;
-              const tone = s === 'YES' ? colors.yes : colors.no;
-              const held = p.holdings ? (s === 'YES' ? p.holdings.yes : p.holdings.no) : null;
-              return (
-                <Pressable
-                  key={s}
-                  onPress={() => {
-                    tap();
-                    p.onSide(s);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  style={[
-                    styles.side,
-                    active && {
-                      borderColor: tone,
-                      backgroundColor: `${tone}1F`,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.sideLabel, { color: tone }]}>{s}</Text>
-                  <Text style={styles.sidePrice}>{cents(price)}</Text>
-                  {held !== null && p.mode === 'sell' ? <Text style={styles.sideHeld}>hold {held}</Text> : null}
-                </Pressable>
-              );
-            })}
-          </View>
+          {p.warning ? <Text style={styles.warning}>{p.warning}</Text> : null}
 
-          {p.open === false ? null : (
-            <>
-              <View style={styles.amountBlock}>
-                <View style={styles.amountRow}>
-                  {p.unit === '$' ? <Text style={styles.amountUnit}>$</Text> : null}
-                  <Text style={[styles.amount, !p.amount && { color: colors.textMuted }]} numberOfLines={1} adjustsFontSizeToFit>
-                    {p.amount || '0'}
-                  </Text>
-                  {p.unit !== '$' ? <Text style={styles.amountUnit}>{p.unit}</Text> : null}
-                </View>
-                {p.balanceLine ? <Text style={[type.muted, { textAlign: 'center' }]}>{p.balanceLine}</Text> : null}
-                <View style={styles.presets}>
-                  {p.presets.map((pr) => (
-                    <Pressable
-                      key={pr.label}
-                      onPress={() => {
-                        tap();
-                        p.onAmount(pr.value);
-                      }}
-                      style={styles.preset}
-                      accessibilityRole="button"
-                    >
-                      <Text style={styles.presetLabel}>{pr.label}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
+          <PresetRow presets={p.presets} onPick={p.onAmount} />
 
-              <NumberPad value={p.amount} onChange={p.onAmount} maxDecimals={p.maxDecimals} />
-
-              <View style={styles.quote}>
-                <View style={styles.headline}>
-                  <Text style={type.muted}>{p.headline.label}</Text>
-                  <Text style={styles.headlineValue} numberOfLines={1} adjustsFontSizeToFit>
-                    {p.headline.value}
-                  </Text>
-                </View>
-                {p.lines.map((q) => (
-                  <View key={q.label} style={styles.quoteRow}>
-                    <Text style={type.muted}>{q.label}</Text>
-                    <Text style={[type.money, { fontSize: 14 }, q.strong && { color: colors.gold }]}>{q.value}</Text>
-                  </View>
-                ))}
-                {p.warning ? <Text style={[type.muted, { color: colors.no, marginTop: spacing.xs }]}>{p.warning}</Text> : null}
-              </View>
-            </>
-          )}
+          <NumberPad value={p.amount} onChange={p.onAmount} maxDecimals={p.maxDecimals} />
         </>
-      ) : null}
+      )}
     </View>
   );
 }
 
+/** The top of a full-screen trade sheet: the market's cover, the word, the market. */
+export function TradeSheetHeader({ cover, word, market }: { cover: string | null; word: string; market: string }) {
+  return (
+    <View style={styles.header}>
+      <View style={styles.thumb}>{cover ? <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" /> : <Text style={{ fontSize: 20 }}>🎯</Text>}</View>
+      <View style={{ flex: 1 }}>
+        <Text style={type.muted} numberOfLines={1}>
+          {market}
+        </Text>
+        <Text style={styles.headerWord} numberOfLines={1}>
+          {word}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+/** The row of quick amounts under the chips. */
+export function PresetRow({ presets, onPick }: { presets: Preset[]; onPick: (value: string) => void }) {
+  return (
+    <View style={styles.presets}>
+      {presets.map((pr) => (
+        <PresetChip key={pr.label} label={pr.label} onPress={() => onPick(pr.value)} />
+      ))}
+    </View>
+  );
+}
+
+function PresetChip({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={() => {
+        Haptics.selectionAsync();
+        onPress();
+      }}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.presetChip, pressed && { backgroundColor: colors.surfaceRaised }]}
+    >
+      <Text style={styles.presetLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  wrap: { gap: spacing.sm },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    maxWidth: 220,
-  },
-  chipLabel: {
-    fontFamily: fonts.semibold,
-    fontSize: 14,
-    color: colors.text,
-    flexShrink: 1,
-  },
-  chipPrice: {
-    fontFamily: fonts.semibold,
-    fontSize: 14,
-    color: colors.textMuted,
-    fontVariant: ['tabular-nums'],
-  },
-  segment: {
-    flexDirection: 'row',
-    padding: 3,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  segmentItem: {
-    flex: 1,
-    height: 34,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  segmentActive: { backgroundColor: colors.surfaceRaised },
-  segmentLabel: {
-    fontFamily: fonts.semibold,
-    fontSize: 15,
-    color: colors.textMuted,
-  },
-  sides: { flexDirection: 'row', gap: spacing.sm },
-  side: {
-    flex: 1,
-    minHeight: 58,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    paddingVertical: spacing.sm,
-  },
-  sideLabel: { fontFamily: fonts.bold, fontSize: 15, letterSpacing: 0.5 },
-  sidePrice: { ...type.money, fontSize: 19 },
-  sideHeld: {
-    fontFamily: fonts.medium,
-    fontSize: 12,
-    color: colors.textMuted,
-    fontVariant: ['tabular-nums'],
-  },
-  amountBlock: { gap: 6 },
-  amountRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'center',
-    gap: 4,
-    minHeight: 46,
-  },
-  amount: {
-    fontFamily: fonts.bold,
-    fontSize: 38,
-    lineHeight: 46,
-    color: colors.text,
-    fontVariant: ['tabular-nums'],
-    maxWidth: '80%',
-  },
-  amountUnit: {
-    fontFamily: fonts.semibold,
-    fontSize: 22,
-    color: colors.textMuted,
-  },
-  presets: { flexDirection: 'row', gap: spacing.sm, justifyContent: 'center' },
-  preset: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    minWidth: 60,
-    alignItems: 'center',
-  },
-  presetLabel: { fontFamily: fonts.semibold, fontSize: 14, color: colors.text },
-  quote: {
-    padding: spacing.sm + 4,
-    borderRadius: 14,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 3,
-  },
-  headline: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    marginBottom: 2,
-  },
-  headlineValue: {
-    fontFamily: fonts.bold,
-    fontSize: 26,
-    lineHeight: 32,
-    color: colors.text,
-    fontVariant: ['tabular-nums'],
-    flexShrink: 1,
-  },
-  quoteRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  wrap: { gap: spacing.md },
+  header: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 4 },
+  thumb: { width: 44, height: 44, borderRadius: radius.thumb, overflow: 'hidden', backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  headerWord: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 24, color: colors.text },
+  amountBlock: { alignItems: 'center', gap: 6, paddingVertical: spacing.sm },
+  amountRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 4, minHeight: 64 },
+  amount: { ...type.display, maxWidth: '80%' },
+  amountUnit: { fontFamily: fonts.bold, fontSize: 40, color: colors.text },
+  amountSuffix: { fontFamily: fonts.semibold, fontSize: 20, color: colors.textMuted },
+  headline: { fontFamily: fonts.semibold, fontSize: 17, lineHeight: 24, color: colors.text },
+  headlineValue: { color: colors.yes, fontVariant: ['tabular-nums'] },
+  detail: { ...type.muted, fontSize: 13, lineHeight: 18, textAlign: 'center' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.sm },
+  warning: { ...type.muted, color: colors.no, textAlign: 'center' },
+  presets: { flexDirection: 'row', gap: spacing.sm },
+  presetChip: { flex: 1, height: 44, borderRadius: 999, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  presetLabel: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text, fontVariant: ['tabular-nums'] },
 });

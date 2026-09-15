@@ -20,11 +20,12 @@ import {
 import { deserializeMarketAccount, impliedYesPrice } from '@/chain/amm';
 import { deserializeMajorityMarket, WordOutcome } from '@/chain/majority';
 import { base64ToBytes } from '@/lib/bytes';
-import { cents, shortAddress, tokens, usd, usdc } from '@/lib/format';
+import { pct, shortAddress, tokens, usd, usdc } from '@/lib/format';
 import { toMs } from '@/lib/time';
 import { useNow } from '@/lib/use-now';
 import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
+import { Card, SectionTitle, Stat, rowStyle } from '@/ui/card';
 import { ClaimCard, useClaimFlow, type ClaimTarget } from '@/ui/claim-card';
 import { ResultShare } from '@/ui/result-share';
 import { MarketHeader } from '@/ui/market-header';
@@ -47,7 +48,7 @@ export default function ResultScreen() {
 
 function Loading() {
   return (
-    <Screen title="" back backLabel="Back">
+    <Screen back>
       <CardSkeleton />
     </Screen>
   );
@@ -68,7 +69,7 @@ function PaidMajorityResult({ id }: { id: string }) {
   if (market.isPending || results.isPending) return <Loading />;
   if (market.isError || !market.data || !acct) {
     return (
-      <Screen title="Result" back>
+      <Screen back>
         <ErrorState error={market.error ?? new Error('Could not decode the market')} onRetry={() => market.refetch()} />
       </Screen>
     );
@@ -77,21 +78,18 @@ function PaidMajorityResult({ id }: { id: string }) {
   const winners = market.data.board.filter((w) => w.outcome === WordOutcome.Winner);
   const resolved = results.data?.resolved ?? acct.status === 1;
   return (
-    <Screen title="" back>
+    <Screen back>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <MarketHeader
           title={info?.title ?? `Market ${id}`}
           cover={info?.cover_image_url ?? null}
           status={acct.status === 2 ? 'cancelled' : resolved ? 'resolved' : 'pending'}
-          paid
-          majority
           lockAt={Number(acct.lockTs) * 1000}
           eventAt={info?.event_start_time ? Date.parse(info.event_start_time) : null}
-          traderCount={market.data.traderCount}
           now={now}
         />
-        <View style={styles.winnerCard}>
-          <Text style={type.muted}>
+        <Card style={styles.winnerCard}>
+          <Text style={type.label}>
             {acct.status === 2 ? 'Cancelled, stakes refundable' : resolved ? (winners.length > 1 ? 'Winning words' : 'Winning word') : 'Awaiting resolution'}
           </Text>
           {winners.length > 0 ? (
@@ -101,10 +99,10 @@ function PaidMajorityResult({ id }: { id: string }) {
           )}
           <View style={styles.stats}>
             <Stat label="Pool" value={usdc(acct.totalUnits * acct.unitPrice)} />
-            <Stat label="Paid out" value={usdc(acct.distributable)} />
-            <Stat label="Units" value={market.data.totalUnits} />
+            <Stat label="Paid out" value={usdc(acct.distributable)} align="center" />
+            <Stat label="Units" value={String(market.data.totalUnits)} align="right" />
           </View>
-        </View>
+        </Card>
         {wallet && claimable.length > 0 ? (
           <ClaimCard
             wallet={wallet}
@@ -119,41 +117,54 @@ function PaidMajorityResult({ id }: { id: string }) {
           />
         ) : null}
         <ResultShare family="paid-majority" marketId={id} title={info?.title ?? `Market ${id}`} />
-        <Text style={type.heading}>Board</Text>
-        {market.data.board.map((w) => (
-          <View key={w.wordHash} style={styles.row}>
-            <Text style={[type.body, { flex: 1, fontFamily: fonts.semibold }]}>{w.word ?? 'Word not shown yet'}</Text>
-            <Text style={type.muted}>{w.units} units</Text>
-            {w.outcome === WordOutcome.Winner ? <Pill label="WON" tone="green" /> : resolved ? <Pill label="LOST" tone="neutral" /> : null}
-          </View>
-        ))}
-        <Text style={type.heading}>Payouts</Text>
-        {results.isError ? (
-          <ErrorState error={results.error} onRetry={() => results.refetch()} title="Could not load payouts" />
-        ) : results.data && results.data.leaderboard.length > 0 ? (
-          results.data.leaderboard.map((r, i) => (
-            <Link key={r.wallet} href={profileHref(r.username, r.wallet)} asChild>
-              <Pressable style={StyleSheet.flatten([styles.row, viewed === r.wallet && styles.rowYou])} accessibilityRole="button">
-                <Text style={styles.rank}>{i + 1}</Text>
-                <Text style={{ fontSize: 18 }}>{r.pfpEmoji ?? '🙂'}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[type.body, { fontFamily: fonts.semibold }]} numberOfLines={1}>
-                    {r.username ?? shortAddress(r.wallet)}
-                  </Text>
-                  <Text style={type.muted}>
-                    {usd(r.stakeUsdc)} staked · {r.points} pts
-                  </Text>
-                </View>
-                <Text style={[type.money, { color: r.profitUsdc > 0 ? colors.yes : r.profitUsdc < 0 ? colors.no : colors.textMuted }]}>
-                  {r.profitUsdc >= 0 ? '+' : ''}
-                  {usd(r.profitUsdc)}
+        <View style={styles.section}>
+          <SectionTitle title="Board" />
+          <Card padded={false} style={styles.listCard}>
+            {market.data.board.map((w, i) => (
+              <View key={w.wordHash} style={rowStyle(i === 0)}>
+                <Text style={styles.word} numberOfLines={1}>
+                  {w.word ?? 'Word not shown yet'}
                 </Text>
-              </Pressable>
-            </Link>
-          ))
-        ) : (
-          <EmptyState title="No payouts yet" body="Payouts appear once the market resolves." />
-        )}
+                <Text style={type.muted}>{w.units} units</Text>
+                {w.outcome === WordOutcome.Winner ? <Pill label="WON" tone="green" /> : resolved ? <Pill label="LOST" tone="neutral" /> : null}
+              </View>
+            ))}
+          </Card>
+        </View>
+        <View style={styles.section}>
+          <SectionTitle title="Payouts" />
+          {results.isError ? (
+            <ErrorState error={results.error} onRetry={() => results.refetch()} title="Could not load payouts" />
+          ) : results.data && results.data.leaderboard.length > 0 ? (
+            <Card padded={false} style={styles.listCard}>
+              {results.data.leaderboard.map((r, i) => (
+                <Link key={r.wallet} href={profileHref(r.username, r.wallet)} asChild>
+                  <Pressable style={rowStyle(i === 0)} accessibilityRole="button">
+                    <Text style={styles.rank}>{i + 1}</Text>
+                    <Text style={{ fontSize: 18 }}>{r.pfpEmoji ?? '🙂'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.nameLine}>
+                        <Text style={styles.name} numberOfLines={1}>
+                          {r.username ?? shortAddress(r.wallet)}
+                        </Text>
+                        {viewed === r.wallet ? <Pill label="YOU" tone="gold" /> : null}
+                      </View>
+                      <Text style={type.muted}>
+                        {usd(r.stakeUsdc)} staked · {r.points} pts
+                      </Text>
+                    </View>
+                    <Text style={[type.money, { color: r.profitUsdc > 0 ? colors.yes : r.profitUsdc < 0 ? colors.no : colors.textMuted }]}>
+                      {r.profitUsdc >= 0 ? '+' : ''}
+                      {usd(r.profitUsdc)}
+                    </Text>
+                  </Pressable>
+                </Link>
+              ))}
+            </Card>
+          ) : (
+            <EmptyState title="No payouts yet" body="Payouts appear once the market resolves." />
+          )}
+        </View>
       </ScrollView>
       {claimFlow.sheet}
     </Screen>
@@ -173,42 +184,47 @@ function PaidYesNoResult({ id }: { id: string }) {
   if (market.isPending) return <Loading />;
   if (market.isError || !acct) {
     return (
-      <Screen title="Result" back>
+      <Screen back>
         <ErrorState error={market.error ?? new Error('Could not decode the market')} onRetry={() => market.refetch()} />
       </Screen>
     );
   }
   const resolved = acct.status === 2 || acct.words.every((w) => w.outcome !== null);
   return (
-    <Screen title="" back>
+    <Screen back>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <MarketHeader
           title={meta.data?.title ?? `Market ${id}`}
           cover={meta.data?.cover_image_url ?? null}
           status={resolved ? 'resolved' : 'pending'}
-          paid
-          majority={false}
           lockAt={Number(acct.locksAt) * 1000}
           eventAt={meta.data?.event_start_time ? Date.parse(meta.data.event_start_time) : null}
-          traderCount={null}
           now={now}
         />
-        <View style={styles.stats}>
-          <Stat label="Volume" value={chart.data ? usd(chart.data.totalVolume / 1e6) : '–'} />
-          <Stat label="Trades" value={trades.data ? String(trades.data.length) : '–'} />
-          <Stat label="Words" value={String(acct.numWords)} />
-        </View>
+        <Card>
+          <View style={styles.stats}>
+            <Stat label="Volume" value={chart.data ? usd(chart.data.totalVolume / 1e6) : '–'} />
+            <Stat label="Trades" value={trades.data ? String(trades.data.length) : '–'} align="center" />
+            <Stat label="Words" value={String(acct.numWords)} align="right" />
+          </View>
+        </Card>
         {wallet ? <ClaimCard wallet={wallet} flow={claimFlow} target={{ kind: 'amm', marketId: id, title: meta.data?.title ?? `Market ${id}` } satisfies ClaimTarget} /> : null}
         <ResultShare family="paid-markets" marketId={id} title={meta.data?.title ?? `Market ${id}`} />
-        <Text style={type.heading}>Outcomes</Text>
-        {acct.words.map((w) => (
-          <View key={w.wordIndex} style={styles.row}>
-            <Text style={[type.body, { flex: 1, fontFamily: fonts.semibold }]}>{w.label}</Text>
-            <Text style={type.muted}>closed at {cents(impliedYesPrice(w, acct.liquidityParamB))}</Text>
-            {w.outcome === null ? <Pill label="PENDING" tone="orange" /> : <Pill label={w.outcome ? 'YES' : 'NO'} tone={w.outcome ? 'green' : 'red'} />}
-          </View>
-        ))}
-        <Text style={type.muted}>YES shares on a word said pay $1 each, and NO shares on a word not said.</Text>
+        <View style={styles.section}>
+          <SectionTitle title="Outcomes" />
+          <Card padded={false} style={styles.listCard}>
+            {acct.words.map((w, i) => (
+              <View key={w.wordIndex} style={rowStyle(i === 0)}>
+                <Text style={styles.word} numberOfLines={1}>
+                  {w.label}
+                </Text>
+                <Text style={type.muted}>closed at {pct(impliedYesPrice(w, acct.liquidityParamB))} chance</Text>
+                {w.outcome === null ? <Pill label="PENDING" tone="orange" /> : <Pill label={w.outcome ? 'YES' : 'NO'} tone={w.outcome ? 'green' : 'red'} />}
+              </View>
+            ))}
+          </Card>
+          <Text style={type.muted}>YES shares on a word said pay $1 each, and NO shares on a word not said.</Text>
+        </View>
       </ScrollView>
       {claimFlow.sheet}
     </Screen>
@@ -224,7 +240,7 @@ function FreeResult({ id, majority }: { id: number; majority: boolean }) {
   if (market.isPending || results.isPending) return <Loading />;
   if (market.isError || !market.data) {
     return (
-      <Screen title="Result" back>
+      <Screen back>
         <ErrorState error={market.error} onRetry={() => market.refetch()} />
       </Screen>
     );
@@ -233,109 +249,96 @@ function FreeResult({ id, majority }: { id: number; majority: boolean }) {
   const winners = market.data.words.filter((w) => w.resolved_outcome === true);
   const resolved = m.status === 'resolved' || market.data.words.every((w) => w.resolved_outcome !== null);
   return (
-    <Screen title="" back>
+    <Screen back>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <MarketHeader
           title={m.title}
           cover={m.cover_image_url}
           status={m.status === 'cancelled' ? 'cancelled' : resolved ? 'resolved' : 'pending'}
-          paid={false}
-          majority={majority}
           lockAt={toMs(m.lock_time)}
           eventAt={toMs(m.event_start_time)}
-          traderCount={market.data.traderCount}
           now={now}
         />
         {majority ? (
-          <View style={styles.winnerCard}>
-            <Text style={type.muted}>{resolved ? (winners.length > 1 ? 'Winning words' : 'Winning word') : 'Awaiting resolution'}</Text>
+          <Card style={styles.winnerCard}>
+            <Text style={type.label}>{resolved ? (winners.length > 1 ? 'Winning words' : 'Winning word') : 'Awaiting resolution'}</Text>
             <Text style={styles.winner}>{winners.length > 0 ? winners.map((w) => w.word).join(' · ') : 'Pending'}</Text>
-          </View>
+          </Card>
         ) : null}
-        <Text style={type.heading}>{majority ? 'Board' : 'Outcomes'}</Text>
-        {market.data.words.map((w) => (
-          <View key={w.id} style={styles.row}>
-            <Text style={[type.body, { flex: 1, fontFamily: fonts.semibold }]}>{w.word}</Text>
-            <Text style={type.muted}>{majority ? `said ${w.mention_count}×` : `closed at ${cents(w.yes_price)}`}</Text>
-            {w.resolved_outcome === null ? (
-              <Pill label="PENDING" tone="orange" />
-            ) : majority ? (
-              w.resolved_outcome ? (
-                <Pill label="WON" tone="green" />
-              ) : (
-                <Pill label="LOST" tone="neutral" />
-              )
-            ) : (
-              <Pill label={w.resolved_outcome ? 'YES' : 'NO'} tone={w.resolved_outcome ? 'green' : 'red'} />
-            )}
-          </View>
-        ))}
-        <ResultShare family="free" marketId={String(id)} title={m.title} />
-        <Text style={type.heading}>Leaderboard</Text>
-        {results.isError ? (
-          <ErrorState error={results.error} onRetry={() => results.refetch()} title="Could not load the leaderboard" />
-        ) : results.data && results.data.leaderboard.length > 0 ? (
-          results.data.leaderboard.map((r, i) => (
-            <Link key={r.wallet} href={profileHref(r.username, r.wallet)} asChild>
-              <Pressable style={StyleSheet.flatten([styles.row, viewed === r.wallet && styles.rowYou])} accessibilityRole="button">
-                <Text style={styles.rank}>{i + 1}</Text>
-                <Text style={{ fontSize: 18 }}>{r.pfp_emoji ?? '🙂'}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[type.body, { fontFamily: fonts.semibold }]} numberOfLines={1}>
-                    {r.username ?? shortAddress(r.wallet)}
-                  </Text>
-                  <Text style={type.muted} numberOfLines={1}>
-                    {r.words.map((w) => w.word).join(', ')} · {r.points_earned} pts
-                  </Text>
-                </View>
-                <Text style={[type.money, { color: r.net_tokens > 0 ? colors.yes : r.net_tokens < 0 ? colors.no : colors.textMuted }]}>
-                  {r.net_tokens >= 0 ? '+' : ''}
-                  {tokens(r.net_tokens)}
+        <View style={styles.section}>
+          <SectionTitle title={majority ? 'Board' : 'Outcomes'} />
+          <Card padded={false} style={styles.listCard}>
+            {market.data.words.map((w, i) => (
+              <View key={w.id} style={rowStyle(i === 0)}>
+                <Text style={styles.word} numberOfLines={1}>
+                  {w.word}
                 </Text>
-              </Pressable>
-            </Link>
-          ))
-        ) : (
-          <EmptyState title="No results yet" body="The leaderboard appears once the market resolves." />
-        )}
+                <Text style={type.muted}>{majority ? `said ${w.mention_count}×` : `closed at ${pct(w.yes_price)} chance`}</Text>
+                {w.resolved_outcome === null ? (
+                  <Pill label="PENDING" tone="orange" />
+                ) : majority ? (
+                  w.resolved_outcome ? (
+                    <Pill label="WON" tone="green" />
+                  ) : (
+                    <Pill label="LOST" tone="neutral" />
+                  )
+                ) : (
+                  <Pill label={w.resolved_outcome ? 'YES' : 'NO'} tone={w.resolved_outcome ? 'green' : 'red'} />
+                )}
+              </View>
+            ))}
+          </Card>
+        </View>
+        <ResultShare family="free" marketId={String(id)} title={m.title} />
+        <View style={styles.section}>
+          <SectionTitle title="Leaderboard" />
+          {results.isError ? (
+            <ErrorState error={results.error} onRetry={() => results.refetch()} title="Could not load the leaderboard" />
+          ) : results.data && results.data.leaderboard.length > 0 ? (
+            <Card padded={false} style={styles.listCard}>
+              {results.data.leaderboard.map((r, i) => (
+                <Link key={r.wallet} href={profileHref(r.username, r.wallet)} asChild>
+                  <Pressable style={rowStyle(i === 0)} accessibilityRole="button">
+                    <Text style={styles.rank}>{i + 1}</Text>
+                    <Text style={{ fontSize: 18 }}>{r.pfp_emoji ?? '🙂'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.nameLine}>
+                        <Text style={styles.name} numberOfLines={1}>
+                          {r.username ?? shortAddress(r.wallet)}
+                        </Text>
+                        {viewed === r.wallet ? <Pill label="YOU" tone="gold" /> : null}
+                      </View>
+                      <Text style={type.muted} numberOfLines={1}>
+                        {r.words.map((w) => w.word).join(', ')} · {r.points_earned} pts
+                      </Text>
+                    </View>
+                    <Text style={[type.money, { color: r.net_tokens > 0 ? colors.yes : r.net_tokens < 0 ? colors.no : colors.textMuted }]}>
+                      {r.net_tokens >= 0 ? '+' : ''}
+                      {tokens(r.net_tokens)}
+                    </Text>
+                  </Pressable>
+                </Link>
+              ))}
+            </Card>
+          ) : (
+            <EmptyState title="No results yet" body="The leaderboard appears once the market resolves." />
+          )}
+        </View>
       </ScrollView>
     </Screen>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={type.muted}>{label}</Text>
-      <Text style={type.money}>{value}</Text>
-    </View>
-  );
-}
-
+// Rows that are `<Link asChild>`'s child are given the flat style from rowStyle().
 const styles = StyleSheet.create({
-  content: { gap: spacing.sm, paddingBottom: spacing.xl },
-  winnerCard: {
-    padding: spacing.md,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: 'rgba(242,183,31,0.45)',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  winner: { fontFamily: fonts.bold, fontSize: 28, lineHeight: 34, color: colors.gold },
-  stats: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
-  stat: { flex: 1, padding: spacing.sm, borderRadius: 12, backgroundColor: colors.surfaceRaised, gap: 2 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  rowYou: { borderColor: colors.gold },
+  content: { gap: spacing.md, paddingBottom: spacing.xl },
+  section: { gap: spacing.sm },
+  winnerCard: { gap: spacing.xs },
+  winner: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 32, color: colors.gold },
+  stats: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.sm },
+  listCard: { paddingHorizontal: spacing.md },
+  name: { flexShrink: 1, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 22, color: colors.text },
+  word: { flex: 1, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 22, color: colors.text },
+  nameLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   rank: { width: 24, fontFamily: fonts.bold, fontSize: 14, color: colors.textMuted, fontVariant: ['tabular-nums'] },
 });

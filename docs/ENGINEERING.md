@@ -21,6 +21,7 @@ fixtures and assets.
 | v4 trading | Sep 11 | 4.3k | The whole chain path: plan, simulate, sign, broadcast, confirm; buys, sells, claims, the spending cap, progress and error states |
 | v5 engagement | Sep 12 to 14 | 2.5k | Notification feed and bell, push registration, deep links, emoji picker, sharing, bug reports, the staging flavour |
 | v6 Arena | Sep 14 | 1.8k | Arena team competition, team profiles, referrals |
+| v7 UI pass | Sep 14 to 15 | see `git diff --stat` | Every screen re-laid out to one system (`docs/DESIGN.md`): five tabs, one card shape, one chance figure per word, the trade sheet as a full screen with a swipe to confirm; deposit over MWA and withdraw from the app wallet (`src/trade/transfer.ts`, `src/ui/fund-sheet.tsx`) |
 
 Two supporting documents went to the web repo as part of this work:
 `docs/WEB_PUSH_TASK.md` and `docs/WEB_MOBILE_CONFIG_TASK.md` specify the
@@ -153,6 +154,13 @@ contract test fails when the web's current season and the ported copy differ.
 
 ### Cold launch shows something immediately
 
+Since v7 the native splash hands off to `src/ui/launch.tsx`, an overlay that
+starts as a pixel copy of the splash (the mark at 140 wide on black) and
+animates from it: a gold sweep, the word rising in, then a lift to reveal Home.
+The splash is hidden from the overlay's first `onLayout`, not from `ready`,
+because hiding it a frame earlier showed one black frame between the two. The
+app is mounted and fetching underneath the whole time.
+
 Without persistence every launch is skeletons until the network answers.
 `src/api/persist.ts` dehydrates successful queries to disk and restores them
 inside the readiness gate the root layout already holds for fonts, so a restore
@@ -179,6 +187,25 @@ httpOnly cookie, and a native app has no cookie jar, so `src/auth/sign-in.ts`
 carries a documented null until the web returns it in the body for mobile
 clients. The app still proves the part that matters today: a token minted by
 the React Native SDK verifies server side and binds to the claimed wallet.
+
+### The UI is a small set of parts, and screens only arrange them
+
+`src/ui/` holds the whole visual vocabulary after v7: `Screen`, `Card` and
+`Row`, `Chip`, `Segmented`, `Button`, `IconButton`, `Pill`, `SwipeButton` and
+the trade sheet. A screen file composes them and wires
+data; it does not invent a border, a radius or a colour of its own.
+`docs/DESIGN.md` lists the rules and is the checklist for a new screen.
+
+Two things bit while building it:
+
+- **A `Link asChild` child must have a flat style.** expo-router clones the
+  child to inject `onPress` and `href`, and throws on a style array or a
+  function. Every row that is a link goes through `rowStyle(first)` from
+  `src/ui/card.tsx`, and `IconButton` flattens its style for the same reason.
+- **Swipe to confirm reads `travel` from a shared value.** The gesture is
+  rebuilt on each render but its worklets capture values at creation, so the
+  track width is written to a shared value and read inside `onEnd` rather than
+  closed over.
 
 ### A notification has to become an app route
 
