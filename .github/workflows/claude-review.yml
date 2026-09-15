@@ -47,7 +47,12 @@ jobs:
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
-          # --allowedTools is not redundant with the skill's own frontmatter:
-          # the action only starts the MCP server that posts inline comments
-          # when --allowedTools names the tool here.
-          claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
+          # --allowedTools replaces the skill's own allowed-tools frontmatter in
+          # the action rather than adding to it, so it has to list every tool the
+          # skill uses. Naming only the inline comment tool (as Anthropic's docs
+          # example does) denied every gh call: the review ran for $2 without
+          # seeing the diff and could not post its summary comment. The inline
+          # tool must still be named here, or the action never starts the MCP
+          # server behind it.
+          claude_args: >-
+            --allowedTools "Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr list:*),Bash(gh pr comment:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search:*),mcp__github_inline_comment__create_inline_comment"
