@@ -1,5 +1,5 @@
-// Free YES/NO market. Same structure as the paid one: word list with YES and
-// NO prices, trade sheet from the bottom, positions under the rules.
+// Free YES/NO market. Same structure as the paid one: each word with its
+// chance, the trade sheet as a full screen, your picks under the header.
 //
 // Trading here is a server call against the play-token ledger, not a chain
 // transaction, but it uses the same progress and completion screens so the two
@@ -13,22 +13,24 @@ import { tradeFree } from '@/api/free';
 import { useFreeChart, useFreeMarket, useFreePositions, useIsScreenFocused } from '@/api/queries';
 import { sharesForTokens, virtualBuyCost, virtualSellReturn } from '@/free/lmsr';
 import { getDisplayStatus } from '@/free/marketUtils';
-import { tokens } from '@/lib/format';
+import { pct, tokens } from '@/lib/format';
 import { toMs } from '@/lib/time';
 import { useNow } from '@/lib/use-now';
 import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
 import { achievementLines, useApiTrade } from '@/trade/free';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
-import { PAUSED_NOTE, useFeatures } from '@/ui/config-gate';
 import { Button } from '@/ui/button';
+import { Card, SectionTitle } from '@/ui/card';
+import { PAUSED_NOTE, useFeatures } from '@/ui/config-gate';
 import { LineChart, type ChartSeries } from '@/ui/line-chart';
 import { MarketHeader } from '@/ui/market-header';
 import { Screen } from '@/ui/screen';
 import { CardSkeleton, ErrorState } from '@/ui/states';
-import { colors, spacing, type } from '@/ui/theme';
+import { SwipeButton } from '@/ui/swipe-button';
+import { spacing, type } from '@/ui/theme';
 import { TradeProgress } from '@/ui/trade-progress';
-import { TradeSheet, type Preset, type QuoteLine, type SheetWord, type Side, type TradeMode } from '@/ui/trade-sheet';
+import { TradeSheet, TradeSheetHeader, type Preset, type SheetChip, type SheetWord, type Side, type TradeMode } from '@/ui/trade-sheet';
 import { WordList } from '@/ui/word-list';
 import { YourPositions, type HeldRow } from '@/ui/your-positions';
 
@@ -57,14 +59,14 @@ export default function FreeYesNoScreen() {
 
   if (market.isPending) {
     return (
-      <Screen title="Loading" back>
+      <Screen back>
         <CardSkeleton />
       </Screen>
     );
   }
   if (market.isError || !market.data) {
     return (
-      <Screen title="Free YES/NO" back>
+      <Screen back>
         <ErrorState error={market.error} onRetry={() => market.refetch()} />
       </Screen>
     );
@@ -90,23 +92,9 @@ export default function FreeYesNoScreen() {
     const net = p.tokens_received - p.tokens_spent;
     const amountLine = `${tokens(p.tokens_spent)} tokens in`;
     if (p.yes_shares > 0.005)
-      rows.push({
-        key: `${p.word_id}y`,
-        word: p.word,
-        side: 'YES',
-        amount: amountLine,
-        value: `${fmt(p.yes_shares)} shares · worth ${tokens(p.yes_shares * (w?.yes_price ?? 0))}`,
-        tone: net > 0 ? 'up' : undefined,
-      });
+      rows.push({ key: `${p.word_id}y`, word: p.word, side: 'YES', amount: amountLine, value: `${fmt(p.yes_shares)} shares · worth ${tokens(p.yes_shares * (w?.yes_price ?? 0))}`, tone: net > 0 ? 'up' : undefined });
     if (p.no_shares > 0.005)
-      rows.push({
-        key: `${p.word_id}n`,
-        word: p.word,
-        side: 'NO',
-        amount: amountLine,
-        value: `${fmt(p.no_shares)} shares · worth ${tokens(p.no_shares * (w?.no_price ?? 0))}`,
-        tone: net > 0 ? 'up' : undefined,
-      });
+      rows.push({ key: `${p.word_id}n`, word: p.word, side: 'NO', amount: amountLine, value: `${fmt(p.no_shares)} shares · worth ${tokens(p.no_shares * (w?.no_price ?? 0))}`, tone: net > 0 ? 'up' : undefined });
     return rows;
   });
   const heldBadges: Record<string, string> = {};
@@ -127,38 +115,40 @@ export default function FreeYesNoScreen() {
   const canSell = heldYes > 0 || heldNo > 0;
   const mode: TradeMode = canSell ? modeChoice : 'buy';
   const amountNum = Number(amount) || 0;
-  let headline = { label: 'Est. shares', value: '0' };
-  let lines: QuoteLine[] = [];
+  const chance = word ? (side === 'YES' ? word.yes_price : word.no_price) : 0;
+  let headline = { label: 'Potential return', value: '0 tokens' };
+  let detail: string | null = null;
+  let chips: SheetChip[] = [];
   let warning: string | null = null;
   let presets: Preset[] = [];
-  let actionLabel = `Buy ${side}`;
+  let actionLabel = `Swipe to Predict ${side === 'YES' ? 'Yes' : 'No'}`;
   if (word && mode === 'buy') {
     const tokensIn = Math.min(amountNum, Math.max(0, balance));
     const sharesOut = tokensIn > 0 ? sharesForTokens(word.yes_qty, word.no_qty, side, tokensIn, b) : 0;
     const cost = sharesOut > 0 ? virtualBuyCost(word.yes_qty, word.no_qty, side, sharesOut, b) : 0;
     const avg = sharesOut > 0 ? cost / sharesOut : 0;
-    headline = { label: 'Est. shares', value: fmt(sharesOut) };
-    lines = [
-      { label: 'Average price', value: sharesOut > 0 ? `${Math.round(avg * 100)}c` : '–' },
-      { label: 'Cost', value: `${tokens(cost)} tokens` },
-      { label: `If ${word.word} resolves ${side}`, value: `${tokens(sharesOut)} tokens`, strong: true },
+    headline = { label: 'Potential return', value: `${tokens(sharesOut)} tokens` };
+    detail = sharesOut > 0 ? `${fmt(sharesOut)} shares · avg ${pct(avg)} · cost ${tokens(cost)} tokens` : null;
+    chips = [
+      { value: pct(chance), caption: 'chance', tone: side === 'YES' ? 'yes' : 'no' },
+      { value: viewed ? tokens(balance) : tokens(m.play_tokens), caption: viewed ? 'tokens available' : 'tokens to start' },
     ];
     if (amountNum > balance) warning = `You have ${tokens(balance)} tokens on this market.`;
     presets = [25, 50, 75, 100].map((n) => ({ label: n === 100 ? 'Max' : `${n}%`, value: String(Math.floor((balance * n) / 100)) }));
-    actionLabel = sharesOut > 0 ? `Buy ${side} for ${tokens(cost)} tokens` : `Buy ${side}`;
   } else if (word) {
     const capped = Math.min(amountNum, heldSide);
     const ret = capped > 0 ? virtualSellReturn(word.yes_qty, word.no_qty, side, capped, b) : 0;
     const avg = capped > 0 ? ret / capped : 0;
     headline = { label: 'You receive', value: `${tokens(ret)} tokens` };
-    lines = [
-      { label: 'Average price', value: capped > 0 ? `${Math.round(avg * 100)}c` : '–' },
-      { label: `${side} shares held`, value: fmt(heldSide) },
+    detail = capped > 0 ? `avg ${pct(avg)}` : null;
+    chips = [
+      { value: pct(chance), caption: 'chance', tone: side === 'YES' ? 'yes' : 'no' },
+      { value: fmt(heldSide), caption: `${side} held` },
     ];
     if (!viewed) warning = 'Connect a wallet to see what you hold.';
     else if (amountNum > heldSide) warning = `You hold ${fmt(heldSide)} ${side} shares on this word.`;
     presets = [25, 50, 75, 100].map((n) => ({ label: n === 100 ? 'Max' : `${n}%`, value: (Math.floor(((heldSide * n) / 100) * 100) / 100).toString() }));
-    actionLabel = capped > 0 ? `Sell ${side} for ${tokens(ret)} tokens` : `Sell ${side}`;
+    actionLabel = `Swipe to Sell ${side === 'YES' ? 'Yes' : 'No'}`;
   }
 
   const series: ChartSeries[] = (chart.data?.words ?? []).map((s) => ({
@@ -221,50 +211,38 @@ export default function FreeYesNoScreen() {
   };
 
   return (
-    <Screen title="" back>
+    <Screen back>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <MarketHeader
-          title={m.title}
-          cover={m.cover_image_url}
-          status={status}
-          paid={false}
-          majority={false}
-          lockAt={toMs(m.lock_time)}
-          eventAt={toMs(m.event_start_time)}
-          traderCount={market.data.traderCount}
-          now={now}
-          description={m.description}
-        />
+        <MarketHeader title={m.title} cover={m.cover_image_url} status={status} lockAt={toMs(m.lock_time)} eventAt={toMs(m.event_start_time)} now={now} description={m.description} />
         <YourPositions
           connected={!!viewed}
           rows={heldRows}
           loading={!!viewed && positions.isPending}
-          balanceLine={viewed ? `${tokens(balance)} tokens left` : `${tokens(m.play_tokens)} tokens to start`}
+          balanceLine={viewed ? `${tokens(balance)} tokens left` : undefined}
         />
         {status === 'resolved' || status === 'cancelled' ? (
           <Link href={`/result/free/${id}` as Href} asChild>
             <Button label="See results" tone="neutral" />
           </Link>
         ) : null}
-        <Text style={type.heading}>{open ? 'Pick a side' : 'Words'}</Text>
         <WordList words={words} onPick={openSheet} open={open} held={heldBadges} />
-        <Text style={type.heading}>Price history</Text>
-        <LineChart series={series} />
-        <View style={styles.footnote}>
-          <Text style={type.muted}>Free markets pay out in play tokens. Profit converts to points at 0.5x.</Text>
-        </View>
+        <SectionTitle title="Chance over time" />
+        <Card>
+          <LineChart series={series} />
+        </Card>
+        <Text style={[type.muted, { textAlign: 'center' }]}>Free markets pay out in play tokens. Profit converts to points at 0.5x.</Text>
       </ScrollView>
 
       <BottomSheet
         ref={sheetRef}
         visible={!!pick && !!word}
         onClose={closeSheet}
-        title={word?.word ?? ''}
-        subtitle={m.title}
+        full
+        header={<TradeSheetHeader cover={m.cover_image_url} word={word?.word ?? ''} market={m.title} />}
         locked={api.state.status === 'working'}
         footer={
           api.state.status === 'working' ? (
-            <View style={{ height: 52 }} />
+            <View style={{ height: 64 }} />
           ) : api.state.status === 'done' ? (
             <Button label="Done" tone="gold" onPress={() => sheetRef.current?.close()} />
           ) : api.state.status === 'failed' && !api.state.retryable ? (
@@ -272,12 +250,12 @@ export default function FreeYesNoScreen() {
           ) : api.state.status === 'failed' ? (
             <Button label="Try again" tone="gold" onPress={api.reset} />
           ) : (
-            <Button
+            <SwipeButton
               label={open ? actionLabel : 'Market closed'}
               tone={side === 'YES' ? 'yes' : 'no'}
               disabled={!features.freeTrading || !open || !sessionWallet || amountNum <= 0}
               note={inputError ?? (!features.freeTrading ? PAUSED_NOTE : !open ? undefined : !sessionWallet ? 'Sign in to trade' : undefined)}
-              onPress={submit}
+              onConfirm={() => void submit()}
             />
           )
         }
@@ -313,12 +291,8 @@ export default function FreeYesNoScreen() {
               maxDecimals={mode === 'buy' ? 0 : 2}
               presets={presets}
               headline={headline}
-              lines={lines}
-              // Spendable tokens only matter when buying; selling shows the holding under each side.
-              balanceLine={
-                mode === 'sell' ? undefined : viewed ? `${tokens(balance)} tokens available` : `Every player starts with ${tokens(m.play_tokens)} tokens`
-              }
-              holdings={viewed ? { yes: fmt(heldYes), no: fmt(heldNo) } : null}
+              chips={chips}
+              detail={detail}
               warning={warning}
               open={open}
             />
@@ -331,5 +305,4 @@ export default function FreeYesNoScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing.xl },
-  footnote: { padding: spacing.md, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
 });

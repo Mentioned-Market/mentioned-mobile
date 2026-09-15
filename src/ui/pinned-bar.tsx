@@ -1,11 +1,11 @@
-// Bottom-pinned action bar used by every market screen. Sits over the scroll
+// Bottom-pinned action bar used by the majority boards. Sits over the scroll
 // content; screens add bottom padding equal to PINNED_BAR_HEIGHT.
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/ui/button';
-import { colors, spacing, type } from '@/ui/theme';
+import { colors, fonts, spacing, type } from '@/ui/theme';
 
 export const PINNED_BAR_HEIGHT = 120;
 
@@ -24,7 +24,7 @@ export function PinnedBar({ title, subtitle, button, note, left }: Props) {
       <View style={styles.row}>
         {left ?? (
           <View style={{ flex: 1 }}>
-            <Text style={type.heading} numberOfLines={1}>
+            <Text style={styles.title} numberOfLines={1}>
               {title}
             </Text>
             {subtitle ? (
@@ -34,7 +34,7 @@ export function PinnedBar({ title, subtitle, button, note, left }: Props) {
             ) : null}
           </View>
         )}
-        <Button label={button.label} tone={button.tone} disabled={button.disabled} onPress={button.onPress} style={{ minWidth: 160 }} />
+        <Button label={button.label} tone={button.tone} disabled={button.disabled} onPress={button.onPress} style={{ minWidth: 150 }} />
       </View>
       {note ? <Text style={[type.muted, { textAlign: 'right', marginTop: 6 }]}>{note}</Text> : null}
     </View>
@@ -42,6 +42,7 @@ export function PinnedBar({ title, subtitle, button, note, left }: Props) {
 }
 
 const styles = StyleSheet.create({
-  bar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.md, paddingTop: spacing.sm, backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.border },
+  bar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.md, paddingTop: spacing.sm + 4, backgroundColor: colors.bg },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  title: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: colors.text },
 });

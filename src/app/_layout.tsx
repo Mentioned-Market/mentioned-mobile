@@ -10,7 +10,7 @@ import { DarkTheme, Stack, ThemeProvider, useRouter, useSegments } from 'expo-ro
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { prefetchSharedData } from '@/api/prefetch';
 import { restoreQueryCache, startPersistingQueryCache } from '@/api/persist';
@@ -18,6 +18,7 @@ import { OpenfortAuthProvider } from '@/auth/openfort-provider';
 import { logPolyfillChecks } from '@/lib/polyfill-check';
 import { usePush } from '@/notifications/use-push';
 import { ConfigGate } from '@/ui/config-gate';
+import { LaunchOverlay } from '@/ui/launch';
 import { usePrefs } from '@/store/prefs';
 import { useSession } from '@/store/session';
 import { useWallet } from '@/store/wallet';
@@ -94,9 +95,12 @@ export default function RootLayout() {
 
   const ready = fontsLoaded && prefsHydrated && cacheRestored;
 
-  useEffect(() => {
-    if (ready) SplashScreen.hideAsync();
-  }, [ready]);
+  // The launch overlay starts as a copy of the native splash and animates
+  // from it, so the splash is hidden only once the overlay has its first
+  // frame on screen: hiding it on `ready` alone left one black frame between.
+  const [launching, setLaunching] = useState(true);
+  const hideSplash = useCallback(() => void SplashScreen.hideAsync(), []);
+  const endLaunch = useCallback(() => setLaunching(false), []);
 
   // Warm every tab's data from the first frame, rather than when the tab is
   // first opened. Re-runs when the wallet arrives from secure storage, which is
@@ -132,6 +136,7 @@ export default function RootLayout() {
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="intro" options={{ animation: 'fade' }} />
               </Stack>
+              {launching ? <LaunchOverlay onReady={hideSplash} onDone={endLaunch} /> : null}
             </ConfigGate>
           </ThemeProvider>
         </QueryClientProvider>

@@ -20,8 +20,9 @@ import { evaluateMobileConfig } from '@/lib/mobile-config';
 import { usePrefs } from '@/store/prefs';
 import { useSession } from '@/store/session';
 import { useWallet } from '@/store/wallet';
+import { Card } from '@/ui/card';
 import { Screen } from '@/ui/screen';
-import { colors, fonts, spacing, type } from '@/ui/theme';
+import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
 export default function DevScreen() {
   const [runId, setRunId] = useState(0);
@@ -70,9 +71,9 @@ export default function DevScreen() {
   }, [walletParam, setWallet]);
 
   return (
-    <Screen title="Smoke tests" subtitle="Ported SDKs against production">
+    <Screen title="Smoke tests">
       <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
-        <View style={styles.row}>
+        <Card style={styles.row}>
           <Text style={type.heading}>Build</Text>
           <Text style={type.muted}>
             flavour {FLAVOR} · {API_BASE.replace('https://', '')} · Openfort {isOpenfortConfigured ? 'configured' : 'not configured'}
@@ -102,9 +103,9 @@ export default function DevScreen() {
           <Text style={[type.body, { color: colors.gold }]} selectable>
             {Linking.createURL('/oauth/callback')}
           </Text>
-        </View>
+        </Card>
         <PushSection />
-        <View style={styles.row}>
+        <Card style={styles.row}>
           <Text style={type.heading}>View as any address</Text>
           <Text style={type.muted}>QA helper: sets the viewed wallet without MWA. Current: {viewedAddress ?? 'none'}</Text>
           <TextInput
@@ -124,7 +125,7 @@ export default function DevScreen() {
               <Text style={[styles.buttonLabel, { color: colors.text }]}>Clear</Text>
             </Pressable>
           </View>
-        </View>
+        </Card>
         <Pressable onPress={() => setIntroSeen(false)} style={[styles.button, { backgroundColor: colors.surfaceRaised }]}>
           <Text style={[styles.buttonLabel, { color: colors.text }]}>Show intro on next launch</Text>
         </Pressable>
@@ -133,14 +134,14 @@ export default function DevScreen() {
         </Pressable>
         {fatal ? <Text style={[type.body, { color: colors.no }]}>{fatal}</Text> : null}
         {results?.map((r) => (
-          <View key={r.name} style={styles.row}>
+          <Card key={r.name} style={styles.row}>
             <Text style={[type.heading, { color: r.ok ? colors.yes : colors.no }]}>
               {r.ok ? 'PASS' : 'FAIL'} {r.name}
             </Text>
             <Text style={type.muted} selectable>
               {r.detail}
             </Text>
-          </View>
+          </Card>
         ))}
       </ScrollView>
     </Screen>
@@ -207,7 +208,7 @@ function PushSection() {
   };
 
   return (
-    <View style={styles.row}>
+    <Card style={styles.row}>
       <Text style={type.heading}>Push</Text>
       <Text style={type.muted}>permission {permission}</Text>
       <Text style={type.muted} selectable>
@@ -216,7 +217,7 @@ function PushSection() {
       <Pressable onPress={register} disabled={busy} style={[styles.button, busy && styles.buttonDisabled]}>
         <Text style={styles.buttonLabel}>{busy ? 'Asking' : 'Ask and get token'}</Text>
       </Pressable>
-    </View>
+    </Card>
   );
 }
 
@@ -234,18 +235,11 @@ const styles = StyleSheet.create({
   input: {
     height: 44,
     paddingHorizontal: spacing.md,
-    borderRadius: 10,
+    borderRadius: radius.key,
     backgroundColor: colors.surfaceRaised,
     color: colors.text,
     fontFamily: fonts.medium,
     fontSize: 14,
   },
-  row: {
-    padding: spacing.md,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing.xs,
-  },
+  row: { gap: spacing.xs },
 });

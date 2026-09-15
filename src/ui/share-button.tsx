@@ -133,10 +133,8 @@ const styles = StyleSheet.create({
   input: {
     height: 48,
     paddingHorizontal: spacing.md,
-    borderRadius: 12,
+    borderRadius: 16,
     backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.border,
     color: colors.text,
     fontSize: 15,
   },

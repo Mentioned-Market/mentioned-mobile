@@ -49,6 +49,12 @@ describe('adapters', () => {
     expect(isMajority(m)).toBe(true);
   });
 
+  it('labels a word whose text is not known yet', () => {
+    const entry = majList.markets[0] as { words: { word: string | null }[] };
+    const withNull = { ...entry, words: [{ ...entry.words[0], word: null }] };
+    expect(fromPaidMajority(withNull as never, NOW).words[0].label).toBe('Word not shown yet');
+  });
+
   it('maps a paid YES/NO market', () => {
     const m = fromPaidYesNo(ammList.markets[0] as never, NOW);
     expect(m.kind).toBe('paid-yesno');

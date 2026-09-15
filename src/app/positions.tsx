@@ -1,3 +1,6 @@
+// Positions: everything one wallet holds, one row per market, open first.
+// Reached from Home and Me (SPEC section 10), or from any player with a
+// `?wallet=` to look at theirs.
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Link, useLocalSearchParams, type Href } from 'expo-router';
@@ -8,17 +11,18 @@ import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, useShare
 import type { PaidMajorityUserPosition } from '@/api/paidMajority';
 import type { PaidMarketUserPosition } from '@/api/paidMarkets';
 import { useFreeUserActivity, useIsScreenFocused, usePaidMajorityUserPositions, usePaidMarketUserPositions } from '@/api/queries';
-import { tokens, usd } from '@/lib/format';
+import { shortAddress, tokens, usd } from '@/lib/format';
 import { isPaid } from '@/markets/merge';
 import { fromFree, fromPaidMajority, fromPaidYesNo, groupByMarket, groupPositions, type MarketGroup, type PositionRow } from '@/markets/positions';
 import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
+import { Card, SectionTitle, Stat } from '@/ui/card';
 import { ClaimCard, useClaimFlow, type ClaimTarget } from '@/ui/claim-card';
-import { SignInCard } from '@/ui/sign-in-card';
 import { Pill } from '@/ui/pill';
 import { Screen } from '@/ui/screen';
-import { EmptyState, ErrorState, Skeleton } from '@/ui/states';
-import { colors, fonts, spacing, type } from '@/ui/theme';
+import { SignInCard } from '@/ui/sign-in-card';
+import { EmptyState, ErrorState, RowsSkeleton } from '@/ui/states';
+import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
 export default function PositionsScreen() {
   const focused = useIsScreenFocused();
@@ -51,13 +55,10 @@ export default function PositionsScreen() {
     Promise.all(queries.map((q) => q.refetch())).finally(() => setRefreshing(false));
   };
 
+  const nothing = groups.open.length === 0 && groups.finished.length === 0 && failed.length === 0;
+
   return (
-    <Screen
-      title="Positions"
-      subtitle={
-        walletParam ? `Viewing ${walletParam.slice(0, 4)}…${walletParam.slice(-4)}` : viewed ? undefined : 'Sign in, or view a Seeker wallet from the You tab'
-      }
-    >
+    <Screen title={walletParam ? shortAddress(walletParam) : 'Positions'} back>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -65,33 +66,27 @@ export default function PositionsScreen() {
       >
         {walletParam || viewed ? null : <SignInCard />}
         {!viewed ? null : loading ? (
-          <View style={{ gap: spacing.sm }}>
-            <Skeleton height={72} radius={12} />
-            <Skeleton height={72} radius={12} />
-            <Skeleton height={72} radius={12} />
-          </View>
+          <RowsSkeleton />
         ) : (
           <>
             {failed.length > 0 ? (
-              <ErrorState
-                error={failed[0].error}
-                onRetry={refetchAll}
-                title={failed.length === 3 ? 'Could not load positions' : 'Some positions did not load'}
-              />
+              <ErrorState error={failed[0].error} onRetry={refetchAll} title={failed.length === 3 ? 'Could not load positions' : 'Some positions did not load'} />
             ) : null}
-            {groups.open.length === 0 && groups.finished.length === 0 && failed.length === 0 ? (
+            {nothing ? (
               <EmptyState title="No positions yet" body="Picks made with this wallet on mentioned.market show up here." />
             ) : (
-              <View style={styles.summary}>
-                <Stat label="Open markets" value={String(groups.openMarkets.length)} />
-                <Stat label="At stake" value={`${usd(groups.summary.stakedUsd)} · ${tokens(groups.summary.tokensIn)} tk`} />
-                <Stat label="To claim" value={usd(groups.summary.claimableUsd)} tone={groups.summary.claimableUsd > 0 ? 'up' : undefined} />
-              </View>
+              <Card>
+                <View style={styles.summary}>
+                  <Stat label="At stake" value={usd(groups.summary.stakedUsd)} />
+                  <Stat label="To claim" value={usd(groups.summary.claimableUsd)} tone={groups.summary.claimableUsd > 0 ? 'up' : undefined} align="center" />
+                  <Stat label="Tokens in" value={tokens(groups.summary.tokensIn)} align="right" />
+                </View>
+              </Card>
             )}
             {claimWallet ? claims.map((c) => <ClaimCard key={`${c.kind}:${c.marketId}`} target={c} wallet={claimWallet} flow={claimFlow} />) : null}
             {groups.openMarkets.length > 0 ? <Section title="Open" groups={groups.openMarkets} /> : null}
             {groups.finishedMarkets.length > 0 ? <Section title="Finished" groups={groups.finishedMarkets} /> : null}
-            {fr.data ? <Text style={type.muted}>{fr.data.pointsEarned.toLocaleString()} points earned on free markets</Text> : null}
+            {fr.data && fr.data.pointsEarned > 0 ? <Text style={[type.muted, { textAlign: 'center' }]}>{fr.data.pointsEarned.toLocaleString()} points earned on free markets</Text> : null}
           </>
         )}
       </ScrollView>
@@ -103,7 +98,7 @@ export default function PositionsScreen() {
 function Section({ title, groups }: { title: string; groups: MarketGroup[] }) {
   return (
     <Animated.View layout={LAYOUT} style={{ gap: spacing.sm }}>
-      <Text style={type.heading}>{title}</Text>
+      <SectionTitle title={title} />
       {groups.map((g) => (
         <MarketCard key={g.key} group={g} />
       ))}
@@ -140,27 +135,18 @@ function MarketCard({ group: g }: { group: MarketGroup }) {
         accessibilityHint={open ? 'Hides the positions' : 'Shows the positions'}
       >
         <View style={styles.thumb}>
-          {g.cover ? (
-            <Image source={{ uri: g.cover }} style={StyleSheet.absoluteFill} contentFit="cover" />
-          ) : (
-            <Text style={{ fontSize: 16 }}>{isPaid(g) ? '💵' : '🎟️'}</Text>
-          )}
+          {g.cover ? <Image source={{ uri: g.cover }} style={StyleSheet.absoluteFill} contentFit="cover" /> : <Text style={{ fontSize: 18 }}>{isPaid(g) ? '💵' : '🎟️'}</Text>}
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={[type.body, { flexShrink: 1 }]} numberOfLines={1}>
+            <Text style={[styles.title, { flexShrink: 1 }]} numberOfLines={1}>
               {g.title}
             </Text>
-            {g.won === true ? (
-              <Pill label="WON" tone="green" />
-            ) : g.won === false ? (
-              <Pill label="LOST" tone="red" />
-            ) : (
-              <Pill label={isPaid(g) ? 'PAID' : 'FREE'} tone={isPaid(g) ? 'gold' : 'neutral'} />
-            )}
+            {g.won === true ? <Pill label="WON" tone="green" /> : g.won === false ? <Pill label="LOST" tone="neutral" /> : null}
           </View>
-          <Text style={type.muted}>{g.count}</Text>
-          <Text style={[type.money, { fontSize: 14 }]}>{g.value}</Text>
+          <Text style={type.muted} numberOfLines={1}>
+            {g.value} · {g.count}
+          </Text>
         </View>
         <Animated.View style={chevron}>
           <Ionicons name="chevron-down" size={20} color={colors.textMuted} />
@@ -178,7 +164,7 @@ function MarketCard({ group: g }: { group: MarketGroup }) {
                   </Text>
                   <Text style={type.muted}>{r.value}</Text>
                 </View>
-                {g.finished && r.won !== null ? <Pill label={r.won ? 'WON' : 'LOST'} tone={r.won ? 'green' : 'red'} /> : null}
+                {g.finished && r.won !== null ? <Pill label={r.won ? 'WON' : 'LOST'} tone={r.won ? 'green' : 'neutral'} /> : null}
                 <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
               </Pressable>
             </Link>
@@ -220,25 +206,14 @@ function claimTargets(paid: PaidMarketUserPosition[], majority: PaidMajorityUser
   return out;
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: 'up' }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={type.muted}>{label}</Text>
-      <Text style={[type.money, { fontSize: 14 }, tone === 'up' && { color: colors.yes }]} numberOfLines={1}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing.xl },
   summary: { flexDirection: 'row', gap: spacing.sm },
-  stat: { flex: 1, padding: spacing.sm, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: 2 },
-  thumb: { width: 44, height: 44, borderRadius: 10, overflow: 'hidden', backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
-  card: { borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md },
-  drop: { borderTopWidth: 1, borderColor: colors.border, paddingHorizontal: spacing.md },
+  thumb: { width: 48, height: 48, borderRadius: radius.thumb, overflow: 'hidden', backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
+  card: { borderRadius: radius.card, backgroundColor: colors.surface, overflow: 'hidden' },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 4, padding: spacing.md },
+  title: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: colors.text },
+  drop: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border, paddingHorizontal: spacing.md },
   position: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -13,6 +13,8 @@ through the website's RPC proxy.
   problems that shaped the code. Start there for a code review.
 - `docs/V0_GUIDE.md` is the original build order and the port table.
 - `docs/SPEC.md` is the plan for everything after v0.
+- `docs/DESIGN.md` is the design system: the rules every screen follows since
+  the v7 UI pass, and the components in `src/ui/` that enforce them.
 
 ## Run on a Seeker
 
@@ -49,7 +51,8 @@ committed.
 - `src/auth/` Openfort provider, Shield encryption session, session exchange.
 - `src/markets/`, `src/free/`, `src/arena/`, `src/lib/` pure logic: merging,
   maths, formatting, derivations. No React, so it is unit tested.
-- `src/ui/` shared components and the theme.
+- `src/ui/` shared components and the theme. `docs/DESIGN.md` says how they
+  fit together; start there before adding a screen.
 
 ## Flavours
 

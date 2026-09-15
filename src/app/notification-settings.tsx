@@ -19,9 +19,10 @@ import { keys, useNotificationSettings } from '@/api/queries';
 import { registerForPush } from '@/notifications/push';
 import { useSession } from '@/store/session';
 import { Button } from '@/ui/button';
+import { Card, Row } from '@/ui/card';
 import { Screen } from '@/ui/screen';
 import { SignInCard } from '@/ui/sign-in-card';
-import { ErrorState, Skeleton } from '@/ui/states';
+import { ErrorState, RowsSkeleton } from '@/ui/states';
 import { colors, fonts, spacing, type } from '@/ui/theme';
 
 /** The website's own wording for the three categories, most personal first. */
@@ -88,7 +89,7 @@ export default function NotificationSettingsScreen() {
 
   if (!signedIn) {
     return (
-      <Screen title="Notifications" back backLabel="Back">
+      <Screen title="Notifications" back>
         <SignInCard />
       </Screen>
     );
@@ -98,42 +99,38 @@ export default function NotificationSettingsScreen() {
   const supported = settings.data ? ROWS.every((r) => typeof settings.data[r.key] === 'boolean') : true;
 
   return (
-    <Screen title="Notifications" subtitle="What reaches this phone" back backLabel="Back">
+    <Screen title="Notifications" back>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {permission === 'denied' ? (
-          <View style={[styles.card, styles.warn]}>
+          <Card style={styles.card}>
             <Text style={type.heading}>Notifications are off for Mentioned</Text>
             <Text style={type.muted}>
               Android is blocking them for this app, so nothing arrives whatever is chosen below. Turn them on in the phone&apos;s settings.
             </Text>
             <Button label="Open settings" tone="neutral" onPress={() => Linking.openSettings()} />
-          </View>
+          </Card>
         ) : permission === 'undetermined' ? (
-          <View style={[styles.card, styles.warn]}>
+          <Card style={styles.card}>
             <Text style={type.heading}>Turn on notifications</Text>
             <Text style={type.muted}>Get told when a market you traded resolves, without having to check.</Text>
             <Button label={asking ? 'Asking' : 'Turn on'} onPress={turnOn} disabled={asking} />
-          </View>
+          </Card>
         ) : null}
 
         {settings.isPending ? (
-          <View style={{ gap: spacing.sm }}>
-            <Skeleton height={64} radius={12} />
-            <Skeleton height={64} radius={12} />
-            <Skeleton height={64} radius={12} />
-          </View>
+          <RowsSkeleton />
         ) : settings.isError ? (
           <ErrorState error={settings.error} onRetry={() => settings.refetch()} title="Could not load your settings" />
         ) : !supported ? (
-          <View style={styles.card}>
+          <Card style={styles.card}>
             <Text style={type.muted}>Push settings are not available on this server yet.</Text>
-          </View>
+          </Card>
         ) : (
-          <View style={styles.card}>
+          <Card padded={false} style={styles.toggles}>
             {ROWS.map((row, i) => {
               const on = settings.data?.[row.key] === true;
               return (
-                <View key={row.key} style={[styles.row, i > 0 && styles.rowDivider]}>
+                <Row key={row.key} first={i === 0}>
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text style={[type.body, { fontFamily: fonts.semibold }]}>{row.label}</Text>
                     <Text style={type.muted}>{row.description}</Text>
@@ -145,10 +142,10 @@ export default function NotificationSettingsScreen() {
                     thumbColor={colors.text}
                     accessibilityLabel={row.label}
                   />
-                </View>
+                </Row>
               );
             })}
-          </View>
+          </Card>
         )}
         {error ? <Text style={[type.muted, { color: colors.no }]}>{error}</Text> : null}
         <Text style={type.muted}>Everything also appears in the notification feed, whichever of these are on.</Text>
@@ -159,8 +156,6 @@ export default function NotificationSettingsScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing.xl },
-  card: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
-  warn: { borderColor: 'rgba(242,183,31,0.45)' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
-  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  card: { gap: spacing.sm },
+  toggles: { paddingHorizontal: spacing.md },
 });

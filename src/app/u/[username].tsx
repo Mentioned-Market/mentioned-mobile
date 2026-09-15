@@ -6,9 +6,10 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { usePublicProfile } from '@/api/queries';
 import { shortAddress, tokens, usd } from '@/lib/format';
 import { Button } from '@/ui/button';
+import { Card, SectionTitle, Stat } from '@/ui/card';
 import { Screen } from '@/ui/screen';
 import { ErrorState, Skeleton } from '@/ui/states';
-import { colors, spacing, type } from '@/ui/theme';
+import { colors, radius, spacing, type } from '@/ui/theme';
 
 export default function PublicProfileScreen() {
   const { username } = useLocalSearchParams<{ username: string }>();
@@ -16,14 +17,14 @@ export default function PublicProfileScreen() {
 
   if (profile.isPending) {
     return (
-      <Screen title="" back backLabel="Back">
-        <Skeleton height={120} radius={16} />
+      <Screen back>
+        <Skeleton height={120} radius={radius.card} />
       </Screen>
     );
   }
   if (profile.isError) {
     return (
-      <Screen title={username} back backLabel="Back">
+      <Screen title={username} back>
         <ErrorState error={profile.error} onRetry={() => profile.refetch()} title="Could not load this profile" />
       </Screen>
     );
@@ -31,41 +32,55 @@ export default function PublicProfileScreen() {
   const p = profile.data;
   const since = p.createdAt ? new Date(p.createdAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : null;
   return (
-    <Screen title="" back backLabel="Back">
+    <Screen back>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.card}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-            <Text style={{ fontSize: 44 }}>{p.pfpEmoji ?? '🙂'}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={type.title}>{p.username}</Text>
-              <Text style={type.muted}>
-                {shortAddress(p.wallet)}
-                {since ? ` · since ${since}` : ''}
-              </Text>
-            </View>
+        <Card style={styles.identity}>
+          <View style={styles.avatar}>
+            <Text style={styles.emoji}>{p.pfpEmoji ?? '🙂'}</Text>
           </View>
+          <View style={{ flex: 1 }}>
+            <Text style={type.title} numberOfLines={1}>
+              {p.username}
+            </Text>
+            <Text style={type.muted}>
+              {shortAddress(p.wallet)}
+              {since ? ` · since ${since}` : ''}
+            </Text>
+          </View>
+        </Card>
+        <View style={styles.section}>
+          <SectionTitle title="Points" />
+          <Card>
+            <View style={styles.stats}>
+              <Stat label="This week" value={p.stats.weeklyPoints.toLocaleString()} />
+              <Stat label="All time" value={p.stats.allTimePoints.toLocaleString()} align="right" />
+            </View>
+          </Card>
         </View>
-        <Text style={type.heading}>Points</Text>
-        <View style={styles.stats}>
-          <Stat label="This week" value={p.stats.weeklyPoints.toLocaleString()} />
-          <Stat label="All time" value={p.stats.allTimePoints.toLocaleString()} />
+        <View style={styles.section}>
+          <SectionTitle title="Paid markets" />
+          <Card>
+            <View style={styles.stats}>
+              <Stat label="Realized P/L" value={usd(p.stats.realizedPnl)} tone={p.stats.realizedPnl > 0 ? 'up' : p.stats.realizedPnl < 0 ? 'down' : undefined} />
+              <Stat label="Trades" value={String(p.stats.tradesCount)} align="center" />
+              <Stat label="Biggest win" value={usd(p.stats.biggestWin)} align="right" />
+            </View>
+          </Card>
         </View>
-        <Text style={type.heading}>Paid markets</Text>
-        <View style={styles.stats}>
-          <Stat label="Realized P/L" value={usd(p.stats.realizedPnl)} tone={p.stats.realizedPnl > 0 ? 'up' : p.stats.realizedPnl < 0 ? 'down' : undefined} />
-          <Stat label="Trades" value={String(p.stats.tradesCount)} />
-          <Stat label="Biggest win" value={usd(p.stats.biggestWin)} />
-        </View>
-        <Text style={type.heading}>Free markets</Text>
-        <View style={styles.stats}>
-          <Stat label="Markets" value={String(p.freeMarket.stats.totalMarkets)} />
-          <Stat label="Trades" value={String(p.freeMarket.stats.totalTrades)} />
-          <Stat label="Points" value={p.freeMarket.stats.totalPoints.toLocaleString()} />
-        </View>
-        <View style={styles.stats}>
-          <Stat label="Tokens in" value={tokens(p.freeMarket.stats.totalTokensSpent)} />
-          <Stat label="Tokens out" value={tokens(p.freeMarket.stats.totalTokensReceived)} />
-          <Stat label="Active" value={String(p.freeMarket.stats.activePositions)} />
+        <View style={styles.section}>
+          <SectionTitle title="Free markets" />
+          <Card style={{ gap: spacing.md }}>
+            <View style={styles.stats}>
+              <Stat label="Markets" value={String(p.freeMarket.stats.totalMarkets)} />
+              <Stat label="Trades" value={String(p.freeMarket.stats.totalTrades)} align="center" />
+              <Stat label="Points" value={p.freeMarket.stats.totalPoints.toLocaleString()} align="right" />
+            </View>
+            <View style={styles.stats}>
+              <Stat label="Tokens in" value={tokens(p.freeMarket.stats.totalTokensSpent)} />
+              <Stat label="Tokens out" value={tokens(p.freeMarket.stats.totalTokensReceived)} align="center" />
+              <Stat label="Active" value={String(p.freeMarket.stats.activePositions)} align="right" />
+            </View>
+          </Card>
         </View>
         <Link href={`/positions?wallet=${p.wallet}` as Href} asChild>
           <Button label="View positions" tone="neutral" />
@@ -75,18 +90,11 @@ export default function PublicProfileScreen() {
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: 'up' | 'down' }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={type.muted}>{label}</Text>
-      <Text style={[type.money, tone === 'up' && { color: colors.yes }, tone === 'down' && { color: colors.no }]}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  content: { gap: spacing.sm, paddingBottom: spacing.xl },
-  card: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.sm },
-  stats: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
-  stat: { flex: 1, padding: spacing.md, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: 2 },
+  content: { gap: spacing.md, paddingBottom: spacing.xl },
+  section: { gap: spacing.sm },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  avatar: { width: 88, height: 88, borderRadius: 44, backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
+  emoji: { fontSize: 56, lineHeight: 68 },
+  stats: { flexDirection: 'row', gap: spacing.sm },
 });

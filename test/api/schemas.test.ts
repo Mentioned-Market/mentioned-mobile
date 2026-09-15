@@ -120,6 +120,14 @@ describe('schemas reject the wrong shape', () => {
     expect(PaidMarketTrade.safeParse({ ...ammTrades.trades[0], quantity: '100' }).success).toBe(false);
   });
 
+  it('accepts a list word whose text is not known yet', () => {
+    // Seen on staging Sep 15 2026: a word bought before the server had its
+    // text. One null word must not take the whole list down.
+    const entry = majList.markets[0] as { words: { word: string }[] };
+    const withNull = { ...entry, words: [{ ...entry.words[0], word: null }, ...entry.words.slice(1)] };
+    expect(PaidMajorityListEntry.safeParse(withNull).success).toBe(true);
+  });
+
   it('rejects a missing required field', () => {
     const { marketId, ...rest } = majList.markets[0] as Record<string, unknown>;
     expect(PaidMajorityListEntry.safeParse(rest).success).toBe(false);

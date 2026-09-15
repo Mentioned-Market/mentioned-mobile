@@ -14,10 +14,11 @@ import { referralShareText } from '@/lib/arena-view';
 import { shortAddress, usd } from '@/lib/format';
 import { useSession } from '@/store/session';
 import { Button } from '@/ui/button';
+import { Card, Row, SectionTitle, Stat } from '@/ui/card';
 import { Screen } from '@/ui/screen';
 import { SignInCard } from '@/ui/sign-in-card';
 import { CardSkeleton, EmptyState, ErrorState } from '@/ui/states';
-import { colors, fonts, spacing, type } from '@/ui/theme';
+import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
 /** The website's referral card is rendered at 1200 by 630. */
 const CARD_ASPECT = 1200 / 630;
@@ -37,7 +38,7 @@ export default function ReferralsScreen() {
 
   if (!wallet) {
     return (
-      <Screen title="Referrals" back backLabel="Back">
+      <Screen title="Referrals" back>
         <SignInCard />
       </Screen>
     );
@@ -57,7 +58,7 @@ export default function ReferralsScreen() {
   };
 
   return (
-    <Screen title="Referrals" subtitle="Earn a cut of the fees when your referrals trade" back backLabel="Back">
+    <Screen title="Referrals" back>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -69,51 +70,52 @@ export default function ReferralsScreen() {
           <ErrorState error={referral.error} onRetry={() => referral.refetch()} title="Could not load your referrals" />
         ) : (
           <>
-            <View style={styles.earned}>
-              <Text style={styles.eyebrow}>Earned</Text>
+            <Card style={{ gap: spacing.xs }}>
+              <Text style={type.label}>Earned</Text>
               <Text style={styles.amount}>{usd(referral.data.earningsUsd)}</Text>
               <Text style={type.muted}>
                 {REVSHARE_MAJORITY_PCT}% of your referrals&apos; majority volume and {REVSHARE_AMM_FEE_PCT}% of their AMM fees, paid out weekly.
               </Text>
               <View style={styles.statRow}>
-                <Text style={type.muted}>Referrals</Text>
-                <Text style={type.money}>{referral.data.referralCount}</Text>
+                <Stat label="Referrals" value={String(referral.data.referralCount)} />
               </View>
-            </View>
+            </Card>
 
             {code && link ? (
-              <View style={styles.card}>
+              <Card style={{ gap: spacing.sm }}>
                 {cardFailed ? null : (
                   <Image source={{ uri: referralCardUrl(code) }} style={styles.cardImage} contentFit="cover" onError={() => setCardFailed(true)} accessibilityLabel="Your referral card" />
                 )}
-                <Text style={type.muted}>Your link</Text>
+                <Text style={type.label}>Your link</Text>
                 <Text style={styles.link} selectable>
                   {link.replace(/^https?:\/\//, '')}
                 </Text>
-                <Button label="Share your link" onPress={share} />
+                <Button label="Share your link" onPress={share} style={{ paddingTop: spacing.xs }} />
                 {shareError ? <Text style={[type.muted, { color: colors.no }]}>{shareError}</Text> : null}
-              </View>
+              </Card>
             ) : (
-              <View style={styles.card}>
+              <Card>
                 <Text style={type.muted}>Your referral link is not ready yet. Pull down to try again.</Text>
-              </View>
+              </Card>
             )}
 
-            <Text style={type.heading}>Your referrals</Text>
-            {referral.data.referredUsers.length === 0 ? (
-              <EmptyState title="No referrals yet" body="Share your link to start earning." />
-            ) : (
-              referral.data.referredUsers.map((u) => (
-                <View key={u.wallet} style={styles.row}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[type.body, { fontFamily: fonts.semibold }]} numberOfLines={1}>
-                      {u.username ?? shortAddress(u.wallet)}
-                    </Text>
-                  </View>
-                  <Text style={type.muted}>Joined {new Date(u.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
-                </View>
-              ))
-            )}
+            <View style={styles.section}>
+              <SectionTitle title="Your referrals" />
+              {referral.data.referredUsers.length === 0 ? (
+                <EmptyState title="No referrals yet" body="Share your link to start earning." />
+              ) : (
+                <Card padded={false} style={styles.listCard}>
+                  {referral.data.referredUsers.map((u, i) => (
+                    <Row key={u.wallet} first={i === 0}>
+                      <Text style={styles.name} numberOfLines={1}>
+                        {u.username ?? shortAddress(u.wallet)}
+                      </Text>
+                      <Text style={type.muted}>Joined {new Date(u.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
+                    </Row>
+                  ))}
+                </Card>
+              )}
+            </View>
           </>
         )}
       </ScrollView>
@@ -123,12 +125,11 @@ export default function ReferralsScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing.xl },
-  earned: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: 'rgba(242,183,31,0.45)', gap: spacing.xs },
-  eyebrow: { fontFamily: fonts.semibold, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', color: colors.textMuted },
-  amount: { fontFamily: fonts.bold, fontSize: 40, lineHeight: 46, color: colors.gold, fontVariant: ['tabular-nums'] },
-  statRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
-  card: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
-  cardImage: { width: '100%', aspectRatio: CARD_ASPECT, borderRadius: 12, backgroundColor: colors.surfaceRaised },
-  link: { fontFamily: fonts.semibold, fontSize: 15, color: colors.gold },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  amount: { fontFamily: fonts.bold, fontSize: 40, lineHeight: 48, color: colors.gold, fontVariant: ['tabular-nums'], letterSpacing: -0.5 },
+  statRow: { flexDirection: 'row', paddingTop: spacing.sm },
+  cardImage: { width: '100%', aspectRatio: CARD_ASPECT, borderRadius: radius.thumb, backgroundColor: colors.surfaceRaised },
+  link: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: colors.gold },
+  section: { gap: spacing.sm },
+  listCard: { paddingHorizontal: spacing.md },
+  name: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: colors.text, flex: 1 },
 });

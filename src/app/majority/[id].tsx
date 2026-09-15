@@ -24,13 +24,16 @@ import { TradeInputError } from '@/trade/amm';
 import { BUYS_PER_TX, checkCoinedWord, friendlyMajorityError, MIN_SOL_FOR_FEES, planMajorityBuy } from '@/trade/majority';
 import { useTrade } from '@/trade/use-trade';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
-import { PAUSED_NOTE, useFeatures } from '@/ui/config-gate';
 import { Button } from '@/ui/button';
+import { Card, Row, SectionTitle } from '@/ui/card';
+import { Chip } from '@/ui/chip';
+import { PAUSED_NOTE, useFeatures } from '@/ui/config-gate';
 import { MarketHeader, statusFromLock } from '@/ui/market-header';
 import { Pill } from '@/ui/pill';
 import { PINNED_BAR_HEIGHT, PinnedBar } from '@/ui/pinned-bar';
 import { Screen } from '@/ui/screen';
 import { CardSkeleton, ErrorState } from '@/ui/states';
+import { SwipeButton } from '@/ui/swipe-button';
 import { colors, fonts, spacing, type } from '@/ui/theme';
 import { TradeProgress } from '@/ui/trade-progress';
 import { WordBoard, type BoardWord } from '@/ui/word-board';
@@ -71,14 +74,14 @@ export default function PaidMajorityScreen() {
 
   if (market.isPending) {
     return (
-      <Screen title="Loading" back>
+      <Screen back>
         <CardSkeleton />
       </Screen>
     );
   }
   if (market.isError || !market.data || !acct) {
     return (
-      <Screen title="Paid majority" back>
+      <Screen back>
         <ErrorState error={market.error ?? new Error('Could not decode the market account')} onRetry={() => market.refetch()} />
       </Screen>
     );
@@ -237,9 +240,10 @@ export default function PaidMajorityScreen() {
   const signedIn = trade.ready;
   const barTitle = basket.length === 0 ? 'Tap words or add your own' : `${basket.length} ${basket.length === 1 ? 'word' : 'words'} · ${usd(total)}`;
   const barSubtitle = basket.length === 0 ? `${usd(unitUsd)} each, paid in USDC` : basket.join(', ');
+  const newWords = basket.filter((w) => !boardByWord.has(w));
 
   return (
-    <Screen title="" back>
+    <Screen back>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView
           ref={scrollRef}
@@ -251,38 +255,34 @@ export default function PaidMajorityScreen() {
             title={info?.title ?? `Market ${id}`}
             cover={info?.cover_image_url ?? null}
             status={status}
-            paid
-            majority
             lockAt={lockAt}
             eventAt={info?.event_start_time ? Date.parse(info.event_start_time) : null}
-            traderCount={market.data.traderCount}
             now={now}
             description={info?.description}
           />
+          <View style={styles.chips}>
+            <Chip value={usdc(market.data.vaultAmount)} caption="pool" />
+            <Chip value={usd(unitUsd)} caption="per word" />
+          </View>
           {finished ? (
             <Link href={`/result/majority/${id}` as Href} asChild>
               <Button label="See results" tone="neutral" />
             </Link>
           ) : null}
-          <View style={styles.stats}>
-            <Stat label="Pool" value={usdc(market.data.vaultAmount)} />
-            <Stat label="Per word" value={usd(unitUsd)} />
-            <Stat label="Units" value={market.data.totalUnits} />
-          </View>
 
           {viewed && mine.data && mine.data.length > 0 ? (
-            <View style={styles.card}>
+            <Card style={{ gap: spacing.xs }}>
               <Text style={type.heading}>Your picks</Text>
               <Text style={type.muted}>{mine.data.map((p) => `${p.word} ×${p.units}`).join(', ')}</Text>
-            </View>
+            </Card>
           ) : null}
 
-          <Text style={type.heading}>{open ? 'Pick the word said the most' : 'Board'}</Text>
+          <SectionTitle title={open ? 'Pick the word said the most' : 'Board'} />
           {board.length === 0 && open ? <Text style={type.muted}>No words yet. Add the first one below.</Text> : null}
           <WordBoard words={words} selected={selectedKeys} onToggle={toggle} selectable={open} />
 
           {open ? (
-            <View style={styles.card}>
+            <Card style={{ gap: spacing.sm }}>
               <Text style={type.heading}>Add your own word</Text>
               <Text style={type.muted}>3 to 12 letters or digits. The first person to pick a word adds it to the board.</Text>
               <View style={styles.addRow}>
@@ -304,22 +304,20 @@ export default function PaidMajorityScreen() {
                   style={styles.input}
                   accessibilityLabel="Add your own word"
                 />
-                <Button label="Add" tone="neutral" onPress={addDraft} disabled={!draft.trim()} style={{ minWidth: 88 }} />
+                <Button label="Add" tone="neutral" size="sm" onPress={addDraft} disabled={!draft.trim()} />
               </View>
               {draftError ? <Text style={[type.muted, { color: colors.no }]}>{draftError}</Text> : null}
-              {basket.some((w) => !boardByWord.has(w)) ? (
-                <View style={styles.chips}>
-                  {basket
-                    .filter((w) => !boardByWord.has(w))
-                    .map((w) => (
-                      <Pressable key={w} onPress={() => removeFromBasket(w)} style={styles.chip} accessibilityRole="button" accessibilityLabel={`Remove ${w}`}>
-                        <Text style={styles.chipLabel}>{w}</Text>
-                        <Text style={styles.chipX}>×</Text>
-                      </Pressable>
-                    ))}
+              {newWords.length > 0 ? (
+                <View style={styles.wordChips}>
+                  {newWords.map((w) => (
+                    <Pressable key={w} onPress={() => removeFromBasket(w)} style={styles.wordChip} accessibilityRole="button" accessibilityLabel={`Remove ${w}`}>
+                      <Text style={styles.wordChipLabel}>{w}</Text>
+                      <Text style={styles.wordChipX}>×</Text>
+                    </Pressable>
+                  ))}
                 </View>
               ) : null}
-            </View>
+            </Card>
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -338,11 +336,10 @@ export default function PaidMajorityScreen() {
         visible={sheetOpen}
         onClose={closeSheet}
         title="Your picks"
-        subtitle={info?.title}
         locked={trade.state.status === 'working'}
         footer={
           trade.state.status === 'working' ? (
-            <View style={{ height: 52 }} />
+            <View style={{ height: 64 }} />
           ) : trade.state.status === 'done' ? (
             <Button label="Done" tone="gold" onPress={() => sheetRef.current?.close()} />
           ) : trade.state.status === 'failed' && trade.state.indeterminate ? (
@@ -350,12 +347,12 @@ export default function PaidMajorityScreen() {
           ) : trade.state.status === 'failed' ? (
             <Button label="Try again" tone="gold" onPress={trade.reset} />
           ) : (
-            <Button
-              label={`Buy ${basket.length} for ${usd(total)}`}
+            <SwipeButton
               tone="gold"
+              label={`Swipe to buy for ${usd(total)}`}
               disabled={!features.paidTrading || basket.length === 0 || !signedIn}
               note={inputError ?? (!features.paidTrading ? PAUSED_NOTE : undefined)}
-              onPress={submit}
+              onConfirm={() => void submit()}
             />
           )
         }
@@ -370,26 +367,28 @@ export default function PaidMajorityScreen() {
           />
         ) : (
           <View style={{ gap: spacing.sm }}>
-            {basket.map((w) => (
-              <View key={w} style={styles.pickRow}>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={styles.pickWord}>{w}</Text>
-                    {!boardByWord.has(w) ? <Pill label="NEW" tone="gold" /> : null}
+            <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
+              {basket.map((w, i) => (
+                <Row key={w} first={i === 0}>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.pickWord}>{w}</Text>
+                      {!boardByWord.has(w) ? <Pill label="NEW" tone="gold" /> : null}
+                    </View>
+                    <Text style={[type.muted, { color: colors.yes }]}>Wins {usd(winFor(w))} if said most</Text>
                   </View>
-                  <Text style={[type.muted, { color: colors.yes }]}>Wins {usd(winFor(w))} if said most</Text>
-                </View>
-                <Text style={type.money}>{usd(unitUsd)}</Text>
-                <Pressable onPress={() => removeFromBasket(w)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Remove ${w}`}>
-                  <Text style={styles.chipX}>×</Text>
-                </Pressable>
-              </View>
-            ))}
-            <View style={styles.totalRow}>
-              <Text style={type.muted}>Total</Text>
-              <Text style={type.money}>{usd(total)}</Text>
-            </View>
-            {basket.some((w) => !boardByWord.has(w)) ? <Text style={type.muted}>A new word also pays a small SOL deposit for its record on chain.</Text> : null}
+                  <Text style={type.money}>{usd(unitUsd)}</Text>
+                  <Pressable onPress={() => removeFromBasket(w)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Remove ${w}`}>
+                    <Text style={styles.wordChipX}>×</Text>
+                  </Pressable>
+                </Row>
+              ))}
+              <Row first={basket.length === 0}>
+                <Text style={[type.muted, { flex: 1 }]}>Total</Text>
+                <Text style={type.money}>{usd(total)}</Text>
+              </Row>
+            </Card>
+            {newWords.length > 0 ? <Text style={type.muted}>A new word also pays a small SOL deposit for its record on chain.</Text> : null}
             {basket.length > BUYS_PER_TX ? (
               <Text style={type.muted}>
                 This goes through as {Math.ceil(basket.length / BUYS_PER_TX)} transactions, {BUYS_PER_TX} words at a time.
@@ -402,57 +401,31 @@ export default function PaidMajorityScreen() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={type.muted}>{label}</Text>
-      <Text style={type.money}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   content: { gap: spacing.md },
-  stats: { flexDirection: 'row', gap: spacing.sm },
-  stat: { flex: 1, padding: spacing.md, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: 2 },
-  card: { padding: spacing.md, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.sm },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   input: {
     flex: 1,
     height: 52,
-    borderRadius: 12,
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceRaised,
     color: colors.text,
     fontFamily: fonts.medium,
     fontSize: 16,
   },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: {
+  wordChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  wordChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    height: 34,
     borderRadius: 999,
-    backgroundColor: 'rgba(242,183,31,0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(242,183,31,0.4)',
+    backgroundColor: colors.surfaceRaised,
   },
-  chipLabel: { fontFamily: fonts.semibold, fontSize: 14, color: colors.gold },
-  chipX: { fontFamily: fonts.semibold, fontSize: 18, color: colors.textMuted, paddingHorizontal: 4 },
-  pickRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.sm + 4,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
+  wordChipLabel: { fontFamily: fonts.semibold, fontSize: 14, color: colors.gold },
+  wordChipX: { fontFamily: fonts.semibold, fontSize: 18, color: colors.textMuted, paddingHorizontal: 4 },
   pickWord: { fontFamily: fonts.semibold, fontSize: 16, color: colors.text },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, paddingTop: spacing.xs },
 });

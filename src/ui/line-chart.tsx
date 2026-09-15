@@ -37,8 +37,8 @@ export function LineChart({ series, height = 180, onSelect }: { series: ChartSer
     <View onLayout={onLayout}>
       {width > 0 ? (
         <Svg width={width} height={height}>
-          {[0, 0.25, 0.5, 0.75, 1].map((g) => (
-            <Line key={g} x1={padL} x2={width - padR} y1={sy(g)} y2={sy(g)} stroke={colors.border} strokeWidth={1} />
+          {[0, 0.5, 1].map((g) => (
+            <Line key={g} x1={padL} x2={width - padR} y1={sy(g)} y2={sy(g)} stroke={colors.border} strokeWidth={StyleSheet.hairlineWidth} />
           ))}
           {[0, 0.5, 1].map((g) => (
             <SvgText key={`l${g}`} x={0} y={sy(g) + 4} fill={colors.textMuted} fontSize={11} fontFamily={fonts.medium}>
@@ -72,11 +72,11 @@ export function LineChart({ series, height = 180, onSelect }: { series: ChartSer
 }
 
 const styles = StyleSheet.create({
-  empty: { alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  empty: { alignItems: 'center', justifyContent: 'center', borderRadius: 24, backgroundColor: colors.surface },
   emptyText: { fontFamily: fonts.regular, fontSize: 14, color: colors.textMuted },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: 'transparent' },
-  legendActive: { backgroundColor: colors.surface, borderColor: colors.border },
+  legendActive: { backgroundColor: colors.surface, borderColor: colors.surfaceRaised },
   swatch: { width: 8, height: 8, borderRadius: 4 },
   legendLabel: { fontFamily: fonts.medium, fontSize: 12, color: colors.textMuted, maxWidth: 120 },
 });

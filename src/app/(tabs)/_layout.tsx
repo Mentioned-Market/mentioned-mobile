@@ -14,12 +14,14 @@ const icon = (name: IconName) => {
   return TabIcon;
 };
 
+// Five tabs (SPEC section 10). Positions live under Home and Me rather than in
+// the bar; the Arena has its own tab because it is a competition of its own.
 const ICONS = {
   home: icon('home'),
   markets: icon('grid'),
-  positions: icon('layers'),
   ranks: icon('trophy'),
-  you: icon('person-circle'),
+  arena: icon('shield'),
+  you: icon('person'),
 };
 
 // Android's default tab button draws a ripple that fights the black bar. A
@@ -69,9 +71,9 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ICONS.home }} />
       <Tabs.Screen name="markets" options={{ title: 'Markets', tabBarIcon: ICONS.markets }} />
-      <Tabs.Screen name="positions" options={{ title: 'Positions', tabBarIcon: ICONS.positions }} />
       <Tabs.Screen name="ranks" options={{ title: 'Ranks', tabBarIcon: ICONS.ranks }} />
-      <Tabs.Screen name="you" options={{ title: 'You', tabBarIcon: ICONS.you }} />
+      <Tabs.Screen name="arena" options={{ title: 'Arena', tabBarIcon: ICONS.arena }} />
+      <Tabs.Screen name="you" options={{ title: 'Me', tabBarIcon: ICONS.you }} />
     </Tabs>
   );
 }

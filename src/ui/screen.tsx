@@ -1,58 +1,62 @@
-import { Ionicons } from '@expo/vector-icons';
+// The frame every screen sits in: a safe area, a header of a title and at most
+// one round button each side, and the body under it with the page gutter.
+//
+// A pushed screen gets a round chevron on the left; a sheet-like screen gets an
+// X instead. Neither is labelled: the title says where you are and the button
+// says how to leave, and a "Back to Markets" caption was a third thing saying
+// what the other two already did.
 import { useRouter } from 'expo-router';
 import type { PropsWithChildren, ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ICON_BUTTON_SIZE, IconButton } from '@/ui/icon-button';
 import { colors, spacing, type } from '@/ui/theme';
 
-type Props = PropsWithChildren<{ title: string; subtitle?: string; back?: boolean; backLabel?: string; right?: ReactNode }>;
+type Props = PropsWithChildren<{
+  title?: string;
+  /** Draws the leave button: a chevron for a pushed screen, an X for a modal one. */
+  back?: boolean | 'close';
+  right?: ReactNode;
+  /** Something in place of the title, e.g. the wordmark. */
+  left?: ReactNode;
+  /** Removes the body gutter, for a screen whose list needs the full width. */
+  flush?: boolean;
+}>;
 
-export function Screen({ title, subtitle, back = false, backLabel = 'Markets', right, children }: Props) {
+export function Screen({ title, back = false, right, left, flush = false, children }: Props) {
   const router = useRouter();
+  const leave = () => (router.canGoBack() ? router.back() : router.replace('/'));
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
-        {back ? (
-          <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={styles.back} accessibilityRole="button" accessibilityLabel="Back" hitSlop={12}>
-            <Ionicons name="chevron-back" size={22} color={colors.text} />
-            <Text style={type.muted}>{backLabel}</Text>
-          </Pressable>
-        ) : null}
-        <View style={styles.titleRow}>
-          {title ? <Text style={[type.title, { flex: 1 }]}>{title}</Text> : null}
-          {right}
-        </View>
-        {subtitle ? <Text style={[type.muted, styles.subtitle]}>{subtitle}</Text> : null}
+        {back ? <IconButton name={back === 'close' ? 'close' : 'chevron-back'} label={back === 'close' ? 'Close' : 'Back'} onPress={leave} /> : null}
+        {left}
+        {title ? (
+          <Text style={[type.title, styles.title]} numberOfLines={1} accessibilityRole="header">
+            {title}
+          </Text>
+        ) : (
+          <View style={{ flex: 1 }} />
+        )}
+        {right}
       </View>
-      <View style={styles.body}>{children}</View>
+      <View style={[styles.body, flush && { paddingHorizontal: 0 }]}>{children}</View>
     </SafeAreaView>
-  );
-}
-
-export function Placeholder({ step, label }: { step: number; label: string }) {
-  return (
-    <View style={styles.placeholder}>
-      <Text style={type.heading}>{label}</Text>
-      <Text style={[type.muted, styles.placeholderNote]}>Arrives in v0 build step {step}</Text>
-    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  header: { paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 2, marginLeft: -6, marginBottom: spacing.xs },
-  subtitle: { marginTop: spacing.xs },
-  body: { flex: 1, paddingHorizontal: spacing.md },
-  placeholder: {
-    marginTop: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + 4,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    minHeight: ICON_BUTTON_SIZE + spacing.sm + spacing.md,
   },
-  placeholderNote: { marginTop: spacing.xs },
+  title: { flex: 1 },
+  body: { flex: 1, paddingHorizontal: spacing.md },
 });

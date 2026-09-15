@@ -1,15 +1,22 @@
+// Me: who is signed in, what the wallet is worth and how to add to it or take
+// from it, then the places that belong to the account. The emoji is changed by
+// tapping it.
 import { Ionicons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Link, type Href } from 'expo-router';
+import { useMemo, useRef, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { useProfile } from '@/api/queries';
-import { usd } from '@/lib/format';
+import { useFreeUserActivity, useIsScreenFocused, usePaidMajorityUserPositions, usePaidMarketUserPositions, useProfile, useUsdcBalance } from '@/api/queries';
+import { FLAVOR } from '@/config';
+import { shortAddress, usd } from '@/lib/format';
+import { fromFree, fromPaidMajority, fromPaidYesNo, groupPositions } from '@/markets/positions';
 import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
-import { useWallet } from '@/store/wallet';
-import { BugReport } from '@/ui/bug-report';
-import { ConnectWallet } from '@/ui/connect-wallet';
+import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
+import { Button } from '@/ui/button';
+import { Card, Stat, rowStyle } from '@/ui/card';
 import { EmojiPicker } from '@/ui/emoji-picker';
+import { DepositSheet, WithdrawSheet } from '@/ui/fund-sheet';
 import { Screen } from '@/ui/screen';
 import { SignInCard } from '@/ui/sign-in-card';
 import { ErrorState, Skeleton } from '@/ui/states';
@@ -17,111 +24,168 @@ import { colors, fonts, spacing, type } from '@/ui/theme';
 import { UsernameForm } from '@/ui/username-form';
 
 export default function YouScreen() {
-  // The profile follows whoever is signed in; the Seeker card below is about
-  // the Seed Vault wallet specifically, so it keeps reading that directly.
+  const focused = useIsScreenFocused();
   const active = useActiveWallet();
-  const seeker = useWallet((s) => s.viewedAddress);
   const profile = useProfile(active);
+  const balance = useUsdcBalance(active, focused);
+  const pm = usePaidMajorityUserPositions(active, focused);
+  const pa = usePaidMarketUserPositions(active, focused);
+  const fr = useFreeUserActivity(active, focused);
+  const positions = useMemo(() => {
+    const rows = [...(pm.data ?? []).map(fromPaidMajority), ...(pa.data ?? []).map(fromPaidYesNo), ...(fr.data ? fromFree(fr.data) : [])];
+    return groupPositions(rows).summary;
+  }, [pm.data, pa.data, fr.data]);
   const sessionWallet = useSession((s) => s.wallet);
-  // Only the signed-in account can set its own name; a Seed Vault wallet being
-  // viewed is someone looking, not someone signed in.
-  const needsName = !!sessionWallet && sessionWallet === active && profile.isSuccess && !profile.data.username;
+  const own = !!sessionWallet && sessionWallet === active;
+  // Only the signed-in account can set its own name; a wallet being viewed is
+  // someone looking, not someone signed in.
+  const needsName = own && profile.isSuccess && !profile.data.username;
+  const emojiSheet = useRef<BottomSheetHandle>(null);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [fund, setFund] = useState<'deposit' | 'withdraw' | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const refetchAll = () => {
+    setRefreshing(true);
+    Promise.all([profile.refetch(), balance.refetch(), pm.refetch(), pa.refetch(), fr.refetch()]).finally(() => setRefreshing(false));
+  };
+
+  // Balances always show cents: a $0.50 withdrawal must be visible on a $988
+  // wallet, and usd() rounds anything over $100 to whole dollars by default.
+  // Cash comes from the chain and the stakes from the API, so they can fail
+  // apart. When the chain read fails, cash reads "—" and the total silently
+  // omits it rather than showing a confident wrong number.
+  const cash = balance.data;
+  const total = (cash ?? 0) + positions.stakedUsd + positions.claimableUsd;
 
   return (
-    <Screen title="You">
-      {/* Scrolls: the profile, the Seeker card and the bug report together run
-          past the bottom of a phone, and a report box nobody can reach is the
-          same as no report box. */}
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <SignInCard />
+    <Screen title="Me">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetchAll} tintColor={colors.gold} />}
+      >
+        {!active ? <SignInCard /> : null}
 
         {needsName && sessionWallet ? <UsernameForm wallet={sessionWallet} /> : null}
 
         {active ? (
           profile.isPending ? (
-            <View style={styles.card}>
-              <Skeleton height={24} width="50%" />
-              <Skeleton height={16} width="70%" />
-            </View>
+            <Card style={styles.identity}>
+              <Skeleton height={64} width={64} radius={32} style={{ backgroundColor: colors.surfaceRaised }} />
+              <Skeleton height={24} width="50%" style={{ backgroundColor: colors.surfaceRaised }} />
+            </Card>
           ) : profile.isError ? (
             <ErrorState error={profile.error} onRetry={() => profile.refetch()} title="Could not load profile" />
           ) : (
-            <View style={styles.card}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                <Text style={{ fontSize: 32 }}>{profile.data.pfpEmoji ?? '🙂'}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={type.heading}>{profile.data.username ?? 'No username yet'}</Text>
-                  <Text style={type.muted}>{profile.data.username ? `mentioned.market/u/${profile.data.username}` : 'Choose one above'}</Text>
-                </View>
-              </View>
-              {/* Free markets need a linked Discord account while the gate is
-                  on, so say plainly whether this account has one. */}
-              {profile.data.discordId !== undefined ? (
-                <Text style={type.muted}>
-                  {profile.data.discordId
-                    ? `Discord linked${profile.data.discordUsername ? ` as ${profile.data.discordUsername}` : ''}`
-                    : 'Discord not linked. Free markets need it for now.'}
+            <Card style={styles.identity}>
+              <Pressable
+                onPress={own ? () => setEmojiOpen(true) : undefined}
+                disabled={!own}
+                accessibilityRole={own ? 'button' : undefined}
+                accessibilityLabel={own ? 'Change your emoji' : undefined}
+                style={styles.avatar}
+              >
+                <Text style={{ fontSize: 34 }}>{profile.data.pfpEmoji ?? '🙂'}</Text>
+              </Pressable>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.name} numberOfLines={1}>
+                  {profile.data.username ?? 'No username yet'}
                 </Text>
-              ) : null}
-              <View style={styles.stats}>
-                <Stat label="Earnings" value={usd(profile.data.earningsUsd)} />
-                <Stat label="Bonus points" value={String(profile.data.bonusPointsEarned)} />
-                <Stat label="Referrals" value={String(profile.data.referralCount)} />
+                <Text style={type.muted}>{shortAddress(active)}</Text>
               </View>
-              {sessionWallet && sessionWallet === active ? (
-                <Link href="/referrals" asChild>
-                  <Pressable style={styles.linkRow} accessibilityRole="link" accessibilityLabel="Referrals">
-                    <Text style={{ fontSize: 20 }}>🤝</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[type.body, { fontFamily: fonts.semibold }]}>Referrals</Text>
-                      <Text style={type.muted}>Earned {usd(profile.data.earningsUsd)} · share your link</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-                  </Pressable>
-                </Link>
-              ) : null}
-              {/* Only the signed-in account can change its own profile. */}
-              {sessionWallet && sessionWallet === active ? <EmojiPicker wallet={sessionWallet} current={profile.data.pfpEmoji} /> : null}
-            </View>
+            </Card>
           )
         ) : null}
 
-        {/* The Seed Vault wallet is not how you sign in. It funds the app
-            wallet, receives withdrawals, and proves you hold a Seeker. Until
-            trading lands it also lets you look at a wallet's positions. */}
-        <View style={styles.secondary}>
-          <Text style={type.muted}>Seeker wallet</Text>
-          <ConnectWallet compact={!!seeker} />
-        </View>
+        {active ? (
+          <Card>
+            <Text style={type.label}>Portfolio</Text>
+            {balance.isPending && cash === undefined ? (
+              <Skeleton height={48} width="55%" radius={10} style={{ backgroundColor: colors.surfaceRaised, marginVertical: 4 }} />
+            ) : (
+              <Text style={styles.total}>{usd(total, { dp: 2 })}</Text>
+            )}
+            <View style={styles.stats}>
+              <Stat label="Cash" value={balance.isError ? '—' : usd(cash ?? 0, { dp: 2 })} />
+              <Stat label="At stake" value={usd(positions.stakedUsd)} align={positions.claimableUsd > 0 ? 'center' : 'right'} />
+              {positions.claimableUsd > 0 ? <Stat label="To claim" value={usd(positions.claimableUsd)} tone="up" align="right" /> : null}
+            </View>
+            {own ? (
+              <View style={styles.fundRow}>
+                <Button label="Add funds" onPress={() => setFund('deposit')} style={{ flex: 1 }} />
+                <Button label="Withdraw" tone="neutral" onPress={() => setFund('withdraw')} style={{ flex: 1 }} />
+              </View>
+            ) : null}
+          </Card>
+        ) : null}
 
-        <View style={styles.secondary}>
-          <Text style={type.muted}>Report a bug</Text>
-          <BugReport wallet={active} />
-        </View>
+        {active ? (
+          <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
+            <MenuRow href="/positions" icon="layers-outline" label="Positions" first />
+            {own ? <MenuRow href="/referrals" icon="people-outline" label="Referrals" /> : null}
+            {own ? <MenuRow href="/bug-report" icon="bug-outline" label="Report a bug" /> : null}
+          </Card>
+        ) : null}
 
-        {__DEV__ ? (
-          <Link href="/dev" style={{ marginTop: spacing.sm }}>
-            <Text style={[type.muted, { color: colors.gold }]}>Dev: smoke tests</Text>
-          </Link>
+        {sessionWallet ? <SignInCard /> : null}
+
+        {FLAVOR !== 'production' ? (
+          <View style={styles.devRow}>
+            <Link href="/intro" asChild>
+              <Pressable accessibilityRole="button" hitSlop={8}>
+                <Text style={type.muted}>Replay intro</Text>
+              </Pressable>
+            </Link>
+            {__DEV__ ? (
+              <Link href="/dev" asChild>
+                <Pressable accessibilityRole="button" hitSlop={8}>
+                  <Text style={type.muted}>Dev: smoke tests</Text>
+                </Pressable>
+              </Link>
+            ) : null}
+          </View>
         ) : null}
       </ScrollView>
+
+      {sessionWallet ? (
+        <>
+          <DepositSheet visible={fund === 'deposit'} onClose={() => setFund(null)} wallet={sessionWallet} />
+          <WithdrawSheet visible={fund === 'withdraw'} onClose={() => setFund(null)} wallet={sessionWallet} />
+          <BottomSheet
+            ref={emojiSheet}
+            visible={emojiOpen}
+            onClose={() => setEmojiOpen(false)}
+            title="Your emoji"
+            footer={<Button label="Done" tone="neutral" onPress={() => emojiSheet.current?.close()} />}
+          >
+            <EmojiPicker wallet={sessionWallet} current={profile.data?.pfpEmoji ?? null} />
+          </BottomSheet>
+        </>
+      ) : null}
     </Screen>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function MenuRow({ href, icon, label, first = false }: { href: string; icon: keyof typeof Ionicons.glyphMap; label: string; first?: boolean }) {
   return (
-    <View style={{ flex: 1, gap: 2 }}>
-      <Text style={type.muted}>{label}</Text>
-      <Text style={type.money}>{value}</Text>
-    </View>
+    <Link href={href as Href} asChild>
+      <Pressable style={rowStyle(first)} accessibilityRole="link" accessibilityLabel={label}>
+        <Ionicons name={icon} size={20} color={colors.text} />
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+      </Pressable>
+    </Link>
   );
 }
 
 const styles = StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing.xl },
-  card: { padding: spacing.md, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, gap: spacing.md },
-  stats: { flexDirection: 'row', gap: spacing.sm },
-  linkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: 12, backgroundColor: colors.surfaceRaised },
-  secondary: { gap: spacing.sm, marginTop: spacing.sm },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
+  name: { fontFamily: fonts.bold, fontSize: 22, lineHeight: 28, color: colors.text },
+  total: { fontFamily: fonts.bold, fontSize: 44, lineHeight: 52, color: colors.text, fontVariant: ['tabular-nums'], letterSpacing: -0.5 },
+  stats: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.sm },
+  fundRow: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.md },
+  rowLabel: { ...type.body, flex: 1, fontFamily: fonts.semibold },
+  devRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.lg },
 });
