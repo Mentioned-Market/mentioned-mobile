@@ -4,9 +4,11 @@
 # hosted action, and posts each finding as an inline comment on the diff. It is
 # advisory: findings never block a merge, and `test.yml` stays the only gate.
 #
-# Auth is a subscription token, not an API key, so runs draw on the Claude plan
-# rather than API credits. Mint it with `claude setup-token` and store it with
-# `gh secret set CLAUDE_CODE_OAUTH_TOKEN`.
+# Auth is an API key (`gh secret set ANTHROPIC_API_KEY`), billed per token. A
+# subscription token from `claude setup-token` was tried first and is not used:
+# the action fails it about two seconds in with `is_error:true` and no error
+# text, even though the same token answers fine from a local curl. That is
+# anthropics/claude-code-action#1614, open with no maintainer response.
 name: claude review
 
 on:
@@ -41,7 +43,7 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
