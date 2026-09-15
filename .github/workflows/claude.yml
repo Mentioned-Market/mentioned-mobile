@@ -39,7 +39,8 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # API key, not a subscription token. See claude-review.yml for why.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # npm install, not npm ci, for the same reason test.yml uses it: this
           # lockfile is written on macOS and npm rejects it as out of sync on
           # Linux. Typecheck and test are pre-approved so Claude can check its
