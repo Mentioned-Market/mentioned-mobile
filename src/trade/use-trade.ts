@@ -9,11 +9,12 @@
 // stays "working" across all of them, so the progress screen does not flash a
 // completion between batches, and it says which batch it is on.
 import { useEmbeddedSolanaWallet } from '@openfort/react-native';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Instruction } from '@solana/kit';
 
 import { ConfirmationTimeoutError } from '@/chain/rpcSend';
 import { useSession } from '@/store/session';
+import { useWalletLink } from '@/store/wallet-link';
 import { friendlyTradeError } from '@/trade/amm';
 import { rawSignWithProvider, type SolanaSigningProvider } from '@/trade/openfort-signer';
 import { sendInstructions, SimulationError, type SendStep } from '@/trade/send';
@@ -44,12 +45,38 @@ export function useTrade() {
   const wallet = useSession((s) => s.wallet);
   const [state, setState] = useState<TradeState>({ status: 'idle' });
 
-  const provider = solana.status === 'connected' ? (solana.provider as unknown as SolanaSigningProvider) : null;
+  // The wallet that signs must be the wallet the session is for. An account
+  // can hold several (this one grew nine from a race since fixed), and the
+  // SDK will happily connect one the session is not for: the fee payer and
+  // the signer would then differ and the chain would reject every
+  // transaction. So a connected wallet only counts when it is the right one.
+  const activeAddress = solana.status === 'connected' ? (solana.activeWallet?.address ?? null) : null;
+  const onRightWallet = !!wallet && activeAddress === wallet;
+  const provider = solana.status === 'connected' && onRightWallet ? (solana.provider as unknown as SolanaSigningProvider) : null;
 
   // A trade needs both halves: the wallet the session is for, and a live
   // provider able to sign for it. The sheet keeps its button disabled until
   // this is true rather than failing at the moment of signing.
   const ready = Boolean(provider && wallet);
+  // Signed in, but the wallet has not been recovered yet (a cold start, see
+  // src/auth/wallet-reconnect.tsx). A screen says "connecting" here, not
+  // "sign in", because the person already did. `walletFailed` is the other
+  // half: a recovery that will not finish on its own, which must not go on
+  // reading as "connecting".
+  const link = useWalletLink((st) => st.status);
+  const retryWallet = useWalletLink((st) => st.retry);
+  const connecting = Boolean(wallet && !provider && link !== 'failed' && link !== 'needs-sign-in');
+  const walletFailed = Boolean(wallet && !provider && link === 'failed');
+  /** Signed in here, but not with Openfort any more: only a sign-in fixes it. */
+  const needsSignIn = Boolean(wallet && !provider && link === 'needs-sign-in');
+
+  // Arriving on a screen that needs a signer is itself a reason to try again,
+  // so leaving and coming back is a way out even without touching a button.
+  useEffect(() => {
+    if (walletFailed) retryWallet();
+    // Mount only: a retry per visit, not per render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const runBatches = useCallback(
     async (batches: Instruction[][], opts: RunOptions = {}): Promise<BatchResult> => {
@@ -121,5 +148,5 @@ export function useTrade() {
     setState({ status: 'failed', message, indeterminate: false });
   }, []);
 
-  return { ready, state, run, runBatches, reset, setInputError, wallet };
+  return { ready, connecting, walletFailed, needsSignIn, retryWallet, state, run, runBatches, reset, setInputError, wallet };
 }

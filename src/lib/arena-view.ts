@@ -41,6 +41,23 @@ export function placeLabel(place: number): string {
 }
 
 /** The website's team size line, for a season's team limit. */
+/**
+ * What the leaderboard's top places share. A season with a medal board keeps
+ * part of its pool for the medals, so "top 10 share $1,500" would overstate
+ * it; the registry says which part is the leaderboard's.
+ */
+export function leaderboardPool(arena: Arena): string {
+  return arena.bounty?.leaderboardPool ?? arena.prizePool;
+}
+
+/**
+ * The web's medal copy says "betting"; the app never does (AGENTS.md). The
+ * registry is ported byte for byte, so the word is swapped as it is shown.
+ */
+export function appCopy(text: string): string {
+  return text.replace(/\bbetting\b/gi, 'predicting').replace(/\bbettors\b/gi, 'players').replace(/\bbets\b/gi, 'picks').replace(/\bbet\b/gi, 'pick');
+}
+
 export function teamSizeCopy(arena: Arena): string {
   return arena.maxMembers === 2
     ? 'Teams are 1 or 2 players. Go solo if you are confident, but a partner means more points.'

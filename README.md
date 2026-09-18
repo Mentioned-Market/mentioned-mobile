@@ -194,3 +194,58 @@ packages are pinned to exact versions.
 `AGENTS.md` holds the conventions: commit style, where logic belongs, and what
 to update when behaviour changes. Run `npm test`, `npm run typecheck` and
 `npm run lint` before committing.
+
+## Release build
+
+A release APK bundles the JavaScript, so it runs on any Android phone (7.0+,
+64-bit ARM) with no Metro. The flavour is inlined at build time.
+
+```bash
+npm run apk:staging       # dist/mentioned-staging-<version>-<date>.apk
+npm run apk:production    # dist/mentioned-production-<version>-<date>.apk
+```
+
+`scripts/release-apk.sh` sets `EXPO_PUBLIC_FLAVOR` for the build by writing a
+temporary `.env.local` (Expo reads that file over the shell) and restores the
+original afterwards, then checks the bundle carries the flavour's API host.
+
+**Signing.** Release builds are signed with the store key when
+`android/keystore.properties` exists (gitignored):
+
+```
+storeFile=/absolute/path/to/mentioned-store.keystore
+storePassword=...
+keyAlias=mentioned
+keyPassword=...
+```
+
+Generate the key once and keep it in the team password manager; the store
+rejects an APK signed with a Play key, and the key's SHA-256 is what goes into
+the website's `/.well-known/assetlinks.json`:
+
+```bash
+keytool -genkeypair -v -keystore mentioned-store.keystore -alias mentioned \
+  -keyalg RSA -keysize 4096 -validity 10000
+keytool -list -v -keystore mentioned-store.keystore -alias mentioned | grep SHA256
+```
+
+Without the properties file a release build falls back to the debug key, and
+Gradle warns that the APK is not shippable.
+
+**Store.** See `dapp-store/README.md`. The CLI publishes to the portal; the
+app and its listing are created there first.
+
+## Deep links
+
+The app opens `https://www.mentioned.market` links for `/market/<id>`,
+`/paidmajority/<id>`, `/free/<slug>`, `/ref/<code>` and `/onramp/return`
+(`app.json` `android.intentFilters`, mirrored in the committed
+`AndroidManifest.xml`). They are verified App Links, so they open the app with
+no chooser, only once the website serves `assetlinks.json` for the release
+certificate; until then Android offers the browser too. `/ref/<code>` stores
+the code and sends it once with the next sign-in. The `mentioned://` scheme
+carries the same paths for testing:
+
+```bash
+adb shell am start -a android.intent.action.VIEW -d "mentioned://market/123" market.mentioned.app
+```

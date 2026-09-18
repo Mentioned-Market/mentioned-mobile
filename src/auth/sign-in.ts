@@ -71,8 +71,21 @@ export async function signInWithServer(params: { token: string; wallet: string; 
  * ensureOpenfortSolanaWallet: recover an existing wallet, and only create one
  * when there genuinely is none, so a returning user never ends up with a
  * second empty wallet.
+ *
+ * `preferred` is the wallet the app already holds a session for, and it wins
+ * whenever the account still has it. Signing in again is how a lost Openfort
+ * session is repaired, and it must come back to the same wallet: the funds,
+ * the positions and the username are all on that one.
+ *
+ * Otherwise the OLDEST wins. A second wallet on an account is only ever an
+ * accident (this account collected nine from a race since fixed), and the
+ * money is on the first. Accounts with no `createdAt` keep the server's order.
  */
-export function chooseWalletAction(wallets: { address: string }[]): { action: 'recover'; address: string } | { action: 'create' } {
-  const existing = wallets[0];
-  return existing ? { action: 'recover', address: existing.address } : { action: 'create' };
+export function chooseWalletAction(
+  wallets: { address: string; createdAt?: number }[],
+  preferred?: string | null,
+): { action: 'recover'; address: string } | { action: 'create' } {
+  if (preferred && wallets.some((w) => w.address === preferred)) return { action: 'recover', address: preferred };
+  const oldest = [...wallets].sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))[0];
+  return oldest ? { action: 'recover', address: oldest.address } : { action: 'create' };
 }

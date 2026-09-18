@@ -1,6 +1,6 @@
 // Home. The first screen after the intro, and the one people land on many times
 // a day, so it answers three questions in order and stops: who is winning this
-// week, what closes next, what just settled. A live Arena season gets a row.
+// week, what closes next, what just settled. An open Arena season leads.
 //
 // Each answer has its own shape (docs/DESIGN.md): the week is a podium on a
 // gold card, what closes next is a rail of cover images, what settled is a
@@ -13,12 +13,14 @@ import { useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useFreeList, useIsScreenFocused, useLeaderboard, usePaidMajorityList, usePaidMarketsList, usePrizePool } from '@/api/queries';
+import { useFreeList, useIsScreenFocused, useLeaderboard, usePaidMajorityList, usePaidMarketsList, usePrizePool, useRecentTrades } from '@/api/queries';
 import type { LeaderboardEntry } from '@/api/user';
 import { CURRENT_ARENA, arenaStatus } from '@/arena/arenas';
 import { FLAVOR } from '@/config';
-import { pct, shortAddress, tokens as fmtTokens, usd } from '@/lib/format';
+import { shortAddress, tokens as fmtTokens, usd } from '@/lib/format';
 import { closesIn, countdown } from '@/lib/time';
+import { formatCountdown, leaderboardPool, seasonCountdown } from '@/lib/arena-view';
+import { tickerItems } from '@/lib/ticker';
 import { useNow } from '@/lib/use-now';
 import { mergeMarkets, type MarketKind, type MarketSummary } from '@/markets/merge';
 import { useActiveWallet } from '@/store/active-wallet';
@@ -26,6 +28,7 @@ import { Card, SectionTitle } from '@/ui/card';
 import { NotificationBell } from '@/ui/notification-bell';
 import { Pill } from '@/ui/pill';
 import { ErrorState, RowsSkeleton } from '@/ui/states';
+import { Ticker } from '@/ui/ticker';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 import { Wordmark } from '@/ui/wordmark';
 
@@ -53,6 +56,8 @@ export default function HomeScreen() {
   const free = useFreeList(focused);
   const pool = usePrizePool(undefined, focused);
   const board = useLeaderboard('current', wallet, focused);
+  const trades = useRecentTrades(focused);
+  const ticker = useMemo(() => tickerItems(trades.data ?? []).slice(0, 20), [trades.data]);
   const [refreshing, setRefreshing] = useState(false);
 
   const markets = useMemo(
@@ -67,7 +72,7 @@ export default function HomeScreen() {
 
   const refetchAll = () => {
     setRefreshing(true);
-    Promise.all([paidMajority.refetch(), paidYesNo.refetch(), free.refetch(), pool.refetch(), board.refetch()]).finally(() => setRefreshing(false));
+    Promise.all([paidMajority.refetch(), paidYesNo.refetch(), free.refetch(), pool.refetch(), board.refetch(), trades.refetch()]).finally(() => setRefreshing(false));
   };
 
   const weekEnd = pool.data ? Date.parse(pool.data.weekEnd) : null;
@@ -87,6 +92,21 @@ export default function HomeScreen() {
           <View style={{ flex: 1 }} />
           <NotificationBell focused={focused} />
         </View>
+
+        {arena !== 'ended' ? (
+          <Link href="/arena" asChild>
+            <Pressable style={styles.arenaRow} accessibilityRole="link" accessibilityLabel={`${CURRENT_ARENA.name} Arena`}>
+              <View style={styles.iconCircle}>
+                <Text style={{ fontSize: 22 }}>{CURRENT_ARENA.emoji}</Text>
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={styles.rowTitle}>{CURRENT_ARENA.name} Arena</Text>
+                <ArenaLine />
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Pressable>
+          </Link>
+        ) : null}
 
         {board.isPending && !board.data && pool.isPending ? (
           <RowsSkeleton />
@@ -114,23 +134,6 @@ export default function HomeScreen() {
           </Link>
         )}
 
-        {arena === 'active' ? (
-          <Link href="/arena" asChild>
-            <Pressable style={styles.arenaRow} accessibilityRole="link" accessibilityLabel={`${CURRENT_ARENA.name} Arena`}>
-              <View style={styles.iconCircle}>
-                <Text style={{ fontSize: 22 }}>{CURRENT_ARENA.emoji}</Text>
-              </View>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={styles.rowTitle}>{CURRENT_ARENA.name} Arena</Text>
-                <Text style={type.muted} numberOfLines={1}>
-                  Live · top {CURRENT_ARENA.prizes.length} share {CURRENT_ARENA.prizePool}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
-          </Link>
-        ) : null}
-
         <View style={styles.section}>
           <SectionTitle title="Closing soon" right={<SeeAll href="/markets" />} />
           {listsLoading ? (
@@ -150,6 +153,8 @@ export default function HomeScreen() {
           )}
         </View>
 
+        {ticker.length > 0 ? <Ticker items={ticker} /> : null}
+
         {justResolved.length > 0 ? (
           <View style={styles.section}>
             <SectionTitle title="Just resolved" />
@@ -158,6 +163,18 @@ export default function HomeScreen() {
         ) : null}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/** "Starts in 9d 02h" or "Ends in 13d 04h", on its own clock so only this line ticks. */
+function ArenaLine() {
+  const now = useNow(1000);
+  const c = seasonCountdown(CURRENT_ARENA, now);
+  const pool = `top ${CURRENT_ARENA.prizes.length} share ${leaderboardPool(CURRENT_ARENA)}`;
+  return (
+    <Text style={type.muted} numberOfLines={1}>
+      {c ? <Text style={styles.countdown}>{`${c.label} ${formatCountdown(c.ms)}`}</Text> : 'Live'} · {pool}
+    </Text>
   );
 }
 
@@ -198,7 +215,6 @@ const RAIL_CARD = 236;
 function ClosingCard({ market, now }: { market: MarketSummary; now: number }) {
   const [failed, setFailed] = useState(false);
   const closes = closesIn(market.lockAt, now);
-  const lead = market.words.reduce<MarketSummary['words'][number] | null>((best, w) => (best === null || w.pct > best.pct ? w : best), null);
   const pool = market.pool.kind === 'usdc' ? (market.pool.usd > 0 ? `${usd(market.pool.usd)} pool` : 'USDC') : `${fmtTokens(market.pool.tokens)} tokens`;
   const hasCover = !!market.cover && !failed;
   return (
@@ -213,14 +229,9 @@ function ClosingCard({ market, now }: { market: MarketSummary; now: number }) {
           <Pill label={pool} tone="dark" />
         </View>
         <View style={styles.railBottom}>
-          <Text style={styles.railTitle} numberOfLines={2}>
+          <Text style={styles.railTitle} numberOfLines={3}>
             {market.title}
           </Text>
-          {lead ? (
-            <Text style={styles.railWord} numberOfLines={1}>
-              <Text style={{ color: colors.yes }}>{pct(lead.pct)}</Text> {lead.label}
-            </Text>
-          ) : null}
         </View>
         {!hasCover ? <Text style={styles.railEmoji}>🎯</Text> : null}
       </Pressable>
@@ -244,10 +255,6 @@ function ResolvedGrid({ markets }: { markets: MarketSummary[] }) {
 
 function ResolvedTile({ market, width }: { market: MarketSummary; width: number }) {
   const [failed, setFailed] = useState(false);
-  // The two market families label a win differently: majority markets mark the
-  // winning word 'winner', yes/no markets mark each word 'yes' or 'no'.
-  const winner = market.words.find((w) => w.outcome === 'winner') ?? market.words.find((w) => w.outcome === 'yes');
-  const settledWords = market.words.some((w) => w.outcome !== null);
   const href = `/result/${RESULT_SEGMENT[market.kind]}/${market.id}` as Href;
   return (
     <Link href={href} asChild>
@@ -263,16 +270,7 @@ function ResolvedTile({ market, width }: { market: MarketSummary; width: number 
           {market.title}
         </Text>
         <View style={{ flex: 1 }} />
-        {winner ? (
-          <View style={styles.tileWin}>
-            <Text style={styles.tileWinLabel}>Won</Text>
-            <Text style={styles.tileWinWord} numberOfLines={1}>
-              {winner.label}
-            </Text>
-          </View>
-        ) : (
-          <Text style={type.muted}>{settledWords ? 'No word hit' : 'Resolved'}</Text>
-        )}
+        <Text style={styles.tileMeta}>See result</Text>
       </Pressable>
     </Link>
   );
@@ -297,6 +295,7 @@ const styles = StyleSheet.create({
   section: { gap: spacing.sm },
   seeAll: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.textMuted },
   rowTitle: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: colors.text },
+  countdown: { fontFamily: fonts.semibold, color: colors.gold, fontVariant: ['tabular-nums'] },
 
   // Prize pool and podium
   poolCard: { padding: spacing.md, borderRadius: radius.card, backgroundColor: colors.goldTint, gap: spacing.md },
@@ -326,15 +325,12 @@ const styles = StyleSheet.create({
   railTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
   railBottom: { gap: 4 },
   railTitle: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 21, color: colors.text, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6 },
-  railWord: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, color: colors.text, fontVariant: ['tabular-nums'] },
   railEmoji: { position: 'absolute', right: spacing.md, top: '38%', fontSize: 40, opacity: 0.35 },
 
   // Just resolved grid
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  tile: { minHeight: 150, padding: spacing.sm + 4, borderRadius: radius.card, backgroundColor: colors.surface, gap: spacing.sm },
+  tile: { minHeight: 132, padding: spacing.sm + 4, borderRadius: radius.card, backgroundColor: colors.surface, gap: spacing.sm },
   tileThumb: { width: 40, height: 40, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
   tileTitle: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, color: colors.text },
-  tileWin: { gap: 0 },
-  tileWinLabel: { fontFamily: fonts.medium, fontSize: 12, lineHeight: 17, color: colors.textMuted },
-  tileWinWord: { fontFamily: fonts.bold, fontSize: 17, lineHeight: 22, color: colors.yes },
+  tileMeta: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, color: colors.gold },
 });

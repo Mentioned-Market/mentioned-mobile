@@ -3,6 +3,7 @@
 //
 // The chance is the only figure a word shows (docs/DESIGN.md). On a YES/NO
 // market it is the YES price; on a majority board it is the pool share.
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Link, type Href } from 'expo-router';
 import { memo, useState } from 'react';
@@ -10,7 +11,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { pct, tokens, usd } from '@/lib/format';
 import { closesIn } from '@/lib/time';
-import type { MarketSummary } from '@/markets/merge';
+import { isMajority, type MarketSummary } from '@/markets/merge';
 import { Pill } from '@/ui/pill';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
@@ -21,6 +22,7 @@ const WORDS_SHOWN = 3;
 function MarketCardImpl({ market, now, hero = false }: MarketCardProps) {
   const [imgFailed, setImgFailed] = useState(false);
   const finished = market.status === 'resolved' || market.status === 'cancelled';
+  const majority = isMajority(market);
   const closes = market.status === 'open' ? closesIn(market.lockAt, now) : null;
   const pool = market.pool.kind === 'usdc' ? (market.pool.usd > 0 ? `${usd(market.pool.usd)} pool` : 'USDC') : `${tokens(market.pool.tokens)} tokens`;
   const meta = [market.status === 'pending' ? 'Locked' : market.status === 'cancelled' ? 'Cancelled' : market.status === 'resolved' ? 'Resolved' : null, pool]
@@ -55,12 +57,22 @@ function MarketCardImpl({ market, now, hero = false }: MarketCardProps) {
             </View>
           </View>
 
+          {/* Which game this is, at a glance: a majority board is won by the
+              word said most, a YES/NO market by each word on its own. The
+              badge is the one place the kind is named; the numbered rows
+              below say it again without words. */}
+          <View style={[styles.kind, majority && styles.kindMajority]}>
+            <Ionicons name={majority ? 'podium' : 'checkmark-done'} size={14} color={majority ? colors.gold : colors.textMuted} />
+            <Text style={[styles.kindText, majority && { color: colors.gold }]}>{majority ? 'Most said wins' : 'Yes or no on each word'}</Text>
+          </View>
+
           {market.words.length > 0 ? (
             <View style={styles.words}>
               {market.words.slice(0, WORDS_SHOWN).map((w, i) => (
                 // Keyed by position: two words can share a label while the
                 // server has not resolved their text.
                 <View key={`${i}:${w.label}`} style={[styles.wordRow, i > 0 && styles.wordDivider]}>
+                  {majority ? <Text style={styles.rank}>{i + 1}</Text> : null}
                   <Text style={styles.wordLabel} numberOfLines={1}>
                     {w.label}
                   </Text>
@@ -70,7 +82,7 @@ function MarketCardImpl({ market, now, hero = false }: MarketCardProps) {
                       tone={w.outcome === 'winner' || w.outcome === 'yes' ? 'green' : w.outcome === 'loser' ? 'neutral' : 'red'}
                     />
                   ) : (
-                    <Text style={styles.wordPct}>{pct(w.pct)}</Text>
+                    <Text style={[styles.wordPct, majority && { color: colors.text }]}>{pct(w.pct)}</Text>
                   )}
                 </View>
               ))}
@@ -137,7 +149,11 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.card, overflow: 'hidden', backgroundColor: colors.surface },
   finished: { opacity: 0.6 },
   hero: { height: 180, backgroundColor: colors.surfaceRaised },
-  body: { padding: spacing.md, gap: spacing.md },
+  body: { padding: spacing.md, gap: spacing.sm + 4 },
+  kind: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, height: 26, borderRadius: radius.control, backgroundColor: colors.surfaceRaised },
+  kindMajority: { backgroundColor: colors.goldTint },
+  kindText: { fontFamily: fonts.semibold, fontSize: 12, lineHeight: 16, color: colors.textMuted },
+  rank: { fontFamily: fonts.semibold, fontSize: 13, color: colors.textMuted, width: 18, fontVariant: ['tabular-nums'] },
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 4 },
   thumb: { width: 56, height: 56, borderRadius: radius.thumb, overflow: 'hidden', backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },
   title: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: colors.text },

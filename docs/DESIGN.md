@@ -19,7 +19,9 @@ checklist for keeping the app that way. Tokens and components live in
    whole block whose meaning is a side or an outcome (a claim card), nothing
    else.
 3. **Paid and free are told apart by the money unit**, `$` against `tokens`,
-   not by a PAID or FREE badge. `Pill` is for a status word only: WON, LOST,
+   not by a PAID or FREE badge. The kind of game is the one badge a card
+   carries: "Most said wins" in gold for a majority board (whose words are
+   numbered), "Yes or no on each word" for a YES/NO market. `Pill` is for a status word only: WON, LOST,
    YOU, CAPTAIN, NEW. A card with two pills is a card carrying too much.
 4. **Headers are a title and at most one round button each side.** `Screen`
    draws them. A pushed screen gets a chevron, a modal one an X. No subtitles,
@@ -65,7 +67,9 @@ checklist for keeping the app that way. Tokens and components live in
 - **Home**: wordmark and the bell; the prize pool on a gold card with the
   week's top three as a podium; the Arena row only while a season is live; a
   horizontal rail of cover-image cards for markets closing soon; a two-column
-  grid of tiles for what just resolved, each naming the word that won. Each
+  grid of tiles for what just resolved, with the live trade ticker between
+  them. Neither preview shows words: a preview is the market, the words are
+  the market screen. Each
   section has its own shape on purpose. Nothing about the viewer: that is Me.
 - **Markets**: title, search button, `Segmented` All / Free / Paid, the
   sectioned list of `MarketCard`s.

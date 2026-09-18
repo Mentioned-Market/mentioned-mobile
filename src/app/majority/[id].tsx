@@ -22,9 +22,11 @@ import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
 import { TradeInputError } from '@/trade/amm';
 import { BUYS_PER_TX, checkCoinedWord, friendlyMajorityError, MIN_SOL_FOR_FEES, planMajorityBuy } from '@/trade/majority';
+import { fundsShortfall } from '@/trade/funds';
 import { useTrade } from '@/trade/use-trade';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
+import { DepositSheet } from '@/ui/fund-sheet';
 import { Card, Row, SectionTitle } from '@/ui/card';
 import { Chip } from '@/ui/chip';
 import { PAUSED_NOTE, useFeatures } from '@/ui/config-gate';
@@ -62,6 +64,7 @@ export default function PaidMajorityScreen() {
   const [draft, setDraft] = useState('');
   const [draftError, setDraftError] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [fund, setFund] = useState<'USDC' | 'SOL' | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const [result, setResult] = useState<{ title: string; detail: string } | null>(null);
   // The add-word card sits at the bottom of a long page. On Android the app is
@@ -227,6 +230,9 @@ export default function PaidMajorityScreen() {
       setBasket((prev) => prev.filter((w) => !bought.includes(w)));
       refresh();
       setTimeout(refresh, 4000);
+      // A balance read can trail the confirmation by several seconds; one
+      // more pass catches the wallet once the node has caught up.
+      setTimeout(refresh, 15000);
     }
     if (complete) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -238,6 +244,14 @@ export default function PaidMajorityScreen() {
   };
 
   const signedIn = trade.ready;
+  // Short before signing (the basket costs more than the wallet holds) or
+  // after a refusal: offer the deposit rather than a retry that fails alike.
+  const shortOf: 'USDC' | 'SOL' | null =
+    usdcBalance.data !== undefined && total > usdcBalance.data ? 'USDC' : fundsShortfall(inputError ?? (trade.state.status === 'failed' ? trade.state.message : null));
+  const openDeposit = (asset: 'USDC' | 'SOL') => {
+    sheetRef.current?.close();
+    setFund(asset);
+  };
   const barTitle = basket.length === 0 ? 'Tap words or add your own' : `${basket.length} ${basket.length === 1 ? 'word' : 'words'} · ${usd(total)}`;
   const barSubtitle = basket.length === 0 ? `${usd(unitUsd)} each, paid in USDC` : basket.join(', ');
   const newWords = basket.filter((w) => !boardByWord.has(w));
@@ -327,7 +341,7 @@ export default function PaidMajorityScreen() {
           title={barTitle}
           subtitle={barSubtitle}
           button={{ label: basket.length === 0 ? 'Review' : `Review ${usd(total)}`, disabled: basket.length === 0 || !signedIn, onPress: openSheet }}
-          note={!features.paidTrading ? PAUSED_NOTE : !signedIn ? 'Sign in to pick' : undefined}
+          note={!features.paidTrading ? PAUSED_NOTE : !signedIn ? (trade.connecting ? 'Connecting your wallet' : 'Sign in to pick') : undefined}
         />
       ) : null}
 
@@ -344,8 +358,18 @@ export default function PaidMajorityScreen() {
             <Button label="Done" tone="gold" onPress={() => sheetRef.current?.close()} />
           ) : trade.state.status === 'failed' && trade.state.indeterminate ? (
             <Button label="Close" tone="neutral" onPress={() => sheetRef.current?.close()} />
+          ) : trade.needsSignIn ? (
+            <Link href="/sign-in" asChild>
+              <Button label="Sign in again" tone="gold" note="Your Openfort session has gone. Nothing is lost." />
+            </Link>
+          ) : trade.walletFailed ? (
+            <Button label="Reconnect wallet" tone="neutral" onPress={trade.retryWallet} note="Your wallet did not come back. Nothing is lost." />
+          ) : trade.state.status === 'failed' && shortOf ? (
+            <Button label={`Add ${shortOf}`} tone="gold" onPress={() => openDeposit(shortOf)} note={trade.state.message} />
           ) : trade.state.status === 'failed' ? (
             <Button label="Try again" tone="gold" onPress={trade.reset} />
+          ) : shortOf ? (
+            <Button label={`Add ${shortOf}`} tone="gold" onPress={() => openDeposit(shortOf)} note={inputError ?? `These picks cost ${usd(total)} and you have ${usd(usdcBalance.data ?? 0, { dp: 2 })}.`} />
           ) : (
             <SwipeButton
               tone="gold"
@@ -397,6 +421,8 @@ export default function PaidMajorityScreen() {
           </View>
         )}
       </BottomSheet>
+
+      {sessionWallet ? <DepositSheet key={fund ?? 'USDC'} visible={fund !== null} onClose={() => setFund(null)} wallet={sessionWallet} initialAsset={fund ?? 'USDC'} /> : null}
     </Screen>
   );
 }

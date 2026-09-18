@@ -24,6 +24,8 @@ import {
   seasonCountdown,
   teamNameError,
   teamSizeCopy,
+  leaderboardPool,
+  appCopy,
 } from '@/lib/arena-view';
 import { useNow } from '@/lib/use-now';
 import { useSession } from '@/store/session';
@@ -42,7 +44,7 @@ const SEASON_OPTIONS = SEASONS.map((a) => ({ key: a.slug, label: `${a.emoji} ${a
 
 const PLACES = ['1st', '2nd', '3rd'];
 
-type SheetKind = 'prizes' | 'earn' | 'create' | 'join';
+type SheetKind = 'prizes' | 'earn' | 'create' | 'join' | 'medal';
 
 export default function ArenaScreen() {
   const focused = useIsScreenFocused();
@@ -65,6 +67,13 @@ export default function ArenaScreen() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const rows = useMemo(() => [...(board.data?.data ?? [])].sort((a, b) => b.weekly_points - a.weekly_points), [board.data]);
+
+  const [medal, setMedal] = useState<string | null>(null);
+  const openMedal = (id: string) => {
+    setMedal(id);
+    openSheet('medal');
+  };
+  const medalInfo = selected.bounty?.bounties.find((b) => b.id === medal) ?? null;
 
   const openSheet = (kind: SheetKind) => {
     setInput('');
@@ -145,7 +154,7 @@ export default function ArenaScreen() {
           </View>
           <Text style={type.muted}>{selected.tagline}</Text>
           <Text style={type.body}>
-            {selected.displayRange} · <Text style={{ color: colors.gold }}>Top {selected.prizes.length} share {selected.prizePool}</Text>
+            {selected.displayRange} · <Text style={{ color: colors.gold }}>Top {selected.prizes.length} share {leaderboardPool(selected)}</Text>
           </Text>
           <Countdown arena={selected} />
           <View style={styles.statRow}>
@@ -158,6 +167,27 @@ export default function ArenaScreen() {
           </Pressable>
         </Card>
 
+        {selected.bounty ? (
+          <View style={{ gap: spacing.sm }}>
+            <SectionTitle title="Medals" right={<Text style={type.muted}>{selected.bounty.bountyPool} in medals</Text>} />
+            <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
+              {selected.bounty.bounties.map((b, i) => (
+                <Pressable key={b.id} onPress={() => openMedal(b.id)} accessibilityRole="button" accessibilityLabel={`${b.name}, ${b.amount}`} style={rowStyle(i === 0)}>
+                  <Text style={{ fontSize: 22, width: 32 }}>{b.emoji}</Text>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={[type.body, { fontFamily: fonts.semibold }]}>{b.name}</Text>
+                    <Text style={type.muted} numberOfLines={2}>
+                      {appCopy(b.blurb)}
+                    </Text>
+                  </View>
+                  <Text style={[type.money, { color: colors.gold }]}>{b.amount}</Text>
+                </Pressable>
+              ))}
+            </Card>
+            <Text style={[type.muted, { paddingHorizontal: spacing.xs }]}>Awarded once at the close, whatever a team&apos;s rank. Tap a medal for its rule.</Text>
+          </View>
+        ) : null}
+
         {wallet && myTeam ? (
           <MyTeamCard team={myTeam} />
         ) : entryOpen ? (
@@ -165,13 +195,13 @@ export default function ArenaScreen() {
             <Text style={type.heading}>⚔️ Enter the Arena</Text>
             <Text style={type.muted}>{teamSizeCopy(selected)}</Text>
             <Text style={type.muted}>
-              Top {selected.prizes.length} teams share the <Text style={{ color: colors.gold }}>{selected.prizePool} prize pool</Text> ({selected.displayRange}).
+              Top {selected.prizes.length} teams share the <Text style={{ color: colors.gold }}>{leaderboardPool(selected)} prize pool</Text> ({selected.displayRange}).
             </Text>
             <Text style={[type.muted, styles.discordNote]}>Discord must be linked, and at least 30 days old, to enter the Arena.</Text>
             {wallet ? (
               <View style={{ flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.xs }}>
                 <Button label="Create a team" onPress={() => openSheet('create')} style={{ flex: 1 }} />
-                <Button label="Join with a code" tone="neutral" onPress={() => openSheet('join')} style={{ flex: 1 }} />
+                <Button label="Join by code" tone="neutral" onPress={() => openSheet('join')} style={{ flex: 1 }} />
               </View>
             ) : (
               <Text style={type.muted}>Sign in to create or join a team.</Text>
@@ -185,7 +215,7 @@ export default function ArenaScreen() {
             ['🛡️', 'Create a team or join one with a code'],
             ['📈', 'Trade on free or paid markets to earn points'],
             ['🏆', 'Team score is the sum of every member’s points'],
-            ['🎯', `Top ${selected.prizes.length} teams share the ${selected.prizePool} prize pool`],
+            ['🎯', `Top ${selected.prizes.length} teams share the ${leaderboardPool(selected)} prize pool`],
           ].map(([emoji, text]) => (
             <View key={text} style={styles.howRow}>
               <Text style={{ fontSize: 18 }}>{emoji}</Text>
@@ -225,7 +255,9 @@ export default function ArenaScreen() {
         title={
           sheet === 'prizes'
             ? `${selected.emoji} ${selected.name} prizes`
-            : sheet === 'earn'
+            : sheet === 'medal'
+              ? `${medalInfo?.emoji ?? ''} ${medalInfo?.name ?? 'Medal'}`
+              : sheet === 'earn'
               ? '⭐ How to earn points'
               : sheet === 'create'
                 ? confirming
@@ -235,7 +267,7 @@ export default function ArenaScreen() {
                   ? 'Are you sure?'
                   : 'Join a team'
         }
-        subtitle={sheet === 'prizes' ? `Top ${selected.prizes.length} teams share ${selected.prizePool} · ${selected.displayRange}` : undefined}
+        subtitle={sheet === 'prizes' ? `Top ${selected.prizes.length} teams share ${leaderboardPool(selected)} · ${selected.displayRange}` : undefined}
         locked={busy}
         footer={
           sheet === 'create' || sheet === 'join' ? (
@@ -269,6 +301,13 @@ export default function ArenaScreen() {
               </View>
             ))}
           </Card>
+        ) : sheet === 'medal' && medalInfo ? (
+          <View style={{ gap: spacing.sm }}>
+            <Text style={[type.body, { fontFamily: fonts.semibold }]}>
+              {medalInfo.amount} · {appCopy(medalInfo.blurb)}
+            </Text>
+            <Text style={type.muted}>{appCopy(medalInfo.rules)}</Text>
+          </View>
         ) : sheet === 'earn' ? (
           <EarnRules />
         ) : sheet === 'create' || sheet === 'join' ? (

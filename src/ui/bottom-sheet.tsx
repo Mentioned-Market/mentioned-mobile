@@ -20,8 +20,8 @@
 // same way, through the `close()` on the sheet's ref, not by flipping `visible`
 // itself: that unmounts the Modal in a single frame and the sheet simply blinks
 // out.
-import { useCallback, useEffect, useImperativeHandle, type ReactNode, type Ref } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useCallback, useEffect, useImperativeHandle, useState, type ReactNode, type Ref } from 'react';
+import { Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
@@ -94,6 +94,19 @@ const AnimatedScrollView = Animated.createAnimatedComponent(ScrollView);
 export function BottomSheet({ ref, visible, onClose, title, subtitle, footer, locked = false, full = false, header, children }: Props) {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
+
+  // The app is edge to edge, so Android does not shrink the window for the
+  // keyboard: a sheet with a text field would keep its field and its footer
+  // under the keys. The sheet is lifted by the keyboard's height instead.
+  const [keyboard, setKeyboard] = useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (e) => setKeyboard(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboard(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   // Distance the sheet sits below its resting place. `height` is always past the
   // bottom of the screen, so it is where the sheet starts before it is measured.
@@ -189,7 +202,13 @@ export function BottomSheet({ ref, visible, onClose, title, subtitle, footer, lo
         </Animated.View>
         <GestureDetector gesture={pan}>
           <Animated.View
-            style={[styles.sheet, sheetStyle, { paddingBottom: Math.max(insets.bottom, spacing.sm) }, full && { height: height - insets.top, maxHeight: '100%' }]}
+            style={[
+              styles.sheet,
+              sheetStyle,
+              { paddingBottom: Math.max(insets.bottom, spacing.sm) + keyboard },
+              keyboard > 0 ? { maxHeight: height - keyboard } : null,
+              full && { height: height - insets.top - keyboard, maxHeight: '100%' },
+            ]}
             onLayout={(e) => sheetHeight.set(e.nativeEvent.layout.height)}
           >
             <View

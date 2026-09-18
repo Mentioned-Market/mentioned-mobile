@@ -33,6 +33,16 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="mentioned"/>
       </intent-filter>
+      <intent-filter android:autoVerify="true" data-generated="true">
+        <action android:name="android.intent.action.VIEW"/>
+        <data android:scheme="https" android:host="www.mentioned.market" android:pathPrefix="/market/"/>
+        <data android:scheme="https" android:host="www.mentioned.market" android:pathPrefix="/paidmajority/"/>
+        <data android:scheme="https" android:host="www.mentioned.market" android:pathPrefix="/free/"/>
+        <data android:scheme="https" android:host="www.mentioned.market" android:pathPrefix="/ref/"/>
+        <data android:scheme="https" android:host="www.mentioned.market" android:pathPrefix="/onramp/return"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+      </intent-filter>
     </activity>
   </application>
 </manifest>

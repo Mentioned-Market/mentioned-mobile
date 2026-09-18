@@ -27,7 +27,10 @@ export async function getUsdcBalance(owner: string): Promise<number> {
   const res = await fetch(RPC_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTokenAccountBalance', params: [ata] }),
+    // At 'confirmed', the same commitment a trade is confirmed at. The default
+    // is 'finalized', which trails it by ten seconds or more, so a balance
+    // read straight after a trade showed the old figure.
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTokenAccountBalance', params: [ata, { commitment: 'confirmed' }] }),
   });
   if (!res.ok) throw new Error(`RPC ${res.status} reading USDC balance`);
 

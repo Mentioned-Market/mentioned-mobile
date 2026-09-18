@@ -50,3 +50,9 @@ coverage/
 
 # Firebase service account keys: secrets, never committed
 *firebase-adminsdk*.json
+
+# Store signing key: generated once, kept in the team password manager
+android/keystore.properties
+*.keystore
+!android/app/debug.keystore
+dist/
