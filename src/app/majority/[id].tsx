@@ -358,6 +358,12 @@ export default function PaidMajorityScreen() {
             <Button label="Done" tone="gold" onPress={() => sheetRef.current?.close()} />
           ) : trade.state.status === 'failed' && trade.state.indeterminate ? (
             <Button label="Close" tone="neutral" onPress={() => sheetRef.current?.close()} />
+          ) : trade.needsSignIn ? (
+            <Link href="/sign-in" asChild>
+              <Button label="Sign in again" tone="gold" note="Your Openfort session has gone. Nothing is lost." />
+            </Link>
+          ) : trade.walletFailed ? (
+            <Button label="Reconnect wallet" tone="neutral" onPress={trade.retryWallet} note="Your wallet did not come back. Nothing is lost." />
           ) : trade.state.status === 'failed' && shortOf ? (
             <Button label={`Add ${shortOf}`} tone="gold" onPress={() => openDeposit(shortOf)} note={trade.state.message} />
           ) : trade.state.status === 'failed' ? (

@@ -1,6 +1,8 @@
 // Dev-only screen: runs the V0_GUIDE section 5 smoke tests on the device.
 // Reached from the You tab in dev builds, or `adb shell am start -a android.intent.action.VIEW -d mentioned://dev`.
 // `mentioned://dev?wallet=<base58>` sets the viewed wallet on open (QA shortcut).
+import { AccountTypeEnum, ChainTypeEnum, EmbeddedState } from '@openfort/openfort-js';
+import { useEmbeddedSolanaWallet, useOpenfortClient, useUser } from '@openfort/react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -17,7 +19,9 @@ import * as Application from 'expo-application';
 import type { MobileConfig } from '@/api/mobileConfig';
 import { useMobileConfig } from '@/api/queries';
 import { evaluateMobileConfig } from '@/lib/mobile-config';
+import { ensureEmbeddedSigner } from '@/auth/recover-wallet';
 import { usePrefs } from '@/store/prefs';
+import { useWalletLink } from '@/store/wallet-link';
 import { useSession } from '@/store/session';
 import { useWallet } from '@/store/wallet';
 import { Card } from '@/ui/card';
@@ -104,6 +108,7 @@ export default function DevScreen() {
             {Linking.createURL('/oauth/callback')}
           </Text>
         </Card>
+        <WalletSection />
         <PushSection />
         <Card style={styles.row}>
           <Text style={type.heading}>View as any address</Text>
@@ -165,6 +170,96 @@ const describe = (p: Notifications.NotificationPermissionsStatus) => (p.granted 
  * to logcat in full and shown here in part, which is enough to tell a real
  * registration from a silent failure.
  */
+/**
+ * What the Openfort SDK thinks, on screen.
+ *
+ * A release build does not forward console output to logcat, so a wallet that
+ * will not come back cannot be diagnosed from a device without this. Every
+ * line here is a state some screen gates a signer on.
+ */
+function WalletSection() {
+  const { isAuthenticated } = useUser();
+  const solana = useEmbeddedSolanaWallet();
+  const client = useOpenfortClient();
+  const link = useWalletLink();
+  const [embedded, setEmbedded] = useState<string>('?');
+  const [accounts, setAccounts] = useState<string>('?');
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  const read = async () => {
+    setBusy(true);
+    setNote(null);
+    try {
+      setEmbedded(EmbeddedState[await client.embeddedWallet.getEmbeddedState()] ?? 'unknown');
+      const list = await client.embeddedWallet.list({ chainType: ChainTypeEnum.SVM, accountType: AccountTypeEnum.EOA, limit: 100 });
+      setAccounts(list.length === 0 ? 'none' : list.map((a) => `${a.address.slice(0, 4)}…${a.address.slice(-4)} (${a.id.slice(0, 8)})`).join(', '));
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const recover = async () => {
+    setBusy(true);
+    setNote(null);
+    try {
+      const list = await client.embeddedWallet.list({ chainType: ChainTypeEnum.SVM, accountType: AccountTypeEnum.EOA, limit: 100 });
+      const account = list[0];
+      if (!account) throw new Error('no accounts to recover');
+      await ensureEmbeddedSigner(client, account.id);
+      setNote('recover returned; state ' + (EmbeddedState[await client.embeddedWallet.getEmbeddedState()] ?? '?'));
+    } catch (e) {
+      setNote(e instanceof Error ? `${e.name}: ${e.message}` : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const activate = async () => {
+    setBusy(true);
+    setNote(null);
+    try {
+      const address = solana.wallets[0]?.address;
+      if (!address) throw new Error('the hook lists no wallets');
+      await solana.setActive({ address });
+      setNote('setActive returned');
+    } catch (e) {
+      setNote(e instanceof Error ? `${e.name}: ${e.message}` : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card style={styles.row}>
+      <Text style={type.heading}>Wallet</Text>
+      <Text style={type.muted}>
+        openfort authenticated: {String(isAuthenticated)}
+        {'\n'}hook status: {solana.status}
+        {'\n'}hook wallets: {solana.wallets.length === 0 ? 'none' : solana.wallets.map((w) => `${w.address.slice(0, 4)}…${w.address.slice(-4)}`).join(', ')}
+        {'\n'}embedded state: {embedded}
+        {'\n'}client accounts: {accounts}
+        {'\n'}link: {link.status}
+        {link.message ? ` (${link.message})` : ''}
+      </Text>
+      {note ? <Text style={[type.muted, { color: colors.gold }]}>{note}</Text> : null}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        <Pressable onPress={() => void read()} disabled={busy} style={styles.button}>
+          <Text style={styles.buttonLabel}>Read</Text>
+        </Pressable>
+        <Pressable onPress={() => void recover()} disabled={busy} style={styles.button}>
+          <Text style={styles.buttonLabel}>Recover</Text>
+        </Pressable>
+        <Pressable onPress={() => void activate()} disabled={busy} style={styles.button}>
+          <Text style={styles.buttonLabel}>setActive</Text>
+        </Pressable>
+      </View>
+    </Card>
+  );
+}
+
 function PushSection() {
   const [permission, setPermission] = useState('checking');
   const [token, setToken] = useState<string | null>(null);

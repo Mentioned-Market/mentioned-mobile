@@ -86,6 +86,16 @@ describe('chooseWalletAction', () => {
     expect(chooseWalletAction([{ address: WALLET }, { address: OTHER }])).toEqual({ action: 'recover', address: WALLET });
   });
 
+  it('keeps the wallet the app already has a session for', () => {
+    // Signing in again is how a lost Openfort session is repaired; it must
+    // come back to the same wallet, not to the oldest one on the account.
+    expect(chooseWalletAction([{ address: WALLET, createdAt: 100 }, { address: OTHER, createdAt: 200 }], OTHER)).toEqual({ action: 'recover', address: OTHER });
+  });
+
+  it('ignores a preferred wallet the account no longer holds', () => {
+    expect(chooseWalletAction([{ address: WALLET, createdAt: 100 }], OTHER)).toEqual({ action: 'recover', address: WALLET });
+  });
+
   it('takes the oldest when Openfort returns several, whatever the order', () => {
     // A second wallet on an account is an accident; the money is on the first.
     expect(chooseWalletAction([{ address: OTHER, createdAt: 200 }, { address: WALLET, createdAt: 100 }])).toEqual({ action: 'recover', address: WALLET });

@@ -9,6 +9,7 @@
 // button is a plain one rather than a swipe. The app wallet's address is also
 // shown for anyone sending from somewhere else.
 import { useQueryClient } from '@tanstack/react-query';
+import { Link } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
@@ -189,6 +190,12 @@ export function WithdrawSheet({ visible, onClose, wallet }: SheetProps) {
           <Button label="Close" tone="neutral" onPress={() => sheetRef.current?.close()} />
         ) : trade.state.status === 'failed' ? (
           <Button label="Try again" tone="gold" onPress={trade.reset} />
+        ) : trade.needsSignIn ? (
+          <Link href="/sign-in" asChild>
+            <Button label="Sign in again" tone="gold" note="Your Openfort session has gone. Nothing is lost." />
+          </Link>
+        ) : trade.walletFailed ? (
+          <Button label="Reconnect wallet" tone="neutral" onPress={trade.retryWallet} note="Your wallet did not come back. Nothing is lost." />
         ) : (
           <SwipeButton
             label={`Swipe to send ${asset}`}

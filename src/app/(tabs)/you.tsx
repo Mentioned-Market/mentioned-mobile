@@ -12,6 +12,7 @@ import { shortAddress, usd } from '@/lib/format';
 import { fromFree, fromPaidMajority, fromPaidYesNo, groupPositions } from '@/markets/positions';
 import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
+import { useWalletLink } from '@/store/wallet-link';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
 import { Card, Stat, rowStyle } from '@/ui/card';
@@ -51,6 +52,10 @@ export default function YouScreen() {
   const [fund, setFund] = useState<'deposit' | 'withdraw' | null>(null);
   const nameSheet = useRef<BottomSheetHandle>(null);
   const [nameOpen, setNameOpen] = useState(false);
+  // The app's session can outlive Openfort's: reads keep working, so nothing
+  // else on this screen would say anything, and the trade screens would be
+  // the first place the person found out.
+  const needsSignIn = useWalletLink((s) => s.status) === 'needs-sign-in';
   const [refreshing, setRefreshing] = useState(false);
   const refetchAll = () => {
     setRefreshing(true);
@@ -76,6 +81,18 @@ export default function YouScreen() {
             wallet remembered from a deposit or withdrawal is a wallet to look
             at, not a way in. */}
         {!sessionWallet ? <SignInCard /> : null}
+
+        {sessionWallet && needsSignIn ? (
+          <Card style={{ gap: spacing.sm }}>
+            <Text style={type.heading}>Sign in again to trade</Text>
+            <Text style={type.muted}>
+              Your Openfort session has gone, so your wallet cannot sign. Everything you hold is safe and still shown below.
+            </Text>
+            <Link href="/sign-in" asChild>
+              <Button label="Sign in again" />
+            </Link>
+          </Card>
+        ) : null}
 
         {needsName && sessionWallet ? <UsernameForm wallet={sessionWallet} /> : null}
 

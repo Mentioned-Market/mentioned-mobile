@@ -7,6 +7,7 @@
 // market it knows of without checking first. A majority card is given its
 // amount, which the positions route already knows.
 import { useQueryClient } from '@tanstack/react-query';
+import { Link } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useRef, useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -65,20 +66,31 @@ function CardBody({ target, flow, label, detail }: { target: ClaimTarget; flow: 
         {target.title}
       </Text>
       <Text style={type.muted}>{detail}</Text>
-      <Button
-        label={label}
-        tone="yes"
-        onPress={() => flow.start(target)}
-        disabled={!flow.ready || flow.busy}
-        note={flow.ready ? undefined : flow.connecting ? 'Connecting your wallet' : 'Sign in to claim'}
-      />
+      {/* A wallet that could not be recovered gets a button, not a note: the
+          claim is the reason the person is here, and "connecting" for ever is
+          not an answer. */}
+      {flow.needsSignIn ? (
+        <Link href="/sign-in" asChild>
+          <Button label="Sign in again" tone="gold" note="Your Openfort session has gone. Nothing is lost." />
+        </Link>
+      ) : flow.walletFailed ? (
+        <Button label="Reconnect wallet" tone="neutral" onPress={flow.retryWallet} note="Your wallet did not come back. Nothing is lost." />
+      ) : (
+        <Button
+          label={label}
+          tone="yes"
+          onPress={() => flow.start(target)}
+          disabled={!flow.ready || flow.busy}
+          note={flow.ready ? undefined : flow.connecting ? 'Connecting your wallet' : 'Sign in to claim'}
+        />
+      )}
     </View>
   );
 }
 
 type Result = { title: string; detail: string };
 
-export type ClaimFlow = { start: (target: ClaimTarget) => void; ready: boolean; connecting: boolean; busy: boolean; sheet: ReactNode };
+export type ClaimFlow = { start: (target: ClaimTarget) => void; ready: boolean; connecting: boolean; walletFailed: boolean; needsSignIn: boolean; retryWallet: () => void; busy: boolean; sheet: ReactNode };
 
 /**
  * The claim itself, and the sheet it runs in. Owned by the screen rather than
@@ -200,7 +212,16 @@ export function useClaimFlow(wallet: string | null): ClaimFlow {
     </BottomSheet>
   );
 
-  return { start: (t) => void start(t), ready: trade.ready && !!wallet, connecting: trade.connecting, busy: target !== null, sheet };
+  return {
+    start: (t) => void start(t),
+    ready: trade.ready && !!wallet,
+    connecting: trade.connecting,
+    walletFailed: trade.walletFailed,
+    needsSignIn: trade.needsSignIn,
+    retryWallet: trade.retryWallet,
+    busy: target !== null,
+    sheet,
+  };
 }
 
 const styles = StyleSheet.create({

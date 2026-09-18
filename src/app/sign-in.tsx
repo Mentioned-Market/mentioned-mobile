@@ -14,6 +14,7 @@ import { ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 import { getProfile } from '@/api/user';
 import { lastEncryptionSessionError, LegacyPrivyAccountError, WalletRoutingUnconfiguredError } from '@/auth/encryption-session';
 import { useOpenfortLogout } from '@/auth/logout';
+import { activateWallet } from '@/auth/recover-wallet';
 import { chooseWalletAction, signInWithServer } from '@/auth/sign-in';
 import { isOpenfortConfigured } from '@/config';
 import { usePrefs } from '@/store/prefs';
@@ -41,19 +42,8 @@ export default function SignInScreen() {
 
 type Step = 'email' | 'code' | 'wallet' | 'username' | 'done';
 
-/** How long to wait for the SDK's own wallet list after login before giving up. */
-const WALLET_LIST_WAIT_MS = 15_000;
-
-/** Polls `probe` until it returns a value, or null once `timeoutMs` has passed. */
-async function waitFor<T>(probe: () => T | null, timeoutMs: number): Promise<T | null> {
-  const until = Date.now() + timeoutMs;
-  for (;;) {
-    const value = probe();
-    if (value !== null) return value;
-    if (Date.now() >= until) return null;
-    await new Promise((r) => setTimeout(r, 150));
-  }
-}
+/** How long the whole wallet step gets before the card offers a way out. */
+const WALLET_STEP_MS = 30_000;
 
 function SignInFlow() {
   const router = useRouter();
@@ -170,35 +160,17 @@ function SignInFlow() {
   /** Recover or create the Solana wallet, then bind a Mentioned session to it. */
   const finish = async () => {
     setNote('Setting up your wallet…');
-    let address: string | undefined;
-    if (solana.status === 'connected') {
-      address = solana.wallets[0]?.address;
-    } else if (solana.status === 'disconnected' || solana.status === 'needs-recovery') {
-      // The hook's own `wallets` fills in asynchronously after login and is
-      // empty until then. Acting on that snapshot once created a second, empty
-      // wallet for a returning user, which is the one thing this must never do:
-      // the funds stay on the first wallet. So the list is fetched here,
-      // explicitly, and a wallet is only created when the server says there is
-      // none.
-      const accounts = await client.embeddedWallet.list({ chainType: ChainTypeEnum.SVM, accountType: AccountTypeEnum.EOA, limit: 100 });
-      const choice = chooseWalletAction(accounts);
-      if (choice.action === 'recover') {
-        // The hook's setActive only knows the wallets its own fetch has
-        // returned, and throws "no embedded Solana wallets" before then. It
-        // fetches the same list, so wait for it to show the one chosen.
-        const ready = await waitFor(() => {
-          const now = solanaRef.current;
-          const listed = (now.status === 'disconnected' || now.status === 'needs-recovery') && now.wallets.some((w) => w.address === choice.address);
-          return listed ? now : null;
-        }, WALLET_LIST_WAIT_MS);
-        if (!ready || !('setActive' in ready)) throw new Error('Openfort is still loading your wallet. Try again in a moment.');
-        await ready.setActive({ address: choice.address });
-        address = choice.address;
-      } else {
-        address = (await solana.create()).address;
-      }
-    }
-    if (!address) throw new Error(`Wallet is ${solana.status}; try again in a moment.`);
+    // The hook's own wallet list fills in asynchronously and is empty for a
+    // moment after login; acting on that snapshot once created a second,
+    // empty wallet for a returning user. The client's list is the truth, and
+    // the wallet the app already has a session for is preferred, so signing
+    // in again always comes back to the same one.
+    const accounts = await client.embeddedWallet.list({ chainType: ChainTypeEnum.SVM, accountType: AccountTypeEnum.EOA, limit: 100 });
+    const choice = chooseWalletAction(accounts, sessionWallet);
+    const address =
+      choice.action === 'recover'
+        ? await activateWallet({ client, address: choice.address, hook: () => solanaRef.current }).then(() => choice.address)
+        : (await solana.create()).address;
 
     setNote('Signing in…');
     const token = await getAccessToken();
@@ -230,12 +202,27 @@ function SignInFlow() {
   // twice, and so a failure leaves the retry to the person.
   const settled = solana.status === 'connected' || solana.status === 'disconnected' || solana.status === 'needs-recovery';
   useEffect(() => {
-    if (step !== 'wallet' || !settled || busy || attempted.current || sessionWallet) return;
+    // Deliberately NOT guarded on an existing app session. That session can
+    // outlive Openfort's (see src/store/wallet-link.ts), and signing in again
+    // is exactly how it is repaired, so the wallet step has to run for someone
+    // who already holds one. What stops a second run is `attempted` plus the
+    // step, which finish() moves off 'wallet' as soon as it succeeds.
+    if (step !== 'wallet' || !settled || busy || attempted.current) return;
     attempted.current = true;
     void run(finish);
     // finish and run are stable enough for this: the effect fires once per mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, settled, busy, sessionWallet]);
+  }, [step, settled, busy]);
+
+  // And nothing at all after this long is a failure, not a wait: the SDK's
+  // wallet state can sit in 'connecting' or 'error' indefinitely, in which
+  // case `settled` never comes true, the step above never runs, and the card
+  // would show a loader with no way out of it.
+  useEffect(() => {
+    if (step !== 'wallet') return;
+    const timer = setTimeout(() => setWalletFailed(true), WALLET_STEP_MS);
+    return () => clearTimeout(timer);
+  }, [step]);
 
   return (
     <Screen title="Sign in" back>
@@ -287,7 +274,7 @@ function SignInFlow() {
 
         {step === 'wallet' ? (
           <Card style={styles.card}>
-            {!walletFailed ? (
+            {busy || !walletFailed ? (
               <Loader label={note ?? 'Setting up your wallet'} style={{ paddingVertical: spacing.md }} />
             ) : (
               <>
