@@ -71,8 +71,13 @@ export async function signInWithServer(params: { token: string; wallet: string; 
  * ensureOpenfortSolanaWallet: recover an existing wallet, and only create one
  * when there genuinely is none, so a returning user never ends up with a
  * second empty wallet.
+ *
+ * With more than one wallet on the account, the OLDEST wins. A second wallet
+ * on an account is only ever an accident (one was created on Sep 15 2026 by a
+ * sign-in that read the wallet list before it had loaded), and the money is on
+ * the first one. Accounts with no `createdAt` keep the server's order.
  */
-export function chooseWalletAction(wallets: { address: string }[]): { action: 'recover'; address: string } | { action: 'create' } {
-  const existing = wallets[0];
-  return existing ? { action: 'recover', address: existing.address } : { action: 'create' };
+export function chooseWalletAction(wallets: { address: string; createdAt?: number }[]): { action: 'recover'; address: string } | { action: 'create' } {
+  const oldest = [...wallets].sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))[0];
+  return oldest ? { action: 'recover', address: oldest.address } : { action: 'create' };
 }

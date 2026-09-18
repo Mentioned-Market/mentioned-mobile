@@ -16,6 +16,8 @@ import {
   statusLabel,
   teamNameError,
   teamSizeCopy,
+  leaderboardPool,
+  appCopy,
 } from '@/lib/arena-view';
 
 const season = (over: Partial<Arena> = {}): Arena => ({ ...CURRENT_ARENA, ...over });
@@ -48,6 +50,23 @@ describe('countdown', () => {
     expect(seasonCountdown(a, Date.parse('2026-09-30T00:00:00Z'))?.label).toBe('Starts in');
     expect(seasonCountdown(a, Date.parse('2026-10-05T00:00:00Z'))?.label).toBe('Ends in');
     expect(seasonCountdown(a, Date.parse('2026-10-15T00:00:00Z'))).toBeNull();
+  });
+});
+
+describe('appCopy', () => {
+  it('rewrites the web\'s wagering words for the app', () => {
+    expect(appCopy('Biggest win betting against ZeroXirem.')).toBe('Biggest win predicting against ZeroXirem.');
+    expect(appCopy("fewer than half of that word's bettors")).toBe("fewer than half of that word's players");
+    expect(appCopy('Alphabet stays')).toBe('Alphabet stays');
+  });
+});
+
+describe('leaderboardPool', () => {
+  it('is the whole pool for a season without medals', () => {
+    expect(leaderboardPool({ prizePool: '$1,000' } as never)).toBe('$1,000');
+  });
+  it('is the leaderboard share when medals take part of the pool', () => {
+    expect(leaderboardPool({ prizePool: '$1,500', bounty: { leaderboardPool: '$1,000' } } as never)).toBe('$1,000');
   });
 });
 

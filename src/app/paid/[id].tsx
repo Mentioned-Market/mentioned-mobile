@@ -18,6 +18,7 @@ import {
   usePaidMarketUserPositions,
   usePaidMarketWordSpend,
   useSolBalance,
+  useUsdcBalance,
 } from '@/api/queries';
 import { deserializeMarketAccount, estimateBuyCost, estimateSellReturn, impliedYesPrice, MarketStatus, sharesForUsdc } from '@/chain/amm';
 import { base64ToBytes } from '@/lib/bytes';
@@ -28,12 +29,14 @@ import { useSession } from '@/store/session';
 import { useActiveWallet } from '@/store/active-wallet';
 import { planBuy, planSell, TradeInputError } from '@/trade/amm';
 import { MIN_SOL_FOR_FEES } from '@/trade/majority';
+import { fundsShortfall } from '@/trade/funds';
 import { effectiveSpend, MAX_POSITION_USDC, remainingAllowance, spendKey, useSessionSpend } from '@/trade/spend';
 import { useTrade } from '@/trade/use-trade';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
 import { Card, SectionTitle, rowStyle } from '@/ui/card';
 import { Chip } from '@/ui/chip';
+import { DepositSheet } from '@/ui/fund-sheet';
 import { PAUSED_NOTE, useFeatures } from '@/ui/config-gate';
 import { LineChart, type ChartSeries } from '@/ui/line-chart';
 import { MarketHeader, statusFromLock } from '@/ui/market-header';
@@ -63,6 +66,7 @@ export default function PaidYesNoScreen() {
   // and its SOL, for fees. See src/trade/spend.ts.
   const wordSpend = usePaidMarketWordSpend(viewed, id, focused);
   const sol = useSolBalance(viewed, focused);
+  const usdcBalance = useUsdcBalance(viewed, focused);
   const spendEntries = useSessionSpend((st) => st.entries);
   const recordSpend = useSessionSpend((st) => st.record);
   const [pick, setPick] = useState<{ idx: number; side: Side } | null>(null);
@@ -76,6 +80,9 @@ export default function PaidYesNoScreen() {
   const [inputError, setInputError] = useState<string | null>(null);
   // Height of the trade form, so the progress view can hold it (see TradeProgress).
   const [formHeight, setFormHeight] = useState(0);
+  // "Add funds" from a trade that is short: closes the trade sheet, opens the
+  // deposit sheet on the asset that ran out.
+  const [fund, setFund] = useState<'USDC' | 'SOL' | null>(null);
   const trade = useTrade();
   const sheetRef = useRef<BottomSheetHandle>(null);
   // The server can pause trading; claims elsewhere are never paused.
@@ -183,6 +190,7 @@ export default function PaidYesNoScreen() {
       { value: `$${centsDown(Math.max(0, remainingUsd - amountNum))}`, caption: `left of $${(MAX_POSITION_USDC / 1e6).toFixed(0)} max` },
     ];
     if (remaining <= 0) warning = `Position full. $${(MAX_POSITION_USDC / 1e6).toFixed(2)} is the most on ${side} while paid markets are in testing.`;
+    else if (usdcBalance.data !== undefined && amountNum > usdcBalance.data) warning = `Not enough USDC. You have ${usd(usdcBalance.data, { dp: 2 })}.`;
   } else if (word) {
     const sharesIn = toBaseUnits(amount);
     const capped = sharesIn > heldSide ? heldSide : sharesIn;
@@ -273,10 +281,13 @@ export default function PaidYesNoScreen() {
       void trades.refetch();
       void wordSpend.refetch();
       void sol.refetch();
+      void usdcBalance.refetch();
       void queryClient.invalidateQueries({ queryKey: keys.paidMarketChart(id) });
     };
     refresh();
     setTimeout(refresh, 4000);
+    // A balance read can trail the confirmation by several seconds.
+    setTimeout(refresh, 15000);
   };
 
   const closeSheet = () => {
@@ -307,6 +318,17 @@ export default function PaidYesNoScreen() {
   };
 
   const recent = (trades.data ?? []).slice(0, 8);
+
+  // What the trade is short of, if anything: from the balance while typing,
+  // or from the refusal after an attempt.
+  const shortOf: 'USDC' | 'SOL' | null =
+    mode === 'buy' && usdcBalance.data !== undefined && amountNum > usdcBalance.data
+      ? 'USDC'
+      : fundsShortfall(inputError ?? (trade.state.status === 'failed' ? trade.state.message : null));
+  const openDeposit = (asset: 'USDC' | 'SOL') => {
+    sheetRef.current?.close();
+    setFund(asset);
+  };
 
   return (
     <Screen back>
@@ -371,14 +393,18 @@ export default function PaidYesNoScreen() {
             <Button label="Done" tone="gold" onPress={() => sheetRef.current?.close()} />
           ) : trade.state.status === 'failed' && trade.state.indeterminate ? (
             <Button label="Close" tone="neutral" onPress={() => sheetRef.current?.close()} />
+          ) : trade.state.status === 'failed' && shortOf ? (
+            <Button label={`Add ${shortOf}`} tone="gold" onPress={() => openDeposit(shortOf)} note={trade.state.message} />
           ) : trade.state.status === 'failed' ? (
             <Button label="Try again" tone="gold" onPress={trade.reset} />
+          ) : shortOf && open ? (
+            <Button label={`Add ${shortOf}`} tone="gold" onPress={() => openDeposit(shortOf)} note={inputError ?? warning ?? undefined} />
           ) : (
             <SwipeButton
               label={open ? actionLabel : 'Market closed'}
               tone={side === 'YES' ? 'yes' : 'no'}
               disabled={!features.paidTrading || !open || !trade.ready || amountNum <= 0 || (mode === 'buy' && remaining <= 0)}
-              note={inputError ?? (!features.paidTrading ? PAUSED_NOTE : !open ? undefined : !trade.ready ? 'Sign in to trade' : undefined)}
+              note={inputError ?? (!features.paidTrading ? PAUSED_NOTE : !open ? undefined : !trade.ready ? (trade.connecting ? 'Connecting your wallet' : 'Sign in to trade') : undefined)}
               onConfirm={() => void submit()}
             />
           )
@@ -425,6 +451,8 @@ export default function PaidYesNoScreen() {
           </View>
         ) : null}
       </BottomSheet>
+
+      {sessionWallet ? <DepositSheet key={fund ?? 'USDC'} visible={fund !== null} onClose={() => setFund(null)} wallet={sessionWallet} initialAsset={fund ?? 'USDC'} /> : null}
     </Screen>
   );
 }

@@ -3,7 +3,7 @@
 // tapping it.
 import { Ionicons } from '@expo/vector-icons';
 import { Link, type Href } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useFreeUserActivity, useIsScreenFocused, usePaidMajorityUserPositions, usePaidMarketUserPositions, useProfile, useUsdcBalance } from '@/api/queries';
@@ -28,6 +28,12 @@ export default function YouScreen() {
   const active = useActiveWallet();
   const profile = useProfile(active);
   const balance = useUsdcBalance(active, focused);
+  // Cash is read from the chain and polled slowly; a trade on another screen
+  // must show here on arrival, so the tab refetches it each time it is opened.
+  const refetchBalance = balance.refetch;
+  useEffect(() => {
+    if (focused && active) void refetchBalance();
+  }, [focused, active, refetchBalance]);
   const pm = usePaidMajorityUserPositions(active, focused);
   const pa = usePaidMarketUserPositions(active, focused);
   const fr = useFreeUserActivity(active, focused);
@@ -43,6 +49,8 @@ export default function YouScreen() {
   const emojiSheet = useRef<BottomSheetHandle>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [fund, setFund] = useState<'deposit' | 'withdraw' | null>(null);
+  const nameSheet = useRef<BottomSheetHandle>(null);
+  const [nameOpen, setNameOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const refetchAll = () => {
     setRefreshing(true);
@@ -64,7 +72,10 @@ export default function YouScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refetchAll} tintColor={colors.gold} />}
       >
-        {!active ? <SignInCard /> : null}
+        {/* Signed out shows the sign-in card whatever else is known: a Seeker
+            wallet remembered from a deposit or withdrawal is a wallet to look
+            at, not a way in. */}
+        {!sessionWallet ? <SignInCard /> : null}
 
         {needsName && sessionWallet ? <UsernameForm wallet={sessionWallet} /> : null}
 
@@ -87,12 +98,19 @@ export default function YouScreen() {
               >
                 <Text style={{ fontSize: 34 }}>{profile.data.pfpEmoji ?? '🙂'}</Text>
               </Pressable>
-              <View style={{ flex: 1, gap: 2 }}>
+              {/* Tapping the name changes it; the address is not for tapping. */}
+              <Pressable
+                onPress={own ? () => setNameOpen(true) : undefined}
+                disabled={!own}
+                accessibilityRole={own ? 'button' : undefined}
+                accessibilityLabel={own ? 'Change your username' : undefined}
+                style={{ flex: 1, gap: 2 }}
+              >
                 <Text style={styles.name} numberOfLines={1}>
                   {profile.data.username ?? 'No username yet'}
                 </Text>
                 <Text style={type.muted}>{shortAddress(active)}</Text>
-              </View>
+              </Pressable>
             </Card>
           )
         ) : null}
@@ -151,6 +169,9 @@ export default function YouScreen() {
         <>
           <DepositSheet visible={fund === 'deposit'} onClose={() => setFund(null)} wallet={sessionWallet} />
           <WithdrawSheet visible={fund === 'withdraw'} onClose={() => setFund(null)} wallet={sessionWallet} />
+          <BottomSheet ref={nameSheet} visible={nameOpen} onClose={() => setNameOpen(false)} title="Change username">
+            <UsernameForm wallet={sessionWallet} compact onSaved={() => nameSheet.current?.close()} />
+          </BottomSheet>
           <BottomSheet
             ref={emojiSheet}
             visible={emojiOpen}

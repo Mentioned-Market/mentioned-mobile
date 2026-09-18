@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Link } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { useOpenfortLogout } from '@/auth/logout';
 import { shortAddress } from '@/lib/format';
 import { useSession } from '@/store/session';
 import { Button } from '@/ui/button';
@@ -15,13 +16,23 @@ import { unregisterForPush } from '@/notifications/push';
 export function SignInCard({ compact = false }: { compact?: boolean }) {
   const wallet = useSession((s) => s.wallet);
   const clear = useSession((s) => s.clear);
+  const logoutOpenfort = useOpenfortLogout();
   const [signingOut, setSigningOut] = useState(false);
   // Unregister push first: the route needs this session's bearer to know whose
   // device registration to remove, so clearing first would orphan it and the
-  // phone would keep receiving the previous account's notifications.
+  // phone would keep receiving the previous account's notifications. Then end
+  // the Openfort session too, or the next sign-in skips straight to the wallet
+  // step because the SDK still thinks it is signed in.
   const signOut = async () => {
     setSigningOut(true);
     await unregisterForPush();
+    try {
+      await logoutOpenfort();
+    } catch (e) {
+      // The app's own session is cleared regardless; a stale SDK session only
+      // costs one extra tap on the next sign-in.
+      console.log('[sign-out] openfort logout failed', e);
+    }
     clear();
     setSigningOut(false);
   };

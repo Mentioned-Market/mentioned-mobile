@@ -70,7 +70,7 @@ function CardBody({ target, flow, label, detail }: { target: ClaimTarget; flow: 
         tone="yes"
         onPress={() => flow.start(target)}
         disabled={!flow.ready || flow.busy}
-        note={flow.ready ? undefined : 'Sign in to claim'}
+        note={flow.ready ? undefined : flow.connecting ? 'Connecting your wallet' : 'Sign in to claim'}
       />
     </View>
   );
@@ -78,7 +78,7 @@ function CardBody({ target, flow, label, detail }: { target: ClaimTarget; flow: 
 
 type Result = { title: string; detail: string };
 
-export type ClaimFlow = { start: (target: ClaimTarget) => void; ready: boolean; busy: boolean; sheet: ReactNode };
+export type ClaimFlow = { start: (target: ClaimTarget) => void; ready: boolean; connecting: boolean; busy: boolean; sheet: ReactNode };
 
 /**
  * The claim itself, and the sheet it runs in. Owned by the screen rather than
@@ -200,7 +200,7 @@ export function useClaimFlow(wallet: string | null): ClaimFlow {
     </BottomSheet>
   );
 
-  return { start: (t) => void start(t), ready: trade.ready && !!wallet, busy: target !== null, sheet };
+  return { start: (t) => void start(t), ready: trade.ready && !!wallet, connecting: trade.connecting, busy: target !== null, sheet };
 }
 
 const styles = StyleSheet.create({

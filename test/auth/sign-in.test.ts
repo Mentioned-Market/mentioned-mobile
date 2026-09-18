@@ -82,7 +82,12 @@ describe('chooseWalletAction', () => {
     expect(chooseWalletAction([])).toEqual({ action: 'create' });
   });
 
-  it('takes the first when Openfort returns several', () => {
+  it('takes the first when Openfort returns several with no dates', () => {
     expect(chooseWalletAction([{ address: WALLET }, { address: OTHER }])).toEqual({ action: 'recover', address: WALLET });
+  });
+
+  it('takes the oldest when Openfort returns several, whatever the order', () => {
+    // A second wallet on an account is an accident; the money is on the first.
+    expect(chooseWalletAction([{ address: OTHER, createdAt: 200 }, { address: WALLET, createdAt: 100 }])).toEqual({ action: 'recover', address: WALLET });
   });
 });

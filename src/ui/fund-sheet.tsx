@@ -40,7 +40,7 @@ const ASSETS = [
 const fmtSol = (n: number) => `${n.toLocaleString('en-US', { maximumFractionDigits: 4 })} SOL`;
 const fmtAmount = (asset: TransferAsset, n: number | undefined) => (n === undefined ? '—' : asset === 'USDC' ? usd(n, { dp: 2 }) : fmtSol(n));
 
-type SheetProps = { visible: boolean; onClose: () => void; wallet: string };
+type SheetProps = { visible: boolean; onClose: () => void; wallet: string; initialAsset?: TransferAsset };
 
 // ── Withdraw ────────────────────────────────────────────────────────────────
 
@@ -71,6 +71,7 @@ export function WithdrawSheet({ visible, onClose, wallet }: SheetProps) {
     };
     run();
     setTimeout(run, 4000);
+    setTimeout(run, 15000);
   };
 
   const fillSeekerAddress = async () => {
@@ -193,7 +194,7 @@ export function WithdrawSheet({ visible, onClose, wallet }: SheetProps) {
             label={`Swipe to send ${asset}`}
             tone="gold"
             disabled={!trade.ready || !amount || !to.trim()}
-            note={inputError ?? (!trade.ready ? 'Sign in to withdraw' : undefined)}
+            note={inputError ?? (!trade.ready ? (trade.connecting ? 'Connecting your wallet' : 'Sign in to withdraw') : undefined)}
             onConfirm={() => void submit()}
           />
         )}
@@ -206,7 +207,7 @@ export function WithdrawSheet({ visible, onClose, wallet }: SheetProps) {
 
 type DepositState = { status: 'idle' } | { status: 'working' } | { status: 'done'; signature: string } | { status: 'failed'; message: string; indeterminate: boolean };
 
-export function DepositSheet({ visible, onClose, wallet }: SheetProps) {
+export function DepositSheet({ visible, onClose, wallet, initialAsset = 'USDC' }: SheetProps) {
   const queryClient = useQueryClient();
   const sheetRef = useRef<BottomSheetHandle>(null);
   const seeker = useWallet((s) => s.viewedAddress);
@@ -215,7 +216,9 @@ export function DepositSheet({ visible, onClose, wallet }: SheetProps) {
   const seekerUsdc = useUsdcBalance(seeker, visible && !!seeker);
   const seekerSol = useSolBalance(seeker, visible && !!seeker);
 
-  const [asset, setAsset] = useState<TransferAsset>('USDC');
+  // Callers that want a particular asset remount the sheet with `key`, so
+  // the initial value is the only one needed.
+  const [asset, setAsset] = useState<TransferAsset>(initialAsset);
   const [amount, setAmount] = useState('');
   const [inputError, setInputError] = useState<string | null>(null);
   const [state, setState] = useState<DepositState>({ status: 'idle' });
@@ -234,6 +237,7 @@ export function DepositSheet({ visible, onClose, wallet }: SheetProps) {
     };
     run();
     setTimeout(run, 4000);
+    setTimeout(run, 15000);
   };
 
   const submit = async () => {
@@ -280,7 +284,7 @@ export function DepositSheet({ visible, onClose, wallet }: SheetProps) {
       {state.status !== 'idle' ? (
         <TradeProgress
           phase={working ? 'working' : state.status === 'done' ? 'done' : state.indeterminate ? 'pending' : 'failed'}
-          workingLabel="Waiting for your Seeker wallet"
+          workingLabel="Waiting for your wallet app"
           minHeight={formHeight || undefined}
           title={state.status === 'done' ? `Added ${asset === 'USDC' ? usd(Number(amount), { dp: 2 }) : fmtSol(Number(amount))}` : undefined}
           detail={state.status === 'done' ? 'It is in your app wallet.' : state.status === 'failed' ? state.message : undefined}
@@ -298,7 +302,7 @@ export function DepositSheet({ visible, onClose, wallet }: SheetProps) {
           />
           <AmountBlock asset={asset} amount={amount} />
           <View style={styles.chips}>
-            {seeker ? <Chip value={fmtAmount(asset, seekerBalance)} caption="in your Seeker wallet" /> : <Chip value="Seeker wallet" caption="approves when you tap send" />}
+            {seeker ? <Chip value={fmtAmount(asset, seekerBalance)} caption="in your wallet app" /> : <Chip value="Your wallet app" caption="opens to approve when you tap send" />}
           </View>
 
           <View style={styles.addressCard}>
@@ -308,16 +312,6 @@ export function DepositSheet({ visible, onClose, wallet }: SheetProps) {
             </Text>
           </View>
 
-          <PresetRow
-            presets={[25, 50, 75, 100].map((n) => ({
-              label: n === 100 ? 'Max' : `${n}%`,
-              value: n === 100 ? maxTransfer(asset, seekerBalance) : seekerBalance ? String(Math.floor((seekerBalance * n) / 100 * 10 ** DECIMALS[asset]) / 10 ** DECIMALS[asset]) : '',
-            }))}
-            onPick={(v) => {
-              setAmount(v);
-              setInputError(null);
-            }}
-          />
           <NumberPad
             value={amount}
             onChange={(v) => {
@@ -338,7 +332,7 @@ export function DepositSheet({ visible, onClose, wallet }: SheetProps) {
         ) : state.status === 'failed' ? (
           <Button label="Try again" tone="gold" onPress={() => setState({ status: 'idle' })} />
         ) : (
-          <Button label={`Send ${asset} from Seeker wallet`} tone="gold" disabled={!amount} note={inputError ?? undefined} onPress={() => void submit()} />
+          <Button label={`Send ${asset} from your wallet app`} tone="gold" disabled={!amount} note={inputError ?? 'Seed Vault on a Seeker, or Phantom or Solflare on any Android'} onPress={() => void submit()} />
         )}
       </View>
     </BottomSheet>

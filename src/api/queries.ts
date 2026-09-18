@@ -17,6 +17,7 @@ import * as paidMajority from './paidMajority';
 import * as paidMarkets from './paidMarkets';
 import * as referral from './referral';
 import * as results from './results';
+import * as ticker from './ticker';
 import * as user from './user';
 
 export const DETAIL_POLL_MS = 5_000;
@@ -86,6 +87,7 @@ export const keys = {
   arenaAll: ['arena'] as const,
   referral: (wallet: string) => ['referral', wallet] as const,
   ammClaimAll: ['chain', 'amm-claim'] as const,
+  recentTrades: ['trades', 'recent'] as const,
   ammClaim: (wallet: string, id: string) => ['chain', 'amm-claim', wallet, id] as const,
 };
 
@@ -96,6 +98,9 @@ export const usePaidMarketsList = (focused: boolean) =>
   useQuery({ queryKey: keys.paidMarketsList, queryFn: paidMarkets.listPaidMarkets, ...poll(focused, LIST_POLL_MS) });
 export const useFreeList = (focused: boolean) =>
   useQuery({ queryKey: keys.freeList, queryFn: free.listFreeMarkets, ...poll(focused, LIST_POLL_MS) });
+
+export const useRecentTrades = (focused: boolean) =>
+  useQuery({ queryKey: keys.recentTrades, queryFn: ticker.getRecentTrades, staleTime: 30_000, ...poll(focused, 60_000) });
 
 // Paid majority
 export const usePaidMajorityMarket = (id: string, focused: boolean) =>

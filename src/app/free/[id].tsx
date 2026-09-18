@@ -5,11 +5,11 @@
 // transaction, but it uses the same progress and completion screens so the two
 // kinds of market feel like one app.
 import * as Haptics from 'expo-haptics';
-import { Link, useLocalSearchParams, type Href } from 'expo-router';
-import { useRef, useState } from 'react';
+import { Link, useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { tradeFree } from '@/api/free';
+import { getFreeMarket, getFreeMarketIdBySlug, tradeFree } from '@/api/free';
 import { useFreeChart, useFreeMarket, useFreePositions, useIsScreenFocused } from '@/api/queries';
 import { sharesForTokens, virtualBuyCost, virtualSellReturn } from '@/free/lmsr';
 import { getDisplayStatus } from '@/free/marketUtils';
@@ -27,6 +27,7 @@ import { LineChart, type ChartSeries } from '@/ui/line-chart';
 import { MarketHeader } from '@/ui/market-header';
 import { Screen } from '@/ui/screen';
 import { CardSkeleton, ErrorState } from '@/ui/states';
+import { Loader } from '@/ui/loader';
 import { SwipeButton } from '@/ui/swipe-button';
 import { spacing, type } from '@/ui/theme';
 import { TradeProgress } from '@/ui/trade-progress';
@@ -36,9 +37,39 @@ import { YourPositions, type HeldRow } from '@/ui/your-positions';
 
 const fmt = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 
-export default function FreeYesNoScreen() {
+/**
+ * `/free/<id>` inside the app, but `/free/<slug>` from the website's links
+ * (App Links and notifications both arrive that way). A slug is looked up,
+ * then sent to this screen or the majority one by the market's type.
+ */
+export default function FreeRoute() {
   const { id: idParam } = useLocalSearchParams<{ id: string }>();
-  const id = Number(idParam);
+  if (/^\d+$/.test(idParam ?? '')) return <FreeYesNoScreen id={Number(idParam)} />;
+  return <FreeSlugRedirect slug={idParam ?? ''} />;
+}
+
+function FreeSlugRedirect({ slug }: { slug: string }) {
+  const router = useRouter();
+  const [error, setError] = useState<unknown>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const id = await getFreeMarketIdBySlug(slug);
+        const market = await getFreeMarket(id);
+        if (!cancelled) router.replace((market.market.market_type === 'majority' ? `/free-majority/${id}` : `/free/${id}`) as Href);
+      } catch (e) {
+        if (!cancelled) setError(e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, router]);
+  return <Screen back>{error ? <ErrorState error={error} title="Could not find that market" /> : <Loader style={{ paddingTop: spacing.xl }} />}</Screen>;
+}
+
+function FreeYesNoScreen({ id }: { id: number }) {
   const focused = useIsScreenFocused();
   const now = useNow(1000);
   const viewed = useActiveWallet();

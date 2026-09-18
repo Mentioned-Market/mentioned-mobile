@@ -21,6 +21,7 @@ fixtures and assets.
 | v4 trading | Sep 11 | 4.3k | The whole chain path: plan, simulate, sign, broadcast, confirm; buys, sells, claims, the spending cap, progress and error states |
 | v5 engagement | Sep 12 to 14 | 2.5k | Notification feed and bell, push registration, deep links, emoji picker, sharing, bug reports, the staging flavour |
 | v6 Arena | Sep 14 | 1.8k | Arena team competition, team profiles, referrals |
+| v8 production, v9 prep | Sep 15 to 16 | | Production build on a Seeker with the first mainnet trade; sign-out, wallet recovery and cold-start reconnect fixes; balances at confirmed commitment; release signing from a gitignored `keystore.properties`, App Links for the website's five paths with redirect routes and slug resolution, referral capture at sign-in, the flavour-safe release script, the portal-based store submission (`dapp-store/README.md`) |
 | v7 UI pass | Sep 14 to 15 | see `git diff --stat` | Every screen re-laid out to one system (`docs/DESIGN.md`): five tabs, one card shape, one chance figure per word, the trade sheet as a full screen with a swipe to confirm; deposit over MWA and withdraw from the app wallet (`src/trade/transfer.ts`, `src/ui/fund-sheet.tsx`) |
 
 Two supporting documents went to the web repo as part of this work:
@@ -206,6 +207,26 @@ Two things bit while building it:
   rebuilt on each render but its worklets capture values at creation, so the
   track width is written to a shared value and read inside `onEnd` rather than
   closed over.
+
+### The dApp Store CLI is a portal client now
+
+SPEC section 11 was written against the NFT-minting `dapp-store` CLI with a
+committed `config.yaml`. Version 1.0.x of `@solana-mobile/dapp-store-cli` is
+different: the publisher, the app and its listing are created in the
+publishing portal, which mints the App NFT, and the CLI only uploads an APK
+under an API key. `dapp-store/README.md` is the procedure; nothing about the
+listing lives in this repo.
+
+### Two things about the release build
+
+- Expo reads `.env.local` over the shell environment, so
+  `EXPO_PUBLIC_FLAVOR=production ./gradlew assembleRelease` would still build
+  staging if that file said so. `scripts/release-apk.sh` writes the flavour
+  into a temporary `.env.local` and restores the original on exit.
+- Console output is not forwarded to logcat in a release build, so the
+  `[flavour]` launch line cannot verify one. The pill on Home (any flavour but
+  production shows it) and a grep of the Hermes bundle for the API host are
+  the checks.
 
 ### A notification has to become an app route
 

@@ -9,6 +9,7 @@ import { useEffect, type ReactNode } from 'react';
 
 import { currentAccessToken, registerAccessTokenGetter } from '@/auth/access-token';
 import { fetchEncryptionSession } from '@/auth/encryption-session';
+import { WalletReconnect } from '@/auth/wallet-reconnect';
 import { isOpenfortConfigured, OPENFORT } from '@/config';
 
 /**
@@ -49,6 +50,7 @@ export function OpenfortAuthProvider({ children }: { children: ReactNode }) {
       }}
     >
       <AccessTokenBridge />
+      <WalletReconnect />
       {children}
     </OpenfortProvider>
   );

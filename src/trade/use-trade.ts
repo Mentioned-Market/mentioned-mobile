@@ -50,6 +50,10 @@ export function useTrade() {
   // provider able to sign for it. The sheet keeps its button disabled until
   // this is true rather than failing at the moment of signing.
   const ready = Boolean(provider && wallet);
+  // Signed in, but the wallet has not been recovered yet (a cold start, see
+  // src/auth/wallet-reconnect.tsx). A screen says "connecting" here, not
+  // "sign in", because the person already did.
+  const connecting = Boolean(wallet && !provider);
 
   const runBatches = useCallback(
     async (batches: Instruction[][], opts: RunOptions = {}): Promise<BatchResult> => {
@@ -121,5 +125,5 @@ export function useTrade() {
     setState({ status: 'failed', message, indeterminate: false });
   }, []);
 
-  return { ready, state, run, runBatches, reset, setInputError, wallet };
+  return { ready, connecting, state, run, runBatches, reset, setInputError, wallet };
 }
