@@ -25,7 +25,9 @@ import { Card, SectionTitle } from '@/ui/card';
 import { PAUSED_NOTE, useFeatures } from '@/ui/config-gate';
 import { LineChart, type ChartSeries } from '@/ui/line-chart';
 import { MarketHeader } from '@/ui/market-header';
+import { FeaturedWords } from '@/ui/featured-words';
 import { Screen } from '@/ui/screen';
+import { SimilarMarkets } from '@/ui/similar-markets';
 import { CardSkeleton, ErrorState } from '@/ui/states';
 import { Loader } from '@/ui/loader';
 import { SwipeButton } from '@/ui/swipe-button';
@@ -262,6 +264,8 @@ function FreeYesNoScreen({ id }: { id: number }) {
           <LineChart series={series} />
         </Card>
         <Text style={[type.muted, { textAlign: 'center' }]}>Free markets pay out in play tokens. Profit converts to points at 0.5x.</Text>
+        <SimilarMarkets currentKey={`free-yesno:${id}`} />
+        <FeaturedWords />
       </ScrollView>
 
       <BottomSheet

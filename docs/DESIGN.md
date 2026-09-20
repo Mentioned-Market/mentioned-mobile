@@ -67,9 +67,9 @@ checklist for keeping the app that way. Tokens and components live in
 - **Home**: wordmark and the bell; the prize pool on a gold card with the
   week's top three as a podium; the Arena row only while a season is live; a
   horizontal rail of cover-image cards for markets closing soon; a two-column
-  grid of tiles for what just resolved, with the live trade ticker between
-  them. Neither preview shows words: a preview is the market, the words are
-  the market screen. Each
+  grid of tiles for what just resolved, with the trending-word rail and the
+  live trade ticker between them. Neither market preview shows words: a
+  preview is the market, the words are the market screen. Each
   section has its own shape on purpose. Nothing about the viewer: that is Me.
 - **Markets**: title, search button, `Segmented` All / Free / Paid, the
   sectioned list of `MarketCard`s.
@@ -87,4 +87,6 @@ checklist for keeping the app that way. Tokens and components live in
   finished markets, each market one expandable row.
 - **A market**: `MarketHeader` (thumbnail, title, one line), `YourPositions`
   when there is something to say, the board (`WordList` or `WordBoard`), the
-  chart, recent trades. Stat boxes are gone; volume is in the chart's corner.
+  chart, recent trades, then `FeaturedWords` and `SimilarMarkets` so the page
+  ends somewhere to go rather than at the end of its own board. Stat boxes are
+  gone; volume is in the chart's corner.

@@ -40,7 +40,9 @@ import { DepositSheet } from '@/ui/fund-sheet';
 import { PAUSED_NOTE, useFeatures } from '@/ui/config-gate';
 import { LineChart, type ChartSeries } from '@/ui/line-chart';
 import { MarketHeader, statusFromLock } from '@/ui/market-header';
+import { FeaturedWords } from '@/ui/featured-words';
 import { Screen } from '@/ui/screen';
+import { SimilarMarkets } from '@/ui/similar-markets';
 import { CardSkeleton, ErrorState } from '@/ui/states';
 import { SwipeButton } from '@/ui/swipe-button';
 import { colors, fonts, spacing, type } from '@/ui/theme';
@@ -373,6 +375,8 @@ export default function PaidYesNoScreen() {
             </Card>
           </>
         ) : null}
+        <SimilarMarkets currentKey={`paid-yesno:${id}`} />
+        <FeaturedWords />
       </ScrollView>
 
       <BottomSheet

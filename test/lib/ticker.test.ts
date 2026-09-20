@@ -18,23 +18,23 @@ const base: RecentTrade = {
 };
 
 describe('tickerItems', () => {
-  it('reads a majority pick', () => {
+  it('reads a majority pick, which has no side', () => {
     const [i] = tickerItems([base]);
-    expect(i.who).toBe('bigdawg');
-    expect(i.text).toBe('picked run for $1.00');
-    expect(i.href).toBe('/majority/1789214048382');
+    expect(i).toMatchObject({ who: 'bigdawg', verb: 'picked', side: null, word: 'run', amount: '$1.00', href: '/majority/1789214048382' });
   });
-  it('reads a paid YES/NO trade without inventing a word', () => {
+
+  it('reads a paid trade with its side and no invented word', () => {
     const [i] = tickerItems([{ ...base, id: 'p', type: 'paid', isYes: false, amountUsd: '510000', wordLabel: null }]);
-    expect(i.text).toBe('bought NO for $0.51');
-    expect(i.href).toBe('/paid/1789214048382');
+    expect(i).toMatchObject({ verb: 'bought', side: 'NO', word: null, amount: '$0.51', href: '/paid/1789214048382' });
   });
+
   it('reads a free sale in tokens and links by slug', () => {
-    const [i] = tickerItems([{ ...base, id: 'f', type: 'free', isBuy: false, isYes: false, amountUsd: '0', wordLabel: 'Diallo', cost: '149.996276', slug: 'FOOTBALL-796cc0', marketId: '113' }]);
-    expect(i.text).toBe('sold NO Diallo for 150 tokens');
-    expect(i.href).toBe('/free/FOOTBALL-796cc0');
-    expect(i.up).toBe(false);
+    const [i] = tickerItems([
+      { ...base, id: 'f', type: 'free', isBuy: false, isYes: false, amountUsd: '0', wordLabel: 'Diallo', cost: '149.996276', slug: 'FOOTBALL-796cc0', marketId: '113' },
+    ]);
+    expect(i).toMatchObject({ verb: 'sold', side: 'NO', word: 'Diallo', amount: '150 tk', href: '/free/FOOTBALL-796cc0' });
   });
+
   it('leaves Polymarket rows out and falls back to the address', () => {
     const items = tickerItems([{ ...base, id: 'pm', type: 'polymarket' }, { ...base, id: 'anon', username: null }]);
     expect(items).toHaveLength(1);

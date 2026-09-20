@@ -28,7 +28,9 @@ import { useFeatures } from '@/ui/config-gate';
 import { MarketHeader } from '@/ui/market-header';
 import { Pill } from '@/ui/pill';
 import { PINNED_BAR_HEIGHT, PinnedBar } from '@/ui/pinned-bar';
+import { FeaturedWords } from '@/ui/featured-words';
 import { Screen } from '@/ui/screen';
+import { SimilarMarkets } from '@/ui/similar-markets';
 import { CardSkeleton, ErrorState } from '@/ui/states';
 import { SwipeButton } from '@/ui/swipe-button';
 import { colors, fonts, spacing, type } from '@/ui/theme';
@@ -259,6 +261,8 @@ export default function FreeMajorityScreen() {
               </Card>
             </>
           ) : null}
+        <SimilarMarkets currentKey={`free-majority:${id}`} />
+        <FeaturedWords />
         </ScrollView>
       </KeyboardAvoidingView>
 

@@ -706,52 +706,115 @@ mentioned.market, a deposit and a withdrawal round-tripped, a push received.
 
 ## 12. v9: release prep and submission
 
-Everything between a working production build and a listing. Two of these
-are web tasks, written up as `docs/WEB_ASSETLINKS_TASK.md` and
-`docs/WEB_RATE_LIMIT_TASK.md`.
+Everything between a working production build and a public listing, in the
+order it has to happen. Two items are web tasks, written up for handover as
+`docs/WEB_ASSETLINKS_TASK.md` and `docs/WEB_RATE_LIMIT_TASK.md`; two more are
+outside every repo, in a password manager and in the publishing portal.
 
-- **Keystore.** A new signing key used only for the dApp Store (the store
-  rejects APKs signed with a Google Play key). Generated once, stored in the
-  team password manager, never in the repo. App side done Sep 15 2026:
-  `android/keystore.properties` (gitignored) signs release builds, debug key
-  otherwise with a warning. Its SHA-256 goes into `assetlinks.json`.
-- **App Links.** App side done Sep 15 2026: intent filters for `/market/[id]`,
-  `/paidmajority/[id]`, `/free/[slug]`, `/ref/[code]` and `/onramp/return` on
-  `www.mentioned.market` with `autoVerify`, redirect routes, slug resolution,
-  a `ref` code held and sent once at the next sign-in. What makes them
-  verified rather than a chooser is `public/.well-known/assetlinks.json` on
-  the web, served at `www` (the apex 301s and Android does not follow it),
-  carrying the release certificate's fingerprint.
-- **Wallet-keyed rate limits** on the web. Every limit is per IP; carrier
-  NAT puts thousands of phones behind one, so the paid RPC proxy would
-  throttle a whole network during a live event. Key on the wallet when the
-  request carries a verified session, IP otherwise.
-- **`/api/mobile/config`** on the web (`docs/WEB_MOBILE_CONFIG_TASK.md`):
-  the kill switch and minimum version. The app runs without it; it is the
-  only remote brake there is.
-- **Flavours** (`eas.json`): `dev` (dev client, staging API, devnet ids),
-  `devnet-preview` (release build, staging), `production` (release build,
-  mainnet, store keystore). Config per flavour lives in `src/config.ts` keyed
-  by `EXPO_PUBLIC_FLAVOR`; still no secrets.
-- **Listing.** The store is portal-based now (`dapp-store/README.md`): the
-  publisher, the app and the listing are created at publish.solanamobile.com,
-  which mints the App NFT; `@solana-mobile/dapp-store-cli` 1.0.x uploads the
-  APK under an API key. Assets: icon 512x512, banner 1200x600, 5+ screenshots
-  from a Seeker on the production flavour, a 30s listing video, privacy policy
-  URL (`mentioned.market/privacy`), age rating 18+.
-- **Submission.** Fri Sep 18 (Mon Sep 21 is the hard limit). Review is 3 to 5
-  business days by email. The release branch is frozen from submission; only
-  review fixes land on it. Every resubmission restarts the clock.
-- **Release checklist.** Fresh-install run-through on a Seeker by someone who
-  did not build it: sign in, deposit from Seed Vault, one trade of each type,
-  one push received, sign out and back in with no dialog. Then the same on a
-  Pixel with Phantom and a Samsung with Solflare.
-- **Launch Sep 28.** Listing public, announcements out, first live-event
-  market opens that evening. Hotfix build ready to submit within 24h. Record
-  everything on Seekers for the demo video.
+Sep 18 to Sep 21. The submission is the hard deadline: review takes three to
+five business days and launch is Sep 28.
 
-Gate: the store build installs over nothing on a clean Seeker, links open
-the app with no chooser, the run-through passes, the submission is in.
+### 12.1 More to scroll (done Sep 18 2026)
+
+Every screen ended in a dead stop, and a market ended at its own board. Two
+sections, both fed by routes that already existed:
+
+- **Trending words** (`/api/markets/sidebar`, the website's own sidebar feed):
+  a rail of the words being traded most, on Home and at the foot of all four
+  market screens, each opening the market that word belongs to. The feed
+  addresses paid and majority markets by slug where the app uses ids, so
+  `src/lib/trending.ts` routes on the structured `id` instead and drops any
+  word this build cannot open rather than linking into nothing.
+- **More markets** at the foot of all four market screens
+  (`src/markets/similar.ts`): the open markets, the current one excluded, its
+  own kind first. Deliberately not random, so it does not reshuffle under a
+  thumb between polls and can be tested.
+
+### 12.2 What v8 left unproven
+
+v8 shipped with the mainnet build working and most of the trade matrix run on
+production: a majority pick, an AMM buy, and free buys and sells, all visible
+on mentioned.market. These were not run and belong in the release checklist
+below rather than in a version of their own:
+
+1. An **AMM sell** and a **free majority entry**.
+2. A **claim**. There is $4.80 waiting on a resolved majority market, so this
+   is available now.
+3. A **deposit from the Seed Vault** and a **withdrawal** back to it. The
+   deposit has never been signed against a real wallet app.
+4. **Google and X sign-in**, once both providers are switched on in the
+   Openfort dashboard. The `mentioned://` redirect is already allowed there.
+5. **A push**, now that the routes are live on production.
+
+Also worth a look while testing: the production Openfort account collected
+nine Solana wallets, eight of them empty, from a race fixed on Sep 15. The app
+now always returns to the wallet its session is for, so they are harmless, but
+the dashboard is the place to remove them.
+
+### 12.3 Keystore and signing
+
+A new signing key used only for the dApp Store, which rejects an APK signed
+with a Google Play key. Generated once, kept in the team password manager,
+never in the repo. The app side is done: `android/keystore.properties`
+(gitignored) signs release builds, and without it a build falls back to the
+debug key and says so. Its SHA-256 fingerprint is what 12.4 needs, so this
+comes first.
+
+### 12.4 App Links (web)
+
+Intent filters for `/market/[id]`, `/paidmajority/[id]`, `/free/[slug]`,
+`/ref/[code]` and `/onramp/return` on `www.mentioned.market` are declared and
+the routes behind them work. What makes them verified rather than a chooser is
+`public/.well-known/assetlinks.json`, served at `www` with the release
+certificate's fingerprint. The apex 301s and Android does not follow it.
+
+### 12.5 Wallet-keyed rate limits (web)
+
+Every limit is keyed on the client IP. Carrier NAT puts thousands of phones
+behind one, so the paid RPC proxy would throttle a whole mobile network during
+a live event. Key on the wallet when a request carries a verified session, on
+the IP otherwise. The app already sends the bearer on every authenticated
+call, so nothing changes here.
+
+### 12.6 Mobile config (web)
+
+`/api/mobile/config` (`docs/WEB_MOBILE_CONFIG_TASK.md`): the kill switch, the
+minimum version and the per-feature flags. The app treats a 404 as "no rules"
+and runs normally, so this is not launch-blocking, but it is the only remote
+brake there is once the APK is on other people's phones.
+
+### 12.7 Listing and assets
+
+The store is portal-based now (`dapp-store/README.md`): the publisher, the app
+and the listing are created at publish.solanamobile.com, which mints the App
+NFT, and `@solana-mobile/dapp-store-cli` 1.0.x uploads the APK under an API
+key. Assets: icon 512x512, banner 1200x600, five or more screenshots from a
+Seeker on the production flavour with no STAGING pill, a 30s listing video,
+privacy policy URL (`mentioned.market/privacy`), age rating 18+.
+
+**Flavours** (`eas.json`): `dev` (dev client, staging API, devnet ids),
+`devnet-preview` (release build, staging), `production` (release build,
+mainnet, store keystore). Config per flavour lives in `src/config.ts` keyed by
+`EXPO_PUBLIC_FLAVOR`; still no secrets.
+
+### 12.8 Release checklist, submission and launch
+
+**Checklist**, on a clean Seeker, by someone who did not build it: install the
+store-signed APK, sign in, deposit from the Seed Vault, one trade of each of
+the four types, a claim, a push received, sign out and back in with no dialog,
+and every item in 12.2. Then the same on a Pixel with Phantom and a Samsung
+with Solflare, which is also where a non-Seeker wallet app is proven.
+
+**Submission.** Fri Sep 18, Mon Sep 21 the hard limit. Review is three to five
+business days by email. The release branch is frozen from submission; only
+review fixes land on it, and every resubmission restarts the clock.
+
+**Launch Sep 28.** Listing public, announcements out, the first live-event
+market that evening. A hotfix build ready to submit within 24 hours. Record
+everything on Seekers for the demo video.
+
+Gate: the store-signed build installs on a clean Seeker, links open the app
+with no chooser, the checklist passes, the submission is in.
 
 ## 13. v10: cleanup and testing (final)
 
