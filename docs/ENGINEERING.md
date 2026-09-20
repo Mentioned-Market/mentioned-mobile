@@ -21,6 +21,7 @@ fixtures and assets.
 | v4 trading | Sep 11 | 4.3k | The whole chain path: plan, simulate, sign, broadcast, confirm; buys, sells, claims, the spending cap, progress and error states |
 | v5 engagement | Sep 12 to 14 | 2.5k | Notification feed and bell, push registration, deep links, emoji picker, sharing, bug reports, the staging flavour |
 | v6 Arena | Sep 14 | 1.8k | Arena team competition, team profiles, referrals |
+| v9 more to scroll | Sep 18 | | Trending words from the website's sidebar feed on Home and every market screen, "More markets" at the foot of each one |
 | v8 production, v9 prep | Sep 15 to 16 | | Production build on a Seeker with the first mainnet trade; sign-out, wallet recovery and cold-start reconnect fixes; balances at confirmed commitment; release signing from a gitignored `keystore.properties`, App Links for the website's five paths with redirect routes and slug resolution, referral capture at sign-in, the flavour-safe release script, the portal-based store submission (`dapp-store/README.md`) |
 | v7 UI pass | Sep 14 to 15 | see `git diff --stat` | Every screen re-laid out to one system (`docs/DESIGN.md`): five tabs, one card shape, one chance figure per word, the trade sheet as a full screen with a swipe to confirm; deposit over MWA and withdraw from the app wallet (`src/trade/transfer.ts`, `src/ui/fund-sheet.tsx`) |
 

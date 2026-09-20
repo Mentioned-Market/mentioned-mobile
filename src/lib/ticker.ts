@@ -1,8 +1,21 @@
-// One line per trade for the ticker, and where a tap on it goes.
+// One chip per trade for the ticker, and where a tap on it goes.
+//
+// Split into parts rather than a sentence: the ticker puts the name, the side
+// and the amount in fixed places so each can be read as it slides past.
 import type { RecentTrade } from '@/api/ticker';
 import { shortAddress, tokens, usdc } from '@/lib/format';
 
-export type TickerItem = { key: string; emoji: string; who: string; text: string; href: string | null; up: boolean };
+export type TickerItem = {
+  key: string;
+  who: string;
+  /** "bought", "sold" or "picked". */
+  verb: string;
+  /** The side, where the family has one; majority picks do not. */
+  side: 'YES' | 'NO' | null;
+  word: string | null;
+  amount: string;
+  href: string | null;
+};
 
 /** Free markets are addressed by slug from this feed; the free route resolves it. */
 function hrefFor(t: RecentTrade): string | null {
@@ -13,30 +26,27 @@ function hrefFor(t: RecentTrade): string | null {
 }
 
 /**
- * "bigdawg picked run for $1" and the like. Polymarket rows are the
- * website's other product and are left out; a word the feed does not carry
- * (paid rows) is not invented.
+ * Polymarket rows are the website's other product and are left out. A word the
+ * feed does not carry (paid rows often have none) is not invented.
  */
 export function tickerItems(trades: RecentTrade[]): TickerItem[] {
   const out: TickerItem[] = [];
   for (const t of trades) {
     if (t.type === 'polymarket') continue;
     const who = t.username ?? shortAddress(t.wallet);
-    const word = t.wordLabel ? ` ${t.wordLabel}` : '';
-    let text: string;
-    let emoji: string;
+    const word = t.wordLabel ?? null;
     if (t.type === 'majority') {
-      emoji = '🏆';
-      text = `picked${word} for ${usdc(t.amountUsd, { dp: 2 })}`;
-    } else if (t.type === 'paid') {
-      emoji = '💵';
-      text = `${t.isBuy ? 'bought' : 'sold'} ${t.isYes ? 'YES' : 'NO'}${word} for ${usdc(t.amountUsd, { dp: 2 })}`;
-    } else {
-      emoji = '🎟️';
-      const cost = Math.abs(Number(t.cost ?? 0));
-      text = `${t.isBuy ? 'bought' : 'sold'} ${t.isYes ? 'YES' : 'NO'}${word}${cost > 0 ? ` for ${tokens(cost)} tokens` : ''}`;
+      out.push({ key: t.id, who, verb: 'picked', side: null, word, amount: usdc(t.amountUsd, { dp: 2 }), href: hrefFor(t) });
+      continue;
     }
-    out.push({ key: t.id, emoji, who, text, href: hrefFor(t), up: t.isBuy });
+    const verb = t.isBuy ? 'bought' : 'sold';
+    const side = t.isYes ? 'YES' : 'NO';
+    if (t.type === 'paid') {
+      out.push({ key: t.id, who, verb, side, word, amount: usdc(t.amountUsd, { dp: 2 }), href: hrefFor(t) });
+      continue;
+    }
+    const cost = Math.abs(Number(t.cost ?? 0));
+    out.push({ key: t.id, who, verb, side, word, amount: cost > 0 ? `${tokens(cost)} tk` : '', href: hrefFor(t) });
   }
   return out;
 }

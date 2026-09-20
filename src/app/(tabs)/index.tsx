@@ -27,9 +27,11 @@ import { useActiveWallet } from '@/store/active-wallet';
 import { Card, SectionTitle } from '@/ui/card';
 import { NotificationBell } from '@/ui/notification-bell';
 import { Pill } from '@/ui/pill';
+import { FeaturedWords } from '@/ui/featured-words';
 import { ErrorState, RowsSkeleton } from '@/ui/states';
 import { Ticker } from '@/ui/ticker';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
+import { ArenaHero } from '@/ui/arena-hero';
 import { Wordmark } from '@/ui/wordmark';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -76,8 +78,38 @@ export default function HomeScreen() {
   };
 
   const weekEnd = pool.data ? Date.parse(pool.data.weekEnd) : null;
+  // A season in progress is what Home leads with; the week's prize pool and
+  // podium move below the ticker until it ends.
+  const arenaOpen = arenaStatus(CURRENT_ARENA) !== 'ended';
   const top = (board.data?.data ?? []).slice(0, 3);
-  const arena = arenaStatus(CURRENT_ARENA);
+
+  /** The week's prize pool and its podium; placed above or below by `arenaOpen`. */
+  const weeklyBoard =
+    board.isPending && !board.data && pool.isPending ? (
+      <RowsSkeleton />
+    ) : board.isError && !board.data ? (
+      <ErrorState error={board.error} onRetry={() => board.refetch()} title="Could not load the leaderboard" />
+    ) : (
+      <Link href="/ranks" asChild>
+        <Pressable style={styles.poolCard} accessibilityRole="button" accessibilityLabel="Prize pool and leaderboard">
+          <View style={styles.poolHead}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.poolLabel}>Prize pool this week</Text>
+              <Text style={styles.poolAmount}>{pool.data ? usd(pool.data.poolUsd) : '—'}</Text>
+            </View>
+            <View style={styles.poolEnds}>
+              <Ionicons name="time-outline" size={14} color={colors.gold} />
+              <Text style={styles.poolEndsText}>{weekEnd ? `Ends in ${countdown(weekEnd, now)}` : 'This week'}</Text>
+            </View>
+          </View>
+          {top.length === 0 ? (
+            <Text style={type.muted}>No points yet this week. Make a pick to get on the board.</Text>
+          ) : (
+            <Podium top={top} you={wallet} />
+          )}
+        </Pressable>
+      </Link>
+    );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
@@ -93,46 +125,7 @@ export default function HomeScreen() {
           <NotificationBell focused={focused} />
         </View>
 
-        {arena !== 'ended' ? (
-          <Link href="/arena" asChild>
-            <Pressable style={styles.arenaRow} accessibilityRole="link" accessibilityLabel={`${CURRENT_ARENA.name} Arena`}>
-              <View style={styles.iconCircle}>
-                <Text style={{ fontSize: 22 }}>{CURRENT_ARENA.emoji}</Text>
-              </View>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={styles.rowTitle}>{CURRENT_ARENA.name} Arena</Text>
-                <ArenaLine />
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </Pressable>
-          </Link>
-        ) : null}
-
-        {board.isPending && !board.data && pool.isPending ? (
-          <RowsSkeleton />
-        ) : board.isError && !board.data ? (
-          <ErrorState error={board.error} onRetry={() => board.refetch()} title="Could not load the leaderboard" />
-        ) : (
-          <Link href="/ranks" asChild>
-            <Pressable style={styles.poolCard} accessibilityRole="button" accessibilityLabel="Prize pool and leaderboard">
-              <View style={styles.poolHead}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.poolLabel}>Prize pool this week</Text>
-                  <Text style={styles.poolAmount}>{pool.data ? usd(pool.data.poolUsd) : '—'}</Text>
-                </View>
-                <View style={styles.poolEnds}>
-                  <Ionicons name="time-outline" size={14} color={colors.gold} />
-                  <Text style={styles.poolEndsText}>{weekEnd ? `Ends in ${countdown(weekEnd, now)}` : 'This week'}</Text>
-                </View>
-              </View>
-              {top.length === 0 ? (
-                <Text style={type.muted}>No points yet this week. Make a pick to get on the board.</Text>
-              ) : (
-                <Podium top={top} you={wallet} />
-              )}
-            </Pressable>
-          </Link>
-        )}
+        {arenaOpen ? <ArenaHero /> : weeklyBoard}
 
         <View style={styles.section}>
           <SectionTitle title="Closing soon" right={<SeeAll href="/markets" />} />
@@ -155,26 +148,17 @@ export default function HomeScreen() {
 
         {ticker.length > 0 ? <Ticker items={ticker} /> : null}
 
+        {arenaOpen ? weeklyBoard : null}
+
         {justResolved.length > 0 ? (
           <View style={styles.section}>
             <SectionTitle title="Just resolved" />
             <ResolvedGrid markets={justResolved} />
           </View>
         ) : null}
+        <FeaturedWords />
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-/** "Starts in 9d 02h" or "Ends in 13d 04h", on its own clock so only this line ticks. */
-function ArenaLine() {
-  const now = useNow(1000);
-  const c = seasonCountdown(CURRENT_ARENA, now);
-  const pool = `top ${CURRENT_ARENA.prizes.length} share ${leaderboardPool(CURRENT_ARENA)}`;
-  return (
-    <Text style={type.muted} numberOfLines={1}>
-      {c ? <Text style={styles.countdown}>{`${c.label} ${formatCountdown(c.ms)}`}</Text> : 'Live'} · {pool}
-    </Text>
   );
 }
 

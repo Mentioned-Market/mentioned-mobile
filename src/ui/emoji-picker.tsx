@@ -48,7 +48,6 @@ export function EmojiPicker({ wallet, current }: { wallet: string; current: stri
 
   return (
     <View style={{ gap: spacing.sm }}>
-      <Text style={type.muted}>Your emoji</Text>
       {unlocked.length > 0 ? (
         <View style={styles.row}>
           {unlocked.map((a) => (

@@ -32,6 +32,7 @@ import { useSession } from '@/store/session';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
 import { Card, SectionTitle, Stat, rowStyle } from '@/ui/card';
+import { Medallion } from '@/ui/medallion';
 import { Pill } from '@/ui/pill';
 import { Screen } from '@/ui/screen';
 import { Segmented } from '@/ui/segmented';
@@ -173,7 +174,7 @@ export default function ArenaScreen() {
             <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
               {selected.bounty.bounties.map((b, i) => (
                 <Pressable key={b.id} onPress={() => openMedal(b.id)} accessibilityRole="button" accessibilityLabel={`${b.name}, ${b.amount}`} style={rowStyle(i === 0)}>
-                  <Text style={{ fontSize: 22, width: 32 }}>{b.emoji}</Text>
+                  <Medallion id={b.id} amount={b.amount} />
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text style={[type.body, { fontFamily: fonts.semibold }]}>{b.name}</Text>
                     <Text style={type.muted} numberOfLines={2}>
@@ -197,7 +198,6 @@ export default function ArenaScreen() {
             <Text style={type.muted}>
               Top {selected.prizes.length} teams share the <Text style={{ color: colors.gold }}>{leaderboardPool(selected)} prize pool</Text> ({selected.displayRange}).
             </Text>
-            <Text style={[type.muted, styles.discordNote]}>Discord must be linked, and at least 30 days old, to enter the Arena.</Text>
             {wallet ? (
               <View style={{ flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.xs }}>
                 <Button label="Create a team" onPress={() => openSheet('create')} style={{ flex: 1 }} />
@@ -256,7 +256,7 @@ export default function ArenaScreen() {
           sheet === 'prizes'
             ? `${selected.emoji} ${selected.name} prizes`
             : sheet === 'medal'
-              ? `${medalInfo?.emoji ?? ''} ${medalInfo?.name ?? 'Medal'}`
+              ? (medalInfo?.name ?? 'Medal')
               : sheet === 'earn'
               ? '⭐ How to earn points'
               : sheet === 'create'
@@ -302,7 +302,8 @@ export default function ArenaScreen() {
             ))}
           </Card>
         ) : sheet === 'medal' && medalInfo ? (
-          <View style={{ gap: spacing.sm }}>
+          <View style={{ gap: spacing.sm, alignItems: 'flex-start' }}>
+            <Medallion id={medalInfo.id} amount={medalInfo.amount} size={72} />
             <Text style={[type.body, { fontFamily: fonts.semibold }]}>
               {medalInfo.amount} · {appCopy(medalInfo.blurb)}
             </Text>
@@ -334,8 +335,7 @@ export default function ArenaScreen() {
                   ? 'Pick a name. You will get a join code to send to your teammates.'
                   : 'Enter the 6 character code your captain shared.'}
               </Text>
-              <Text style={[type.muted, styles.discordNote]}>Discord must be linked, and at least 30 days old, to enter the Arena.</Text>
-              <TextInput
+                <TextInput
                 value={input}
                 onChangeText={(v) => {
                   setInput(sheet === 'join' ? v.toUpperCase() : v);
@@ -453,7 +453,7 @@ function EarnRules() {
         <Rule title="Earn half your token profit as points." body="Turn a profit and half of it converts to points." />
         <Rule title="Capped at 200 points per market." body="Free play is the on-ramp; paid markets are where it adds up." />
       </Card>
-      <Text style={type.muted}>Points land when a market resolves, so hold your position to the close. Link Discord to earn: points only count for linked wallets.</Text>
+      <Text style={type.muted}>Points land when a market resolves, so hold your position to the close.</Text>
     </View>
   );
 }
@@ -464,7 +464,6 @@ const styles = StyleSheet.create({
   countdown: { ...type.body, fontVariant: ['tabular-nums'] },
   statRow: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.xs },
   textButton: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.textMuted },
-  discordNote: { color: '#8C95F5' },
   warnNote: { color: colors.gold },
   howRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 4 },
   teamName: { fontFamily: fonts.bold, fontSize: 22, lineHeight: 28, color: colors.text },

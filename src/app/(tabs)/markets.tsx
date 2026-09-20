@@ -5,7 +5,7 @@ import { RefreshControl, SectionList, StyleSheet, Text, View } from 'react-nativ
 
 import { useFreeList, useIsScreenFocused, usePaidMajorityList, usePaidMarketsList } from '@/api/queries';
 import { useNow } from '@/lib/use-now';
-import { filterMarkets, isHero, mergeMarkets, sectionMarkets, type MarketFilter, type MarketSummary } from '@/markets/merge';
+import { filterMarkets, mergeMarkets, sectionMarkets, type MarketFilter, type MarketSummary } from '@/markets/merge';
 import { IconButton } from '@/ui/icon-button';
 import { MarketCard } from '@/ui/market-card';
 import { Screen } from '@/ui/screen';
@@ -52,12 +52,9 @@ export default function MarketsScreen() {
   );
   const empty = sections.length === 0;
 
-  const renderItem = useCallback(
-    ({ item, index, section }: { item: MarketSummary; index: number; section: { key: string } }) => (
-      <MarketCard market={item} now={now} hero={section.key === 'open' && index === 0 && isHero(item)} />
-    ),
-    [now],
-  );
+  // Every card looks the same now; `isHero` only decides the order, which
+  // `mergeMarkets` has already applied.
+  const renderItem = useCallback(({ item }: { item: MarketSummary }) => <MarketCard market={item} now={now} />, [now]);
 
   const retryAll = () => {
     setRefreshing(true);
