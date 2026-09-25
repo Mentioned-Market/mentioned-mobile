@@ -151,6 +151,7 @@ above. Put a header on each copy:
 | `lib/majorityMarketUsdc.ts` | `src/chain/majority.ts` | Import program id from `src/config`; import ATA helpers etc. from `./amm` |
 | `lib/mentionMarketUsdc.ts` | `src/chain/amm.ts` | Import ids and `RPC_URL` from `src/config`; import `sendViaProxy`/`confirmSignature` from `./rpcSend`; `fetchWith429Retry` from `./fetchRetry` |
 | `lib/majorityMarket.ts` | `src/chain/majorityWords.ts` | None (stopwords + validation) |
+| `lib/oddsDisplay.ts` | `src/lib/oddsDisplay.ts` | None (AMM multiplier odds; the app uses multiplier mode only) |
 | `lib/rpcSend.ts` | `src/chain/rpcSend.ts` | Replace the `MAINNET_RPC_PROXY` import with `RPC_URL` from config |
 | `lib/fetchRetry.ts` | `src/chain/fetchRetry.ts` | None |
 | `lib/virtualLmsr.ts` | `src/free/lmsr.ts` | None |

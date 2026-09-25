@@ -74,3 +74,16 @@ export const OPENFORT = {
 } as const;
 
 export const isOpenfortConfigured = Boolean(OPENFORT.publishableKey && OPENFORT.shieldPublishableKey);
+
+// Privy, for accounts made before the move to Openfort. Never offered to a new
+// user: the sign-in screen only reaches it after the server has matched the
+// identity to a pre-cutover Privy account (see src/auth/wallet-routing.ts).
+// The app id is the web's NEXT_PUBLIC_PRIVY_APP_ID; the client id belongs to
+// the Android app client in the Privy dashboard. Both are public. Empty means
+// legacy accounts see the "use the website" message instead of a Privy login.
+export const PRIVY = {
+  appId: process.env.EXPO_PUBLIC_PRIVY_APP_ID ?? '',
+  clientId: process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID ?? '',
+} as const;
+
+export const isPrivyConfigured = Boolean(PRIVY.appId && PRIVY.clientId);

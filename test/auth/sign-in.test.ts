@@ -21,6 +21,12 @@ describe('signInWithServer', () => {
     expect(JSON.parse(init?.body as string)).toMatchObject({ type: 'openfort', token: 'tok', wallet: WALLET, client: 'mobile' });
   });
 
+  it('posts the Privy type for a legacy account', async () => {
+    const spy = mockFetch(async () => reply({ ok: true, wallet: WALLET }));
+    await signInWithServer({ token: 'privy_tok', wallet: WALLET, provider: 'privy' });
+    expect(JSON.parse(spy.mock.calls[0][1]?.body as string)).toMatchObject({ type: 'privy', token: 'privy_tok', wallet: WALLET, client: 'mobile' });
+  });
+
   it('returns the wallet the server confirmed', async () => {
     mockFetch(async () => reply({ ok: true, wallet: WALLET }));
     await expect(signInWithServer({ token: 'tok', wallet: WALLET })).resolves.toEqual({ wallet: WALLET, sessionToken: null });

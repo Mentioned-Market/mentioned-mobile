@@ -9,9 +9,10 @@
 // stays "working" across all of them, so the progress screen does not flash a
 // completion between batches, and it says which batch it is on.
 import { useEmbeddedSolanaWallet } from '@openfort/react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Instruction } from '@solana/kit';
 
+import { usePrivySigner } from '@/auth/privy';
 import { ConfirmationTimeoutError } from '@/chain/rpcSend';
 import { useSession } from '@/store/session';
 import { useWalletLink } from '@/store/wallet-link';
@@ -43,6 +44,8 @@ export type BatchResult = {
 export function useTrade() {
   const solana = useEmbeddedSolanaWallet();
   const wallet = useSession((s) => s.wallet);
+  const sessionProvider = useSession((s) => s.provider);
+  const privySigner = usePrivySigner();
   const [state, setState] = useState<TradeState>({ status: 'idle' });
 
   // The wallet that signs must be the wallet the session is for. An account
@@ -52,12 +55,22 @@ export function useTrade() {
   // transaction. So a connected wallet only counts when it is the right one.
   const activeAddress = solana.status === 'connected' ? (solana.activeWallet?.address ?? null) : null;
   const onRightWallet = !!wallet && activeAddress === wallet;
-  const provider = solana.status === 'connected' && onRightWallet ? (solana.provider as unknown as SolanaSigningProvider) : null;
+  const openfortProvider =
+    sessionProvider === 'openfort' && solana.status === 'connected' && onRightWallet ? (solana.provider as unknown as SolanaSigningProvider) : null;
+
+  // The signer for whichever provider the session is on: Openfort for new
+  // accounts, Privy for ones made before the move. Privy's hook applies the
+  // same right-wallet rule (see src/auth/privy.tsx). Both reach the chain
+  // through the same ported signing code.
+  const rawSign = useMemo(
+    () => (sessionProvider === 'privy' ? privySigner : openfortProvider ? rawSignWithProvider(openfortProvider) : null),
+    [sessionProvider, privySigner, openfortProvider],
+  );
 
   // A trade needs both halves: the wallet the session is for, and a live
-  // provider able to sign for it. The sheet keeps its button disabled until
-  // this is true rather than failing at the moment of signing.
-  const ready = Boolean(provider && wallet);
+  // signer for it. The sheet keeps its button disabled until this is true
+  // rather than failing at the moment of signing.
+  const ready = Boolean(rawSign && wallet);
   // Signed in, but the wallet has not been recovered yet (a cold start, see
   // src/auth/wallet-reconnect.tsx). A screen says "connecting" here, not
   // "sign in", because the person already did. `walletFailed` is the other
@@ -65,10 +78,10 @@ export function useTrade() {
   // reading as "connecting".
   const link = useWalletLink((st) => st.status);
   const retryWallet = useWalletLink((st) => st.retry);
-  const connecting = Boolean(wallet && !provider && link !== 'failed' && link !== 'needs-sign-in');
-  const walletFailed = Boolean(wallet && !provider && link === 'failed');
-  /** Signed in here, but not with Openfort any more: only a sign-in fixes it. */
-  const needsSignIn = Boolean(wallet && !provider && link === 'needs-sign-in');
+  const connecting = Boolean(wallet && !rawSign && link !== 'failed' && link !== 'needs-sign-in');
+  const walletFailed = Boolean(wallet && !rawSign && link === 'failed');
+  /** Signed in here, but the provider's session has gone: only a sign-in fixes it. */
+  const needsSignIn = Boolean(wallet && !rawSign && link === 'needs-sign-in');
 
   // Arriving on a screen that needs a signer is itself a reason to try again,
   // so leaving and coming back is a way out even without touching a button.
@@ -82,7 +95,7 @@ export function useTrade() {
     async (batches: Instruction[][], opts: RunOptions = {}): Promise<BatchResult> => {
       const explain = opts.explain ?? friendlyTradeError;
       const confirmed: string[] = [];
-      if (!provider || !wallet) {
+      if (!rawSign || !wallet) {
         setState({ status: 'failed', message: 'Sign in before trading.', indeterminate: false });
         return { confirmed, complete: false };
       }
@@ -98,7 +111,7 @@ export function useTrade() {
           setState({ status: 'working', step: 'checking', batch: batchInfo(i) });
           const signature = await sendInstructions({
             wallet,
-            rawSign: rawSignWithProvider(provider),
+            rawSign,
             instructions: batches[i],
             onStep: (step) => setState({ status: 'working', step, batch: batchInfo(i) }),
           });
@@ -125,7 +138,7 @@ export function useTrade() {
       setState({ status: 'done', signature: confirmed[confirmed.length - 1] });
       return { confirmed, complete: true };
     },
-    [provider, wallet],
+    [rawSign, wallet],
   );
 
   /** A single transaction. Returns its signature, or null if it did not go through. */

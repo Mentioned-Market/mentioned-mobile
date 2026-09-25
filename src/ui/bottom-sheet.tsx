@@ -62,6 +62,9 @@ export type BottomSheetHandle = {
   close: () => void;
 };
 
+/** Room left above a full-screen sheet, under the status bar. */
+const FULL_TOP_GAP = spacing.lg;
+
 /** Darkness of the backdrop when the sheet is fully open. */
 const BACKDROP_OPACITY = 0.6;
 
@@ -205,9 +208,13 @@ export function BottomSheet({ ref, visible, onClose, title, subtitle, footer, lo
             style={[
               styles.sheet,
               sheetStyle,
-              { paddingBottom: Math.max(insets.bottom, spacing.sm) + keyboard },
+              // A full-screen sheet's action is a swipe control, which needs clear
+              // room from the screen's bottom edge to be dragged comfortably.
+              { paddingBottom: Math.max(insets.bottom, spacing.sm) + (full ? spacing.md : 0) + keyboard },
               keyboard > 0 ? { maxHeight: height - keyboard } : null,
-              full && { height: height - insets.top - keyboard, maxHeight: '100%' },
+              // Stops short of the status bar, so the sheet's rounded top and the
+              // header under it do not sit hard against the top of the screen.
+              full && { height: height - insets.top - FULL_TOP_GAP - keyboard, maxHeight: '100%' },
             ]}
             onLayout={(e) => sheetHeight.set(e.nativeEvent.layout.height)}
           >
@@ -245,7 +252,10 @@ export function BottomSheet({ ref, visible, onClose, title, subtitle, footer, lo
                 style={[styles.body, full && { flex: 1 }]}
                 bounces={false}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.bodyContent}
+                // A full sheet's body fills the height between header and footer,
+                // so its content can spread through it instead of sitting at the
+                // top over an empty band.
+                contentContainerStyle={[styles.bodyContent, full && styles.bodyContentFull]}
                 keyboardShouldPersistTaps="handled"
                 onScroll={onScroll}
                 scrollEventThrottle={16}
@@ -253,7 +263,7 @@ export function BottomSheet({ ref, visible, onClose, title, subtitle, footer, lo
                 {children}
               </AnimatedScrollView>
             </GestureDetector>
-            {footer ? <View style={styles.footer}>{footer}</View> : null}
+            {footer ? <View style={[styles.footer, full && styles.footerFull]}>{footer}</View> : null}
           </Animated.View>
         </GestureDetector>
       </GestureHandlerRootView>
@@ -279,5 +289,7 @@ const styles = StyleSheet.create({
   subtitle: { ...type.muted, fontSize: 13, lineHeight: 18 },
   body: { flexShrink: 1 },
   bodyContent: { gap: spacing.sm },
+  bodyContentFull: { flexGrow: 1, paddingTop: spacing.sm },
   footer: { paddingTop: spacing.sm },
+  footerFull: { paddingTop: spacing.md },
 });

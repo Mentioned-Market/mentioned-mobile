@@ -19,6 +19,7 @@ import * as Application from 'expo-application';
 import type { MobileConfig } from '@/api/mobileConfig';
 import { useMobileConfig } from '@/api/queries';
 import { evaluateMobileConfig } from '@/lib/mobile-config';
+import { usePrivyAuth } from '@/auth/privy';
 import { ensureEmbeddedSigner } from '@/auth/recover-wallet';
 import { usePrefs } from '@/store/prefs';
 import { useWalletLink } from '@/store/wallet-link';
@@ -182,6 +183,8 @@ function WalletSection() {
   const solana = useEmbeddedSolanaWallet();
   const client = useOpenfortClient();
   const link = useWalletLink();
+  const sessionProvider = useSession((st) => st.provider);
+  const privy = usePrivyAuth();
   const [embedded, setEmbedded] = useState<string>('?');
   const [accounts, setAccounts] = useState<string>('?');
   const [busy, setBusy] = useState(false);
@@ -236,7 +239,9 @@ function WalletSection() {
     <Card style={styles.row}>
       <Text style={type.heading}>Wallet</Text>
       <Text style={type.muted}>
-        openfort authenticated: {String(isAuthenticated)}
+        session provider: {sessionProvider}
+        {'\n'}privy: {privy.configured ? (privy.user ? 'signed in' : privy.ready ? 'signed out' : 'restoring') : 'not in this build'}
+        {'\n'}openfort authenticated: {String(isAuthenticated)}
         {'\n'}hook status: {solana.status}
         {'\n'}hook wallets: {solana.wallets.length === 0 ? 'none' : solana.wallets.map((w) => `${w.address.slice(0, 4)}…${w.address.slice(-4)}`).join(', ')}
         {'\n'}embedded state: {embedded}
@@ -302,6 +307,14 @@ function PushSection() {
     }
   };
 
+  const showTest = async () => {
+    await ensureChannel();
+    await Notifications.scheduleNotificationAsync({
+      content: { title: 'New market', body: 'What will be said during England vs Spain?' },
+      trigger: null,
+    });
+  };
+
   return (
     <Card style={styles.row}>
       <Text style={type.heading}>Push</Text>
@@ -311,6 +324,11 @@ function PushSection() {
       </Text>
       <Pressable onPress={register} disabled={busy} style={[styles.button, busy && styles.buttonDisabled]}>
         <Text style={styles.buttonLabel}>{busy ? 'Asking' : 'Ask and get token'}</Text>
+      </Pressable>
+      {/* Posted on this phone, no server: for checking how a notification looks
+          (the icon, the colour) without waiting for a real one. */}
+      <Pressable onPress={() => void showTest()} style={[styles.button, { backgroundColor: colors.surfaceRaised }]}>
+        <Text style={styles.buttonLabel}>Show a test notification</Text>
       </Pressable>
     </Card>
   );

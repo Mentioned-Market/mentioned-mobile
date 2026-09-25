@@ -17,6 +17,7 @@ import { getDisplayStatus } from '@/free/marketUtils';
 import { tokens } from '@/lib/format';
 import { toMs } from '@/lib/time';
 import { useNow } from '@/lib/use-now';
+import { findWordParam } from '@/markets/merge';
 import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
 import { achievementLines, checkFreeCoinedWord, useApiTrade, type FreePick } from '@/trade/free';
@@ -38,7 +39,8 @@ import { TradeProgress } from '@/ui/trade-progress';
 import { WordBoard, type BoardWord } from '@/ui/word-board';
 
 export default function FreeMajorityScreen() {
-  const { id: idParam } = useLocalSearchParams<{ id: string }>();
+  // `word` names a word to pick, from a tap on a market card.
+  const { id: idParam, word: wordParam } = useLocalSearchParams<{ id: string; word?: string }>();
   const id = Number(idParam);
   const focused = useIsScreenFocused();
   const now = useNow(1000);
@@ -54,6 +56,8 @@ export default function FreeMajorityScreen() {
   const [draft, setDraft] = useState('');
   const [draftError, setDraftError] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // The `word` param already acted on, so the word is picked once.
+  const [handledWord, setHandledWord] = useState<string | null>(null);
   const [result, setResult] = useState<{ title: string; detail: string } | null>(null);
   // See the paid majority screen: the add-word card is scrolled into view on
   // focus, because the edge-to-edge window does not shrink for the keyboard.
@@ -120,6 +124,18 @@ export default function FreeMajorityScreen() {
       return [...prev, { kind: 'word', wordId, word: bw.word }];
     });
   };
+
+  // Arriving from a tap on one word of a market card: that word starts picked,
+  // once. Done while rendering, like the YES/NO screens.
+  if (wordParam && handledWord !== wordParam) {
+    setHandledWord(wordParam);
+    const i = findWordParam(
+      d.board.map((w) => w.word),
+      wordParam,
+    );
+    const target = i >= 0 ? d.board[i] : null;
+    if (target && canEnter && !picks.some((p) => p.kind === 'word' && p.wordId === target.word_id)) toggle(String(target.word_id));
+  }
 
   const addDraft = () => {
     const checked = checkFreeCoinedWord(draft, {

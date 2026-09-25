@@ -4,7 +4,7 @@
 import type { FreeUserActivity } from '@/api/free';
 import type { PaidMajorityUserPosition } from '@/api/paidMajority';
 import type { PaidMarketUserPosition } from '@/api/paidMarkets';
-import { shares as fmtShares, tokens, usd, usdc } from '@/lib/format';
+import { tokens, usd, usdc } from '@/lib/format';
 import type { MarketKind } from '@/markets/merge';
 
 export type PositionCta = { label: string; tone: 'gold' | 'yes' | 'neutral' } | null;
@@ -84,7 +84,11 @@ export function fromPaidYesNo(p: PaidMarketUserPosition): PositionRow {
     cover: p.coverImageUrl,
     href: finished ? `/result/paid/${p.marketId}` : `/paid/${p.marketId}`,
     title: p.marketTitle,
-    line: `${side} ${fmtShares(held)} shares · ${p.wordLabel}`,
+    // An AMM position is shown as what it pays, never as a share count (see
+    // src/trade/amm-display.ts). The rake is not on this route; it is 0 or a
+    // hundredth of a percent on live markets, and the claim card uses the exact
+    // figure when it matters.
+    line: `${side} on ${p.wordLabel} · pays ${usdc(held)}`,
     value: finished ? (won ? `Redeem ${usdc(held)}` : 'Lost') : `Worth ${usdc(p.estValueUsdc)} (${costText})`,
     finished,
     won,

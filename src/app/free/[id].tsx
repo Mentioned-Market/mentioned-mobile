@@ -15,7 +15,9 @@ import { sharesForTokens, virtualBuyCost, virtualSellReturn } from '@/free/lmsr'
 import { getDisplayStatus } from '@/free/marketUtils';
 import { pct, tokens } from '@/lib/format';
 import { toMs } from '@/lib/time';
+import { prepareSeries } from '@/lib/chart';
 import { useNow } from '@/lib/use-now';
+import { findWordParam } from '@/markets/merge';
 import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
 import { achievementLines, useApiTrade } from '@/trade/free';
@@ -23,7 +25,7 @@ import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
 import { Card, SectionTitle } from '@/ui/card';
 import { PAUSED_NOTE, useFeatures } from '@/ui/config-gate';
-import { LineChart, type ChartSeries } from '@/ui/line-chart';
+import { LineChart } from '@/ui/line-chart';
 import { MarketHeader } from '@/ui/market-header';
 import { FeaturedWords } from '@/ui/featured-words';
 import { Screen } from '@/ui/screen';
@@ -45,8 +47,9 @@ const fmt = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 
  * then sent to this screen or the majority one by the market's type.
  */
 export default function FreeRoute() {
-  const { id: idParam } = useLocalSearchParams<{ id: string }>();
-  if (/^\d+$/.test(idParam ?? '')) return <FreeYesNoScreen id={Number(idParam)} />;
+  // `word` names a word to go straight to, from a tap on a market card.
+  const { id: idParam, word } = useLocalSearchParams<{ id: string; word?: string }>();
+  if (/^\d+$/.test(idParam ?? '')) return <FreeYesNoScreen id={Number(idParam)} wordParam={word} />;
   return <FreeSlugRedirect slug={idParam ?? ''} />;
 }
 
@@ -71,7 +74,7 @@ function FreeSlugRedirect({ slug }: { slug: string }) {
   return <Screen back>{error ? <ErrorState error={error} title="Could not find that market" /> : <Loader style={{ paddingTop: spacing.xl }} />}</Screen>;
 }
 
-function FreeYesNoScreen({ id }: { id: number }) {
+function FreeYesNoScreen({ id, wordParam }: { id: number; wordParam?: string }) {
   const focused = useIsScreenFocused();
   const now = useNow(1000);
   const viewed = useActiveWallet();
@@ -89,6 +92,8 @@ function FreeYesNoScreen({ id }: { id: number }) {
   const [result, setResult] = useState<{ title: string; detail: string } | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const [formHeight, setFormHeight] = useState(0);
+  // The `word` param already acted on, so it opens the sheet once.
+  const [handledWord, setHandledWord] = useState<string | null>(null);
 
   if (market.isPending) {
     return (
@@ -184,12 +189,21 @@ function FreeYesNoScreen({ id }: { id: number }) {
     actionLabel = `Swipe to Sell ${side === 'YES' ? 'Yes' : 'No'}`;
   }
 
-  const series: ChartSeries[] = (chart.data?.words ?? []).map((s) => ({
-    key: String(s.word_id),
-    label: s.word,
-    points: s.history.map((h) => ({ x: Date.parse(h.t), y: h.yes })),
-    highlight: pick ? s.word_id === word?.id : false,
-  }));
+  // Every word on the chart, traded or not, ending at its live price while
+  // the market is open (see prepareSeries). Times in seconds.
+  const series = prepareSeries(
+    market.data.words.map((w) => ({
+      key: String(w.id),
+      label: w.word,
+      history: (chart.data?.words.find((c) => c.word_id === w.id)?.history ?? []).map((h) => ({ t: Math.floor(Date.parse(h.t) / 1000), p: h.yes })),
+    })),
+    {
+      initial: 0.5,
+      now: Math.floor(now / 1000),
+      current: Object.fromEntries(words.map((w) => [w.key, w.yesPrice])),
+      live: open,
+    },
+  );
 
   const openSheet = (key: string, s: Side) => {
     setPick({ wordId: Number(key), side: s });
@@ -206,6 +220,17 @@ function FreeYesNoScreen({ id }: { id: number }) {
     setInputError(null);
     api.reset();
   };
+
+  // Arriving from a tap on one word of a market card: open that word's sheet,
+  // once. See the paid screen for why this is done while rendering.
+  if (wordParam && handledWord !== wordParam) {
+    setHandledWord(wordParam);
+    const i = findWordParam(
+      words.map((w) => w.label),
+      wordParam,
+    );
+    if (i >= 0 && open) openSheet(words[i].key, 'YES');
+  }
 
   const submit = async () => {
     if (!word) return;
@@ -261,7 +286,7 @@ function FreeYesNoScreen({ id }: { id: number }) {
         <WordList words={words} onPick={openSheet} open={open} held={heldBadges} />
         <SectionTitle title="Chance over time" />
         <Card>
-          <LineChart series={series} />
+          <LineChart series={series} selectedKey={pick ? String(pick.wordId) : null} format={pct} />
         </Card>
         <Text style={[type.muted, { textAlign: 'center' }]}>Free markets pay out in play tokens. Profit converts to points at 0.5x.</Text>
         <SimilarMarkets currentKey={`free-yesno:${id}`} />
@@ -303,7 +328,7 @@ function FreeYesNoScreen({ id }: { id: number }) {
             minHeight={formHeight || undefined}
           />
         ) : word && pick ? (
-          <View onLayout={(e) => setFormHeight(e.nativeEvent.layout.height)}>
+          <View style={{ flexGrow: 1 }} onLayout={(e) => setFormHeight(e.nativeEvent.layout.height)}>
             <TradeSheet
               word={{ key: String(word.id), label: word.word, yesPrice: word.yes_price, noPrice: word.no_price, outcome: word.resolved_outcome }}
               mode={mode}

@@ -71,7 +71,7 @@ function CardBody({ target, flow, label, detail }: { target: ClaimTarget; flow: 
           not an answer. */}
       {flow.needsSignIn ? (
         <Link href="/sign-in" asChild>
-          <Button label="Sign in again" tone="gold" note="Your Openfort session has gone. Nothing is lost." />
+          <Button label="Sign in again" tone="gold" note="Your sign-in has expired. Nothing is lost." />
         </Link>
       ) : flow.walletFailed ? (
         <Button label="Reconnect wallet" tone="neutral" onPress={flow.retryWallet} note="Your wallet did not come back. Nothing is lost." />

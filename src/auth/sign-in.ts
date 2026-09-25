@@ -1,11 +1,12 @@
-// Exchanges a verified Openfort identity for a Mentioned session.
+// Exchanges a verified Openfort or Privy identity for a Mentioned session.
 //
-// The web route verifies the Openfort access token server side and binds the
+// The web route verifies the provider's access token server side and binds the
 // session to the exact wallet the client claims, so a caller can never get a
 // session for someone else's wallet. It currently returns the session token
 // only as an httpOnly cookie; `sessionToken` here stays null until the web
 // adds it to the body for mobile clients. Sign-in still tells us the thing
 // that matters today: that a token minted by the React Native SDK verifies.
+import type { WalletProvider } from '@/auth/wallet-routing';
 import { API_BASE } from '@/config';
 
 export type ServerSignIn = {
@@ -27,7 +28,17 @@ export class SignInError extends Error {
 
 const TIMEOUT_MS = 20_000;
 
-export async function signInWithServer(params: { token: string; wallet: string; ref?: string | null }): Promise<ServerSignIn> {
+/**
+ * `provider` defaults to Openfort. Privy is for accounts made before the move
+ * to Openfort; the route refuses a Privy account made after it with 409
+ * PRIVY_SIGNUP_CLOSED (see src/auth/wallet-routing.ts).
+ */
+export async function signInWithServer(params: {
+  token: string;
+  wallet: string;
+  ref?: string | null;
+  provider?: WalletProvider;
+}): Promise<ServerSignIn> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -35,7 +46,7 @@ export async function signInWithServer(params: { token: string; wallet: string; 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        type: 'openfort',
+        type: params.provider ?? 'openfort',
         token: params.token,
         wallet: params.wallet,
         // Both are ignored by the current web build. They are what the mobile

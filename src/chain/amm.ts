@@ -1,4 +1,4 @@
-// PORTED_FROM mentioned/lib/mentionMarketUsdc.ts @ ae8c82e
+// PORTED_FROM mentioned/lib/mentionMarketUsdc.ts @ 2b5b452
 // Keep byte-identical to the web copy. If the program changes, change both.
 // Mobile edits: imports only (config, ./rpcSend, ./fetchRetry).
 
@@ -54,6 +54,22 @@ export const RPC_URL = PAID_RPC_URL
 // USDC has 6 decimals; 1 USDC = 1_000_000 base units
 export const USDC_DECIMALS = 6
 export const USDC_PRECISION = 1_000_000n
+
+/** Contract cap on the winner rake (MAX_REDEEM_RAKE_BPS in state/market.rs). */
+export const MAX_REDEEM_RAKE_BPS = 1000
+
+/** What one winning share actually pays out, net of the market's rake (0..1). */
+export function netPayoutFraction(redeemRakeBps: number | undefined): number {
+  const bps = Number.isFinite(redeemRakeBps) && (redeemRakeBps ?? 0) > 0 ? (redeemRakeBps as number) : 0
+  return 1 - Math.min(bps, MAX_REDEEM_RAKE_BPS) / 10_000
+}
+
+/** Winning payout in USDC base units for `tokens`, mirroring redeem()'s floored rake. */
+export function redeemPayoutBaseUnits(tokens: bigint, redeemRakeBps: number | undefined): bigint {
+  const bps = BigInt(Math.max(0, Math.min(MAX_REDEEM_RAKE_BPS, Math.trunc(redeemRakeBps ?? 0))))
+  if (bps === 0n) return tokens
+  return tokens - (tokens * bps) / 10_000n
+}
 
 // Rent-exempt deposit for a 165-byte SPL token account. Paid by the user when a
 // first trade creates a word ATA; refunded in full when the account is closed
@@ -129,6 +145,12 @@ export interface UsdcMarketAccount {
   tradeFeeBps: number
   protocolFeeBps: number
   accumulatedFees: bigint
+  trackedCollateral: bigint
+  winnerLiability: bigint
+  /** Rake on winning redemptions, bps of payout. 0 on pre-upgrade markets. */
+  redeemRakeBps: number
+  /** Lifetime rake taken by redeem (reporting only). */
+  rakeCollected: bigint
 }
 
 // ── Encoding helpers ─────────────────────────────────────
@@ -278,7 +300,9 @@ export async function createCreateMarketIx(
   resolver: Address,
   tradeFeeBps: number,
   initialB: bigint,
-  baseBPerUsdc: bigint
+  baseBPerUsdc: bigint,
+  /** Rake on winning redemptions, bps of payout. Immutable once set. Max 1000. */
+  redeemRakeBps: number = 0
 ): Promise<Instruction> {
   const [marketPda] = await getMarketPDA(marketId)
   const vaultAddr = await getAssociatedTokenAddress(USDC_MINT, marketPda)
@@ -319,7 +343,8 @@ export async function createCreateMarketIx(
       new Uint8Array(addrEncoder.encode(resolver)),
       u16LE(tradeFeeBps),
       u64LE(initialB),
-      u64LE(baseBPerUsdc)
+      u64LE(baseBPerUsdc),
+      u16LE(redeemRakeBps)
     ),
   }
 }
@@ -766,9 +791,10 @@ export async function buildReclaimPlan(
 
       if (state.amount > 0n) {
         if (won) {
-          // redeem burns the full balance and pays 1:1 USDC
+          // redeem burns the full balance and pays 1:1 USDC, less the market's
+          // winner rake (0 on markets created before the rake upgrade).
           group.push(await createRedeemIx(owner, market.marketId, i, side))
-          redeemBaseUnits += state.amount
+          redeemBaseUnits += redeemPayoutBaseUnits(state.amount, market.redeemRakeBps)
         } else {
           group.push(await createBurnTokensIx(owner, mint, state.amount))
         }
@@ -813,12 +839,118 @@ export function formatSol(lamports: bigint): string {
 const FP = 1_000_000n         // PRECISION = 1e6
 const LN2_FP = 693_147n       // ln(2) * 1e6, truncated (same constant as Rust)
 
+// fp_exp / fp_ln evaluate their series at 1e9 and truncate to 1e6 once at the
+// end (EXTRA / INTERNAL_SCALE in math.rs). V2 only.
+const EXTRA = 1_000n
+const INTERNAL = FP * EXTRA   // 1e9
+
 /**
- * Fixed-point exp. Input: i64 scaled by 1e6. Output: u128 scaled by 1e6.
- * Mirrors fp_exp() in math.rs — Taylor series 1 + r + r²/2! + … + r⁶/6!
- * then multiplied by 2^k.
+ * Which LMSR math the program on the ACTIVE cluster runs.
+ *
+ * The 2026-09 upgrade (log-sum-exp normalisation + atanh fp_ln + 1e9 internal
+ * scaling) is now live on BOTH clusters: mainnet `7pL3…` at slot 449979571,
+ * devnet `9kSueb…` at slot 502320428. The client mirror has to match whichever
+ * binary it is talking to, or every `max_cost` / `min_return` disagrees with the
+ * program and trades trip the slippage guards — which is exactly what this
+ * reading `SOLANA_CLUSTER === 'devnet'` after the mainnet upgrade shipped did:
+ * on a word where the old math overstates the cost curve, every buy AND sell
+ * reverted with "the price moved while your trade was processing".
+ *
+ * The V1 branch stays only so the parity test can keep asserting what the
+ * pre-upgrade binary did. No live market runs it.
  */
-function fpExp(x: bigint): bigint {
+export const AMM_MATH_V2 = true
+
+/**
+ * Fixed-point exp, upgraded program. Input: i64 scaled by 1e6, output scaled by
+ * 1e6. Mirrors fp_exp() in math.rs: x = k*ln2 + r with k ROUNDED (so |r| <=
+ * ln(2)/2), Taylor series to r⁶ evaluated at 1e9, shifted by 2^k, truncated to
+ * 1e6 once at the end.
+ */
+function fpExpV2(x: bigint): bigint {
+  if (x < -20_000_000n) return 0n
+  if (x > 30_000_000n) throw new Error('MathOverflow in fpExp')
+
+  // k = round(x / ln2), via floor((x + ln2/2) / ln2). LN2_FP / 2n truncates to
+  // 346_573, exactly as the Rust `LN2 / 2` does.
+  const y = x + LN2_FP / 2n
+  let k: bigint
+  if (y >= 0n) {
+    k = y / LN2_FP
+  } else {
+    k = (y - LN2_FP + 1n) / LN2_FP
+  }
+  const r = (x - k * LN2_FP) * EXTRA
+
+  const r2 = r * r / INTERNAL
+  const r3 = r2 * r / INTERNAL
+  const r4 = r3 * r / INTERNAL
+  const r5 = r4 * r / INTERNAL
+  const r6 = r5 * r / INTERNAL
+  const expR = INTERNAL + r + r2 / 2n + r3 / 6n + r4 / 24n + r5 / 120n + r6 / 720n
+
+  const result = k >= 0n ? expR << k : expR >> (-k)
+  return result / EXTRA
+}
+
+/**
+ * Fixed-point ln, upgraded program. Mirrors fp_ln() in math.rs:
+ * ln(m) = 2*atanh(z), z = (m-1)/(m+1), terms through z¹³, evaluated at 1e9.
+ */
+function fpLnV2(x: bigint): bigint {
+  if (x <= 0n) throw new Error('fpLn: input must be > 0')
+
+  let m = x
+  let k = 0n
+  while (m >= 2n * FP) { m >>= 1n; k += 1n }
+  while (m < FP)        { m <<= 1n; k -= 1n }
+
+  const z = (m - FP) * INTERNAL / (m + FP)
+  const z2 = z * z / INTERNAL
+
+  let term = z
+  let acc = z
+  for (const d of [3n, 5n, 7n, 9n, 11n, 13n]) {
+    term = term * z2 / INTERNAL
+    acc += term / d
+  }
+  const lnM = 2n * acc / EXTRA
+
+  return k * LN2_FP + lnM
+}
+
+// Clamp on the normalised exponent, mirroring EXP_FLOOR in math.rs. fpExp
+// already returns 0 below -20; this only keeps the value in range.
+const EXP_FLOOR = -21_000_000n
+
+/**
+ * Log-sum-exp normalisation, mirroring normalised_exps() in math.rs. With
+ * m = max(qYes, qNo) both exponents are <= 0, so fp_exp can never hit its
+ * overflow guard — which is what used to freeze a word (every buy AND sell
+ * reverting) once either side passed 30*b.
+ */
+function normalisedExps(qYes: bigint, qNo: bigint, b: bigint): [bigint, bigint, bigint] {
+  const m = qYes > qNo ? qYes : qNo
+  let dYes = (qYes - m) * FP / b
+  let dNo = (qNo - m) * FP / b
+  if (dYes < EXP_FLOOR) dYes = EXP_FLOOR
+  if (dNo < EXP_FLOOR) dNo = EXP_FLOOR
+  return [m, fpExpV2(dYes), fpExpV2(dNo)]
+}
+
+/** binary_lmsr_cost on the upgraded program: m + b * ln(e^((qYes-m)/b) + e^((qNo-m)/b)). */
+function lmsrCostV2(qYes: bigint, qNo: bigint, b: bigint): bigint {
+  const [m, expYes, expNo] = normalisedExps(qYes, qNo, b)
+  const lnSum = fpLnV2(expYes + expNo)
+  const cost = m + b * lnSum / FP
+  return cost < 0n ? 0n : cost
+}
+
+/**
+ * Fixed-point exp, PRE-UPGRADE program (mainnet). Input: i64 scaled by 1e6.
+ * Taylor series 1 + r + r²/2! + … + r⁶/6! then multiplied by 2^k.
+ */
+function fpExpV1(x: bigint): bigint {
   if (x < -20_000_000n) return 0n
   if (x > 30_000_000n) throw new Error('MathOverflow in fpExp')
 
@@ -848,10 +980,11 @@ function fpExp(x: bigint): bigint {
 }
 
 /**
- * Fixed-point natural log. Input: u128 scaled by 1e6 (must be > 0).
- * Output: i64 scaled by 1e6. Mirrors fp_ln() in math.rs.
+ * Fixed-point natural log, PRE-UPGRADE program (mainnet). This is the
+ * imprecise 5-term Mercator series: kept because the mirror must match the
+ * binary it talks to, defects and all. See specs/lmsr_fp_ln_fix.md.
  */
-function fpLn(x: bigint): bigint {
+function fpLnV1(x: bigint): bigint {
   if (x <= 0n) throw new Error('fpLn: input must be > 0')
 
   // Normalise to m in [PRECISION, 2*PRECISION), track exponent k
@@ -871,19 +1004,27 @@ function fpLn(x: bigint): bigint {
   return k * LN2_FP + lnM
 }
 
-/**
- * binary_lmsr_cost(q_yes, q_no, b) → USDC base units.
- * Exactly matches Rust: b * ln( exp(q_yes/b) + exp(q_no/b) ) in fixed-point.
- */
-function lmsrCostExact(qYes: bigint, qNo: bigint, b: bigint): bigint {
-  if (b === 0n) return 0n
+/** binary_lmsr_cost on the PRE-UPGRADE program: b * ln(e^(qYes/b) + e^(qNo/b)). */
+function lmsrCostV1(qYes: bigint, qNo: bigint, b: bigint): bigint {
   const scaledYes = qYes * FP / b
   const scaledNo  = qNo  * FP / b
-  const sum    = fpExp(scaledYes) + fpExp(scaledNo)
-  const lnSum  = fpLn(sum)
+  const sum    = fpExpV1(scaledYes) + fpExpV1(scaledNo)
+  const lnSum  = fpLnV1(sum)
   const cost   = b * lnSum / FP
   return cost < 0n ? 0n : cost
 }
+
+/**
+ * binary_lmsr_cost(q_yes, q_no, b) → USDC base units, matching whichever
+ * binary the active cluster runs (see AMM_MATH_V2).
+ */
+function lmsrCostExact(qYes: bigint, qNo: bigint, b: bigint): bigint {
+  if (b === 0n) return 0n
+  return AMM_MATH_V2 ? lmsrCostV2(qYes, qNo, b) : lmsrCostV1(qYes, qNo, b)
+}
+
+// Exported for the parity/property test only.
+export const __ammMath = { fpExpV1, fpLnV1, lmsrCostV1, fpExpV2, fpLnV2, lmsrCostV2 }
 
 /** Implied YES price for a word (0–1 float). Uses float for display only. */
 export function impliedYesPrice(word: WordState, b: bigint): number {
@@ -945,8 +1086,9 @@ export function estimateSellReturn(
  * real-money market reads as "your stake is gone". Display only: never feed it
  * into `min_return`, which has to stay byte-identical to the on-chain math.
  *
- * Remove this once the program ships a convergent `fp_ln`; see
- * `specs/lmsr_fp_ln_fix.md`.
+ * On the UPGRADED program (AMM_MATH_V2) the defect is gone: the exact mirror is
+ * monotonic, so this returns the exact figure and the two agree. The float path
+ * below only serves markets still on the pre-upgrade binary.
  */
 export function estimateSellReturnDisplay(
   word: WordState,
@@ -955,6 +1097,7 @@ export function estimateSellReturnDisplay(
   sharesBaseUnits: bigint
 ): bigint {
   if (sharesBaseUnits <= 0n || b === 0n) return 0n
+  if (AMM_MATH_V2) return estimateSellReturn(word, b, direction, sharesBaseUnits)
   const bf = Number(b)
   const qYes = Number(word.yesQuantity)
   const qNo = Number(word.noQuantity)
@@ -1198,7 +1341,13 @@ export function deserializeMarketAccount(data: Uint8Array): UsdcMarketAccount | 
   ;[resolvedAt, off] = readOptionI64(data, off)
   const tradeFeeBps = readU16(data, off); off += 2
   const protocolFeeBps = readU16(data, off); off += 2
-  const accumulatedFees = readU64(data, off)
+  const accumulatedFees = readU64(data, off); off += 8
+  const trackedCollateral = readU64(data, off); off += 8
+  const winnerLiability = readU64(data, off); off += 8
+  // Carved out of the first 10 bytes of the old `_reserved`, so a market created
+  // before the rake upgrade reads 0 for both (those bytes were zeroed at init).
+  const redeemRakeBps = readU16(data, off); off += 2
+  const rakeCollected = readU64(data, off)
 
   return {
     version, bump, marketId, label, authority, resolver, usdcMint,
@@ -1206,6 +1355,7 @@ export function deserializeMarketAccount(data: Uint8Array): UsdcMarketAccount | 
     numWords, words: words.slice(0, numWords),
     status, createdAt, locksAt, resolvedAt,
     tradeFeeBps, protocolFeeBps, accumulatedFees,
+    trackedCollateral, winnerLiability, redeemRakeBps, rakeCollected,
   }
 }
 

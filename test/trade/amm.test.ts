@@ -60,13 +60,17 @@ describe('planBuy', () => {
     ).rejects.toBeInstanceOf(TradeInputError);
   });
 
-  it('refuses an amount the pool cannot fill, rather than quietly buying less', async () => {
-    // The real bug: $9,999 typed on a thin market bought $293, because the
-    // share search stops where the fixed-point maths would overflow.
+  it('buys a large amount in full, never quietly less', async () => {
+    // The real bug: $9,999 typed on a thin market bought $293, because the old
+    // program maths overflowed and the share search stopped short. planBuy
+    // refuses any fill more than 2% under what was typed. The 2026-09 program
+    // upgrade (log-sum-exp normalisation, AMM_MATH_V2) removed the overflow,
+    // so even $1,000,000 now fills, and the cost is what was asked.
     const market = loadMarket();
-    await expect(
-      planBuy({ wallet: WALLET, market, word: market.words[0], side: 'YES', usdcUnits: 1_000_000_000_000n }),
-    ).rejects.toThrow(/can only take about/);
+    const usdcUnits = 1_000_000_000_000n;
+    const plan = await planBuy({ wallet: WALLET, market, word: market.words[0], side: 'YES', usdcUnits });
+    expect(plan.cost * 100n).toBeGreaterThanOrEqual(usdcUnits * 98n);
+    expect(plan.cost).toBeLessThanOrEqual(usdcUnits);
   });
 
   it('refuses an amount too small to buy a share', async () => {

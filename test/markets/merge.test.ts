@@ -2,6 +2,7 @@
 // a user sees first on the Markets tab, so the ordering rules are pinned.
 import {
   filterMarkets,
+  findWordParam,
   fromFree,
   fromPaidMajority,
   fromPaidYesNo,
@@ -10,6 +11,8 @@ import {
   isPaid,
   mergeMarkets,
   sectionMarkets,
+  UNNAMED_WORD,
+  wordHref,
   sortMarkets,
   type MarketSummary,
 } from '@/markets/merge';
@@ -179,5 +182,45 @@ describe('mergeMarkets', () => {
 
   it('comes back sorted', () => {
     expect(merged.map((m) => m.id)).toEqual(sortMarkets(merged).map((m) => m.id));
+  });
+});
+
+describe('wordHref', () => {
+  it('names the word on an open market', () => {
+    expect(wordHref({ href: '/paid/42', status: 'open' }, 'Touchdown')).toBe('/paid/42?word=Touchdown');
+  });
+
+  it('encodes a label that is not URL safe', () => {
+    expect(wordHref({ href: '/free/7', status: 'open' }, 'Hail Mary & more')).toBe('/free/7?word=Hail%20Mary%20%26%20more');
+  });
+
+  it('opens the market itself when there is nothing to trade', () => {
+    for (const status of ['pending', 'resolved', 'cancelled'] as const) expect(wordHref({ href: '/paid/42', status }, 'Touchdown')).toBe('/paid/42');
+  });
+
+  it('opens the market itself for a word with no name yet', () => {
+    expect(wordHref({ href: '/majority/9', status: 'open' }, UNNAMED_WORD)).toBe('/majority/9');
+  });
+});
+
+describe('findWordParam', () => {
+  const labels = ['Touchdown', 'Hail Mary', 'Fumble'];
+
+  it('finds the word', () => {
+    expect(findWordParam(labels, 'Hail Mary')).toBe(1);
+  });
+
+  it('ignores case and surrounding space', () => {
+    expect(findWordParam(labels, '  fumble ')).toBe(2);
+  });
+
+  it('takes the first of a repeated param', () => {
+    expect(findWordParam(labels, ['Touchdown', 'Fumble'])).toBe(0);
+  });
+
+  it('finds nothing for an absent or unknown word', () => {
+    expect(findWordParam(labels, undefined)).toBe(-1);
+    expect(findWordParam(labels, '')).toBe(-1);
+    expect(findWordParam(labels, 'Interception')).toBe(-1);
   });
 });

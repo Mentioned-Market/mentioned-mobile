@@ -6,14 +6,21 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { setAuthTokenGetter } from '@/api/client';
+import type { WalletProvider } from '@/auth/wallet-routing';
 import { FLAVOR } from '@/config';
 
 type SessionState = {
   wallet: string | null;
   /** Null while the web only sets the session as a cookie. */
   token: string | null;
+  /**
+   * Which embedded wallet signs for this session: Openfort for everyone new,
+   * Privy for an account made before the move. A session stored before this
+   * field existed was always Openfort, which is what an absent value means.
+   */
+  provider: WalletProvider;
   hydrated: boolean;
-  setSession: (wallet: string, token: string | null) => void;
+  setSession: (wallet: string, token: string | null, provider?: WalletProvider) => void;
   clear: () => void;
   setHydrated: () => void;
 };
@@ -29,9 +36,10 @@ export const useSession = create<SessionState>()(
     (set) => ({
       wallet: null,
       token: null,
+      provider: 'openfort',
       hydrated: false,
-      setSession: (wallet, token) => set({ wallet, token }),
-      clear: () => set({ wallet: null, token: null }),
+      setSession: (wallet, token, provider = 'openfort') => set({ wallet, token, provider }),
+      clear: () => set({ wallet: null, token: null, provider: 'openfort' }),
       setHydrated: () => set({ hydrated: true }),
     }),
     {
@@ -41,7 +49,7 @@ export const useSession = create<SessionState>()(
       // Production keeps the original key, so an installed release is unaffected.
       name: FLAVOR === 'production' ? 'mentioned.session' : `mentioned.session.${FLAVOR}`,
       storage: createJSONStorage(() => secureStorage),
-      partialize: (s) => ({ wallet: s.wallet, token: s.token }),
+      partialize: (s) => ({ wallet: s.wallet, token: s.token, provider: s.provider }),
       onRehydrateStorage: () => (state) => state?.setHydrated(),
     },
   ),

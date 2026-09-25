@@ -12,6 +12,11 @@
 // chain rejects. `activateWallet` is what settles that, and what happened is
 // published to `useWalletLink`, because a recovery that cannot succeed has to
 // be told apart from one still running.
+//
+// A session on Privy (an account made before the move to Openfort) is left
+// alone entirely: Openfort holds no wallet for it and no session, so every
+// step here would report a failure that is not one. src/auth/privy.tsx
+// reports on those sessions instead.
 import { useEmbeddedSolanaWallet, useOpenfortClient, useUser } from '@openfort/react-native';
 import { useEffect, useRef } from 'react';
 
@@ -30,7 +35,8 @@ export function WalletReconnect() {
   const { isAuthenticated } = useUser();
   const solana = useEmbeddedSolanaWallet();
   const client = useOpenfortClient();
-  const sessionWallet = useSession((s) => s.wallet);
+  // Null for a Privy session, which every effect below then leaves alone.
+  const sessionWallet = useSession((s) => (s.provider === 'openfort' ? s.wallet : null));
   const attempt = useWalletLink((s) => s.attempt);
   const begin = useWalletLink((s) => s.begin);
   const settled = useWalletLink((s) => s.settled);
