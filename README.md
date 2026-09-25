@@ -83,19 +83,29 @@ obvious rather than silent.
 URL, program ids, the USDC mint. No secret belongs in it, because anything in a
 build is readable by anyone who has the build.
 
-Two publishable Openfort keys come from the environment, set per profile in
-`eas.json` and locally in `.env.local` (gitignored):
+Two publishable Openfort keys and two public Privy ids come from the
+environment, set per profile in `eas.json` and locally in `.env.local`
+(gitignored):
 
 ```
 EXPO_PUBLIC_FLAVOR=staging
 EXPO_PUBLIC_OPENFORT_PUBLISHABLE_KEY=...
 EXPO_PUBLIC_OPENFORT_SHIELD_PUBLISHABLE_KEY=...
+EXPO_PUBLIC_PRIVY_APP_ID=...
+EXPO_PUBLIC_PRIVY_CLIENT_ID=...
 ```
 
-Both are publishable by design. The Shield and server secrets stay behind
-`/api/openfort/encryption-session` on the website. With the keys absent the
-Openfort provider renders inert and the app still runs read-only, which is why
-a build without them does not crash.
+All four are public by design. The Shield and server secrets stay behind
+`/api/openfort/encryption-session` on the website. With the Openfort keys
+absent the Openfort provider renders inert and the app still runs read-only,
+which is why a build without them does not crash.
+
+Privy is only for accounts made before the move to Openfort; new accounts are
+always Openfort (see `docs/ENGINEERING.md`). The app id is the website's
+`NEXT_PUBLIC_PRIVY_APP_ID`. The client id is for an app client created in the
+Privy dashboard for the Android app, which must allow the package
+`market.mentioned.app` and the URL scheme `mentioned`. Without the two ids, a
+legacy account is told to use the website instead.
 
 `google-services.json` is committed because the Android build needs it; its API
 key is a client key. Restrict it by package name and SHA-1 in the Google Cloud

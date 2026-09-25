@@ -1,7 +1,8 @@
 // The per-position spending cap on paid AMM markets, ported from the website.
 //
-// While paid markets are in early testing the website allows at most $2 of net
-// spend on any one (word, side). Nothing on chain enforces it: the program took
+// The website allows at most $15 of net spend on any one (word, side), and no
+// buy under $0.50 (raised from a $2 cap in September 2026). Nothing on chain
+// enforces either: the program took
 // a $293 buy from this app before this file existed. So the app enforces the
 // same limit the website does, the same way, or a mobile user could do what a
 // web user cannot.
@@ -20,8 +21,15 @@
 // up, and the second is right when it has not.
 import { create } from 'zustand';
 
-/** $2 in USDC base units, matching the website's MAX_POSITION_USDC. */
-export const MAX_POSITION_USDC = 2_000_000;
+/** $15 in USDC base units, matching the website's MAX_POSITION_USDC. */
+export const MAX_POSITION_USDC = 15_000_000;
+
+/** $0.50 in USDC base units, matching the website's MIN_BUY_USDC. */
+export const MIN_BUY_USDC = 500_000;
+
+const dollars = (units: number) => `$${(units / 1e6).toFixed(2)}`;
+/** "$15", the cap as the website labels it. */
+export const MAX_POSITION_LABEL = `$${MAX_POSITION_USDC / 1e6}`;
 
 export type SpendEntry = {
   /** The server's figure when this session first traded the position. */
@@ -47,6 +55,51 @@ export function effectiveSpend(server: number | undefined, entry: SpendEntry | u
 /** How much more can go into the position, in base units. Never negative. */
 export function remainingAllowance(spent: number, cap: number = MAX_POSITION_USDC): number {
   return Math.max(0, Math.min(cap, cap - spent));
+}
+
+/**
+ * Full once less than a minimum buy is left, as on the website: room for
+ * $0.30 more is room for nothing, since no buy can be that small.
+ */
+export function isPositionFull(remaining: number): boolean {
+  return remaining < MIN_BUY_USDC;
+}
+
+/** Why a buy of `units` is not allowed, or null when it is. Both in base units. */
+export function buyLimitError(units: number, remaining: number, side: SpendSide): string | null {
+  if (units <= 0) return null;
+  if (units < MIN_BUY_USDC) return `Minimum buy is ${dollars(MIN_BUY_USDC)}.`;
+  if (units > remaining) {
+    return isPositionFull(remaining)
+      ? `Position full. ${MAX_POSITION_LABEL} is the most on ${side}.`
+      : `Max ${MAX_POSITION_LABEL} per position. You can add up to ${dollars(remaining)} more on ${side}.`;
+  }
+  return null;
+}
+
+/** Steps the quick amounts add to what is typed, in base units. */
+export const BUY_STEPS = [500_000, 1_000_000, 5_000_000];
+
+const stepLabel = (units: number) => `+$${units / 1e6}`;
+const toValue = (units: number) => (units / 1e6).toFixed(2);
+
+/**
+ * Quick amounts: +$0.5, +$1 and +$5 add to what is already typed, and Max is
+ * everything that can go in, which is the smaller of the wallet's USDC and the
+ * room left under the cap. Every value is capped at that same limit and
+ * rounded down to the cent, so none can be refused for being too much. Max is
+ * left out when it is under the minimum buy, and all of them when the
+ * position is full.
+ *
+ * `typed` and `remaining` are base units; `balance` is the wallet's USDC in
+ * base units, or undefined while it loads (Max is then the room left).
+ */
+export function buyPresets(typed: number, remaining: number, balance?: number): { label: string; value: string }[] {
+  if (isPositionFull(remaining)) return [];
+  const most = Math.floor(Math.min(remaining, balance ?? remaining) / 10_000) * 10_000;
+  const capped = (units: number) => Math.min(units, Math.max(most, MIN_BUY_USDC));
+  const presets = BUY_STEPS.map((step) => ({ label: stepLabel(step), value: toValue(capped(Math.max(0, typed) + step)) }));
+  return most >= MIN_BUY_USDC ? [...presets, { label: 'Max', value: toValue(most) }] : presets;
 }
 
 type SessionSpendState = {

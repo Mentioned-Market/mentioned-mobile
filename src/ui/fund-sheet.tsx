@@ -192,7 +192,7 @@ export function WithdrawSheet({ visible, onClose, wallet }: SheetProps) {
           <Button label="Try again" tone="gold" onPress={trade.reset} />
         ) : trade.needsSignIn ? (
           <Link href="/sign-in" asChild>
-            <Button label="Sign in again" tone="gold" note="Your Openfort session has gone. Nothing is lost." />
+            <Button label="Sign in again" tone="gold" note="Your sign-in has expired. Nothing is lost." />
           </Link>
         ) : trade.walletFailed ? (
           <Button label="Reconnect wallet" tone="neutral" onPress={trade.retryWallet} note="Your wallet did not come back. Nothing is lost." />

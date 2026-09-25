@@ -51,6 +51,15 @@ export function lastEncryptionSessionError(): Error | null {
   return lastError;
 }
 
+/**
+ * Forget the last error. Called as each sign-in attempt starts, so a failure
+ * that never reached this route (a mistyped email code, say) is not blamed on
+ * an earlier attempt's answer.
+ */
+export function clearEncryptionSessionError(): void {
+  lastError = null;
+}
+
 export async function fetchEncryptionSession(accessToken: string): Promise<string> {
   lastError = null;
   const controller = new AbortController();

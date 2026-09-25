@@ -6,6 +6,11 @@ export function logPolyfillChecks() {
   const g = globalThis as any;
   const checks = {
     'crypto.subtle.digest': typeof g.crypto?.subtle?.digest === 'function',
+    // Both come from react-native-quick-crypto's install() (polyfill.js). The
+    // Privy SDK needs them, and Privy's own guide installs separate polyfills
+    // for them, which this app does not.
+    'crypto.getRandomValues': typeof g.crypto?.getRandomValues === 'function',
+    Buffer: typeof g.Buffer?.from === 'function',
     TextEncoder: typeof g.TextEncoder !== 'undefined',
     TextDecoder: typeof g.TextDecoder !== 'undefined',
     BigInt: typeof g.BigInt !== 'undefined',

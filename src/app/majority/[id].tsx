@@ -16,6 +16,7 @@ import { recordMajorityBuys } from '@/api/paidMajority';
 import { useIsScreenFocused, usePaidMajorityMarket, usePaidMajorityMetadata, usePaidMajorityPositions, useSolBalance, useUsdcBalance } from '@/api/queries';
 import { deserializeMajorityMarket, MajorityStatus, normalizeWord, WordOutcome } from '@/chain/majority';
 import { base64ToBytes } from '@/lib/bytes';
+import { findWordParam } from '@/markets/merge';
 import { usd, usdc } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
 import { useActiveWallet } from '@/store/active-wallet';
@@ -46,7 +47,8 @@ import { WordBoard, type BoardWord } from '@/ui/word-board';
 const UNNAMED = 'Word not shown yet';
 
 export default function PaidMajorityScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `word` names a word to put in the basket, from a tap on a market card.
+  const { id, word: wordParam } = useLocalSearchParams<{ id: string; word?: string }>();
   const focused = useIsScreenFocused();
   const now = useNow(1000);
   const viewed = useActiveWallet();
@@ -69,6 +71,8 @@ export default function PaidMajorityScreen() {
   const [fund, setFund] = useState<'USDC' | 'SOL' | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const [result, setResult] = useState<{ title: string; detail: string } | null>(null);
+  // The `word` param already acted on, so the word goes in the basket once.
+  const [handledWord, setHandledWord] = useState<string | null>(null);
   // The add-word card sits at the bottom of a long page. On Android the app is
   // edge to edge, so the window does not shrink for the keyboard and the card
   // would be typed into blind; the ScrollView is scrolled to it on focus.
@@ -140,6 +144,18 @@ export default function PaidMajorityScreen() {
     const w = normalizeWord(entry.word);
     setBasket((prev) => (prev.includes(w) ? prev.filter((x) => x !== w) : [...prev, w]));
   };
+
+  // Arriving from a tap on one word of a market card: that word starts in the
+  // basket, once. Done while rendering, like the YES/NO screens, because the
+  // board only arrives after mount.
+  if (wordParam && handledWord !== wordParam) {
+    setHandledWord(wordParam);
+    const i = findWordParam(
+      named.map((b) => b.word),
+      wordParam,
+    );
+    if (i >= 0 && open && !basket.includes(normalizeWord(named[i].word))) toggle(named[i].wordHash);
+  }
 
   const addDraft = () => {
     const checked = checkCoinedWord(draft, {
@@ -364,7 +380,7 @@ export default function PaidMajorityScreen() {
             <Button label="Close" tone="neutral" onPress={() => sheetRef.current?.close()} />
           ) : trade.needsSignIn ? (
             <Link href="/sign-in" asChild>
-              <Button label="Sign in again" tone="gold" note="Your Openfort session has gone. Nothing is lost." />
+              <Button label="Sign in again" tone="gold" note="Your sign-in has expired. Nothing is lost." />
             </Link>
           ) : trade.walletFailed ? (
             <Button label="Reconnect wallet" tone="neutral" onPress={trade.retryWallet} note="Your wallet did not come back. Nothing is lost." />

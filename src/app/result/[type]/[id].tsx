@@ -20,6 +20,7 @@ import {
 import { deserializeMarketAccount, impliedYesPrice } from '@/chain/amm';
 import { deserializeMajorityMarket, WordOutcome } from '@/chain/majority';
 import { base64ToBytes } from '@/lib/bytes';
+import { sideQuote } from '@/trade/amm-display';
 import { pct, shortAddress, tokens, usd, usdc } from '@/lib/format';
 import { toMs } from '@/lib/time';
 import { useNow } from '@/lib/use-now';
@@ -218,7 +219,7 @@ function PaidYesNoResult({ id }: { id: string }) {
                 <Text style={styles.word} numberOfLines={1}>
                   {w.label}
                 </Text>
-                <Text style={type.muted}>closed at {pct(impliedYesPrice(w, acct.liquidityParamB))} chance</Text>
+                <Text style={type.muted}>closed at Yes {sideQuote(impliedYesPrice(w, acct.liquidityParamB), 'YES', { feeBps: acct.tradeFeeBps, rakeBps: acct.redeemRakeBps })}</Text>
                 {w.outcome === null ? <Pill label="PENDING" tone="orange" /> : <Pill label={w.outcome ? 'YES' : 'NO'} tone={w.outcome ? 'green' : 'red'} />}
               </View>
             ))}

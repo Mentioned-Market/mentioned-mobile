@@ -21,6 +21,7 @@ module.exports = defineConfig([
       'src/free/lmsr.ts',
       'src/free/marketUtils.ts',
       'src/lib/chatFilter.ts',
+      'src/lib/oddsDisplay.ts',
     ],
   },
   {

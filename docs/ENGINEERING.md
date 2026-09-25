@@ -103,8 +103,9 @@ already went through, so a retry does not repeat them.
 
 ### The spending cap has a counting problem
 
-While paid markets are in early testing the website allows at most $2 of net
-spend on any one word and side. Nothing on chain enforces it: the program
+The website allows at most $15 of net spend on any one word and side, and no
+buy under $0.50 (raised from $2 in September 2026; a position counts as full
+once less than the minimum is left). Nothing on chain enforces either: the program
 accepted a $293 buy from this app before `src/trade/spend.ts` existed. So the
 app enforces the same limit the same way, or a mobile user could do what a web
 user cannot.
@@ -190,6 +191,118 @@ carries a documented null until the web returns it in the body for mobile
 clients. The app still proves the part that matters today: a token minted by
 the React Native SDK verifies server side and binds to the claimed wallet.
 
+### Accounts from before Openfort sign in with Privy
+
+The website moved new accounts to Openfort and kept Privy for everyone who
+signed up before the cutover, because their funds are in their Privy wallets.
+The app follows the same rule, and the server makes every call; nothing on the
+device decides who is legacy.
+
+Everyone starts on Openfort. For an identity with no Openfort wallet that
+matches a Privy account created before the cutover, the encryption-session
+route answers 409 `LEGACY_PRIVY_ACCOUNT` instead of minting a second, empty
+wallet. The sign-in screen then logs out of Openfort and offers Privy, with the
+same three methods. Privy is never a button before that answer: tapping it
+would create exactly the Privy account the move is ending. The rule and the
+error reading live in `src/auth/wallet-routing.ts`, with tests.
+
+Two things differ from the web, both deliberately:
+
+- **Privy logs in with `disableSignup`.** On the web, a new person who reaches
+  Privy gets an account from Privy's own login and is only turned away at the
+  session step (409 `PRIVY_SIGNUP_CLOSED`). Here Privy refuses an identity it
+  has never seen, so the app cannot create a Privy account at all.
+  `createOnLogin` is `off` for the same reason: a legacy account already has
+  its wallet.
+- **Privy signs through `signMessage`, not `signTransaction`.** Privy's
+  documented `signTransaction` takes a `@solana/web3.js` object. Reading the
+  SDK showed that it base64-encodes the message bytes, calls `signMessage`, and
+  attaches the Ed25519 signature that comes back. `src/trade/privy-signer.ts`
+  does the same and hands the signature to the ported `openfortSignOnly`, so
+  both providers reach the chain through one signing path and web3.js stays
+  out of the app.
+
+The trap in the error reading: the Openfort SDK hides the 409 behind "Failed to
+create Solana wallet", so the app reads back the last encryption-session error.
+That value outlives the attempt that set it. Checked first, it turned Privy's
+"no account for this login" into another trip to Privy, and the person bounced
+between the two screens for ever. The explicit codes are now checked first, and
+the stored error is cleared as each attempt starts.
+
+The session records its provider (`useSession().provider`, absent on older
+stored sessions and read as Openfort). `useTrade` picks the matching signer,
+the Openfort reconnector leaves Privy sessions alone, and sign-out ends both
+SDK sessions.
+
+### A program upgrade is a port, not a patch
+
+The mainnet AMM program was upgraded in September 2026 (log-sum-exp
+normalisation and a higher-precision `fp_ln`, live at slot 449979571), and the
+account gained a winner rake in bytes that used to be reserved. The app's copy
+of `lib/mentionMarketUsdc.ts` was from before that. The account still decoded,
+because the new fields sit at the end, so nothing looked wrong. But the
+app's cost maths no longer matched the program's, and the web recorded what that
+does: every buy and sell trips the 2% slippage guard and reverts with "the
+price moved". `src/chain/amm.ts` is now re-ported from web main, unchanged
+apart from its config import, and `scripts/try-buy.ts` simulated a $1 buy on
+mainnet with the program charging exactly the cost the app quoted.
+
+The lesson is the check, not the fix: before a release, diff every
+`PORTED_FROM` sha against web main. One of the old tests pinned the overflow
+the upgrade removed (a huge buy used to fill short), and now pins that a large
+buy fills in full.
+
+### AMM markets show multipliers and dollars only
+
+The web shows paid YES/NO odds as a multiplier ("2.31x") with a cents toggle.
+The app has no toggle: an AMM market shows what a side pays and what a stake
+pays out, never cents, shares or percentages. `src/lib/oddsDisplay.ts` is a
+straight port of the web's rules and tests; `src/trade/amm-display.ts` is the
+app's use of them. Two deliberate differences from the web page:
+
+- Payouts are net of the winner rake everywhere and rounded down to the cent.
+  The web's buy preview uses the gross share count, and rounding a payout up
+  made it disagree with the floored multiplier beside it.
+- Selling is by percent of the position, as the web's multiplier mode does, so
+  no share count is ever typed or shown.
+
+The fee line always says something. Every live market has a trading fee of 0
+bps, so "fee $0.00" was accurate and read as a bug; it now says "No trading
+fee", or the fee and its rate, plus any rake on winnings.
+
+Majority markets are not AMM markets and keep their display, and so do free
+markets.
+
+### The chart is the web's chart, redrawn
+
+The web's price chart uses lightweight-charts, a browser library, so its
+behaviour is ported instead of the file: every word's line from the start
+(untraded words at 50%), lines held flat between trades and eased into each
+new price, a range padded by 15 points, a gradient under a single line, the
+web's palette, and a finger dragged across it reading every line with labels
+pushed apart. The rules are in `src/lib/chart.ts` with tests;
+`src/ui/line-chart.tsx` only draws. There is no price axis: an AMM market's
+values are read as multipliers from the legend and the scrub labels, and a
+percent axis would put back the number the rest of the screen removed.
+
+### A word on a market card goes straight to trading it
+
+Each word on a Markets card links to its market with `?word=<label>`. The label
+is the key because it is the one field every list route gives its words. A
+YES/NO market opens that word's trade sheet; a majority board starts with the
+word selected. The web has no equivalent, so this is the app's own route. The
+screens act on the param while rendering rather than in an effect, because the
+market arrives after mount and the lint rule rejects state set from effects.
+
+### Reads before signing are retried; nothing else is
+
+The website's RPC proxy answers 502 when its paid upstream and the public
+fallback both fail, and on Sep 25 2026 that failed a trade at the blockhash, the
+first step. `src/trade/send.ts` now retries its two reads, the blockhash and the
+simulation, twice on a 5xx, a 429 or a dropped connection. Both happen before
+anything is signed, so a retry cannot move money. A JSON-RPC error is an answer,
+not an outage, and is not retried.
+
 ### The UI is a small set of parts, and screens only arrange them
 
 `src/ui/` holds the whole visual vocabulary after v7: `Screen`, `Card` and
@@ -245,6 +358,7 @@ the row still reads fine on its own.
   merging, positions, the spending cap, claim planning, deep links, formatting,
   Arena derivations.
 - The signer is tested end to end with a local keypair, including the refusals.
+  The Privy adapter runs through the same ported signer in its own test.
 - Screens are not unit tested. They are checked on a Seeker, which is why
   anything that is a rule rather than a layout gets moved out of the screen and
   into a pure module first (`src/lib/arena-view.ts` is the clearest example).

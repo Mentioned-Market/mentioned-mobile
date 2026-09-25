@@ -27,6 +27,9 @@ export type MarketSummary = {
   isFeatured: boolean;
 };
 
+/** The label for a majority word the server has not named yet. */
+export const UNNAMED_WORD = 'Word not shown yet';
+
 export const isPaid = (m: { kind: MarketKind }) => m.kind === 'paid-majority' || m.kind === 'paid-yesno';
 export const isMajority = (m: { kind: MarketKind }) => m.kind === 'paid-majority' || m.kind === 'free-majority';
 
@@ -52,7 +55,7 @@ export function fromPaidMajority(m: PaidMajorityListEntry, now = Date.now()): Ma
     words: m.words.slice(0, 5).map((w) => ({
       // A word the server has not resolved to text yet (the market route says
       // the same, see UNNAMED on the majority screen).
-      label: w.word ?? 'Word not shown yet',
+      label: w.word ?? UNNAMED_WORD,
       pct: w.oddsPct / 100,
       outcome: status === 'resolved' ? (w.outcome === 1 ? 'winner' : 'loser') : null,
     })),
@@ -156,4 +159,30 @@ export type MarketFilter = 'all' | 'free' | 'paid';
 export function filterMarkets(list: MarketSummary[], f: MarketFilter): MarketSummary[] {
   if (f === 'all') return list;
   return list.filter((m) => (f === 'paid' ? isPaid(m) : !isPaid(m)));
+}
+
+/**
+ * Where tapping one word on a market card goes: that market, with the word
+ * named in the URL, so the market screen can go straight to trading it (see
+ * `findWordParam`). The label is the key because it is the one thing every
+ * market kind's list gives its words.
+ *
+ * Only for an open market: a closed one has nothing to trade, so its words
+ * open the market like the rest of the card. An unnamed majority word has no
+ * label to find it by, and does the same.
+ */
+export function wordHref(market: Pick<MarketSummary, 'href' | 'status'>, label: string): string {
+  if (market.status !== 'open' || label === UNNAMED_WORD) return market.href;
+  return `${market.href}?word=${encodeURIComponent(label)}`;
+}
+
+/**
+ * The index in `labels` of the word a `?word=` param names, or -1. Matched
+ * without regard to case or surrounding space, because list routes and market
+ * routes do not always agree on either.
+ */
+export function findWordParam(labels: readonly string[], param: string | string[] | undefined): number {
+  const wanted = (Array.isArray(param) ? param[0] : param)?.trim().toLowerCase();
+  if (!wanted) return -1;
+  return labels.findIndex((l) => l.trim().toLowerCase() === wanted);
 }

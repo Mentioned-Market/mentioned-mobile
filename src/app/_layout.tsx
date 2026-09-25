@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { prefetchSharedData } from '@/api/prefetch';
 import { restoreQueryCache, startPersistingQueryCache } from '@/api/persist';
 import { OpenfortAuthProvider } from '@/auth/openfort-provider';
+import { PrivyAuthProvider } from '@/auth/privy';
 import { logPolyfillChecks } from '@/lib/polyfill-check';
 import { usePush } from '@/notifications/use-push';
 import { ConfigGate } from '@/ui/config-gate';
@@ -127,20 +128,23 @@ export default function RootLayout() {
     // Every gesture in the app needs this above it; GestureDetector throws in
     // development without one, and expo-router does not provide it.
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <OpenfortAuthProvider>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider value={theme}>
-            <StatusBar style="light" />
-            <ConfigGate>
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="intro" options={{ animation: 'fade' }} />
-              </Stack>
-              {launching ? <LaunchOverlay onReady={hideSplash} onDone={endLaunch} /> : null}
-            </ConfigGate>
-          </ThemeProvider>
-        </QueryClientProvider>
-      </OpenfortAuthProvider>
+      {/* Privy is for accounts made before Openfort; see src/auth/wallet-routing.ts. */}
+      <PrivyAuthProvider>
+        <OpenfortAuthProvider>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider value={theme}>
+              <StatusBar style="light" />
+              <ConfigGate>
+                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="intro" options={{ animation: 'fade' }} />
+                </Stack>
+                {launching ? <LaunchOverlay onReady={hideSplash} onDone={endLaunch} /> : null}
+              </ConfigGate>
+            </ThemeProvider>
+          </QueryClientProvider>
+        </OpenfortAuthProvider>
+      </PrivyAuthProvider>
     </GestureHandlerRootView>
   );
 }

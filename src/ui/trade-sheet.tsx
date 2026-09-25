@@ -51,64 +51,74 @@ type Props = {
 
 export function TradeSheet(p: Props) {
   const verb = p.mode === 'sell' ? 'Sell' : 'Predict';
+  // Three groups spread through the sheet's height: which side at the top,
+  // the amount and what it returns in the middle, the quick amounts and the
+  // pad at the bottom by the swipe control. Packed from the top instead, they
+  // left an empty band above the action on a tall screen.
   return (
     <View style={styles.wrap}>
-      <Segmented
-        options={[
-          { key: 'YES', label: `${verb} Yes`, tone: 'yes' },
-          { key: 'NO', label: `${verb} No`, tone: 'no' },
-        ]}
-        value={p.side}
-        onChange={p.onSide}
-      />
+      <View style={styles.group}>
+        <Segmented
+          options={[
+            { key: 'YES', label: `${verb} Yes`, tone: 'yes' },
+            { key: 'NO', label: `${verb} No`, tone: 'no' },
+          ]}
+          value={p.side}
+          onChange={p.onSide}
+        />
+
+        {p.open !== false && p.canSell ? (
+          <Segmented
+            size="sm"
+            stretch={false}
+            style={{ alignSelf: 'center' }}
+            options={[
+              { key: 'buy', label: 'Buy' },
+              { key: 'sell', label: 'Sell' },
+            ]}
+            value={p.mode}
+            onChange={p.onMode}
+          />
+        ) : null}
+      </View>
 
       {p.open === false ? null : (
         <>
-          {p.canSell ? (
-            <Segmented
-              size="sm"
-              stretch={false}
-              style={{ alignSelf: 'center' }}
-              options={[
-                { key: 'buy', label: 'Buy' },
-                { key: 'sell', label: 'Sell' },
-              ]}
-              value={p.mode}
-              onChange={p.onMode}
-            />
-          ) : null}
-
-          <View style={styles.amountBlock}>
-            <View style={styles.amountRow}>
-              {p.unit === '$' ? <Text style={styles.amountUnit}>$</Text> : null}
-              <Text style={[styles.amount, !p.amount && { color: colors.textMuted }]} numberOfLines={1} adjustsFontSizeToFit>
-                {p.amount || '0'}
+          <View style={[styles.group, styles.middle]}>
+            <View style={styles.amountBlock}>
+              <View style={styles.amountRow}>
+                {p.unit === '$' ? <Text style={styles.amountUnit}>$</Text> : null}
+                <Text style={[styles.amount, !p.amount && { color: colors.textMuted }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {p.amount || '0'}
+                </Text>
+                {p.unit !== '$' ? <Text style={styles.amountSuffix}>{p.unit}</Text> : null}
+              </View>
+              <Text style={styles.headline} numberOfLines={1}>
+                <Text style={styles.headlineValue}>{p.headline.value}</Text> {p.headline.label}
               </Text>
-              {p.unit !== '$' ? <Text style={styles.amountSuffix}>{p.unit}</Text> : null}
+              {p.detail ? (
+                <Text style={styles.detail} numberOfLines={1}>
+                  {p.detail}
+                </Text>
+              ) : null}
             </View>
-            <Text style={styles.headline} numberOfLines={1}>
-              <Text style={styles.headlineValue}>{p.headline.value}</Text> {p.headline.label}
-            </Text>
-            {p.detail ? (
-              <Text style={styles.detail} numberOfLines={1}>
-                {p.detail}
-              </Text>
+
+            {p.chips.length > 0 ? (
+              <View style={styles.chips}>
+                {p.chips.map((c) => (
+                  <Chip key={`${c.value}${c.caption ?? ''}`} value={c.value} caption={c.caption} tone={c.tone} />
+                ))}
+              </View>
             ) : null}
+
+            {p.warning ? <Text style={styles.warning}>{p.warning}</Text> : null}
           </View>
 
-          {p.chips.length > 0 ? (
-            <View style={styles.chips}>
-              {p.chips.map((c) => (
-                <Chip key={`${c.value}${c.caption ?? ''}`} value={c.value} caption={c.caption} tone={c.tone} />
-              ))}
-            </View>
-          ) : null}
+          <View style={styles.group}>
+            <PresetRow presets={p.presets} onPick={p.onAmount} />
 
-          {p.warning ? <Text style={styles.warning}>{p.warning}</Text> : null}
-
-          <PresetRow presets={p.presets} onPick={p.onAmount} />
-
-          <NumberPad value={p.amount} onChange={p.onAmount} maxDecimals={p.maxDecimals} />
+            <NumberPad value={p.amount} onChange={p.onAmount} maxDecimals={p.maxDecimals} />
+          </View>
         </>
       )}
     </View>
@@ -119,7 +129,9 @@ export function TradeSheet(p: Props) {
 export function TradeSheetHeader({ cover, word, market }: { cover: string | null; word: string; market: string }) {
   return (
     <View style={styles.header}>
-      <View style={styles.thumb}>{cover ? <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" /> : <Text style={{ fontSize: 20 }}>🎯</Text>}</View>
+      <View style={styles.thumb}>
+        {cover ? <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" /> : <Text style={{ fontSize: 20 }}>🎯</Text>}
+      </View>
       <View style={{ flex: 1 }}>
         <Text style={type.muted} numberOfLines={1}>
           {market}
@@ -159,18 +171,30 @@ function PresetChip({ label, onPress }: { label: string; onPress: () => void }) 
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: spacing.md },
+  wrap: { flexGrow: 1, justifyContent: 'space-between', gap: spacing.lg },
+  group: { gap: spacing.md },
+  // The amount and what it returns take all the room between the side picker
+  // and the pad, centred in it, so neither end of the screen is left empty.
+  middle: { flexGrow: 1, justifyContent: 'center' },
   header: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 4 },
-  thumb: { width: 44, height: 44, borderRadius: radius.thumb, overflow: 'hidden', backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  thumb: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.thumb,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerWord: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 24, color: colors.text },
-  amountBlock: { alignItems: 'center', gap: 6, paddingVertical: spacing.sm },
-  amountRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 4, minHeight: 64 },
-  amount: { ...type.display, maxWidth: '80%' },
-  amountUnit: { fontFamily: fonts.bold, fontSize: 40, color: colors.text },
-  amountSuffix: { fontFamily: fonts.semibold, fontSize: 20, color: colors.textMuted },
-  headline: { fontFamily: fonts.semibold, fontSize: 17, lineHeight: 24, color: colors.text },
+  amountBlock: { alignItems: 'center', gap: 8 },
+  amountRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 4, minHeight: 84 },
+  amount: { ...type.display, fontSize: 76, lineHeight: 84, letterSpacing: -2, maxWidth: '80%' },
+  amountUnit: { fontFamily: fonts.bold, fontSize: 52, color: colors.text },
+  amountSuffix: { fontFamily: fonts.semibold, fontSize: 26, color: colors.textMuted },
+  headline: { fontFamily: fonts.semibold, fontSize: 20, lineHeight: 28, color: colors.text },
   headlineValue: { color: colors.yes, fontVariant: ['tabular-nums'] },
-  detail: { ...type.muted, fontSize: 13, lineHeight: 18, textAlign: 'center' },
+  detail: { ...type.muted, fontSize: 14, lineHeight: 20, textAlign: 'center' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: spacing.sm },
   warning: { ...type.muted, color: colors.no, textAlign: 'center' },
   presets: { flexDirection: 'row', gap: spacing.sm },

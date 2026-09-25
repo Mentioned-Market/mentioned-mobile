@@ -86,7 +86,7 @@ export default function YouScreen() {
           <Card style={{ gap: spacing.sm }}>
             <Text style={type.heading}>Sign in again to trade</Text>
             <Text style={type.muted}>
-              Your Openfort session has gone, so your wallet cannot sign. Everything you hold is safe and still shown below.
+              Your sign-in has expired, so your wallet cannot sign. Everything you hold is safe and still shown below.
             </Text>
             <Link href="/sign-in" asChild>
               <Button label="Sign in again" />

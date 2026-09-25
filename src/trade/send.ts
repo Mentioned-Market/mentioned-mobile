@@ -28,6 +28,7 @@ import {
 import { openfortSignOnly, type OpenfortRawSign } from '@/auth/signer';
 import { bytesToBase64, confirmSignature, sendViaProxy } from '@/chain/rpcSend';
 import { RPC_URL } from '@/config';
+import { HttpStatusError, retryTransient } from '@/lib/retry';
 
 /** Raised when simulation rejects the transaction, carrying the program's own words. */
 export class SimulationError extends Error {
@@ -42,16 +43,33 @@ export class SimulationError extends Error {
 
 const COMPUTE_UNIT_LIMIT = 1_400_000;
 
+/**
+ * Waits before each retry of a read through the proxy. The website's RPC proxy
+ * answers 502 when its paid upstream and the public fallback both fail, which
+ * has been seen to clear within a second or two (Sep 25 2026).
+ */
+const RPC_RETRY_DELAYS_MS = [600, 1500];
+
+/**
+ * One JSON-RPC read through the website's proxy, retried on a transient
+ * failure. Only the two reads made BEFORE signing come through here (the
+ * blockhash and the simulation), so a retry can never repeat anything that
+ * moves money. Broadcasting goes through the ported `sendViaProxy`, which has
+ * its own safe retry of the same signed bytes. A JSON-RPC error is the
+ * cluster's answer, not an outage, and is not retried.
+ */
 async function rpc<T>(method: string, params: unknown[]): Promise<T> {
-  const res = await fetch(RPC_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-  });
-  if (!res.ok) throw new Error(`RPC ${res.status} on ${method}`);
-  const json = (await res.json()) as { result?: T; error?: { message?: string } };
-  if (json.error) throw new Error(json.error.message ?? `RPC error on ${method}`);
-  return json.result as T;
+  return retryTransient(async () => {
+    const res = await fetch(RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    });
+    if (!res.ok) throw new HttpStatusError(res.status, `RPC ${res.status} on ${method}`);
+    const json = (await res.json()) as { result?: T; error?: { message?: string } };
+    if (json.error) throw new Error(json.error.message ?? `RPC error on ${method}`);
+    return json.result as T;
+  }, RPC_RETRY_DELAYS_MS);
 }
 
 /**
