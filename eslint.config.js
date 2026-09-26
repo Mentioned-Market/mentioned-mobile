@@ -22,6 +22,7 @@ module.exports = defineConfig([
       'src/free/marketUtils.ts',
       'src/lib/chatFilter.ts',
       'src/lib/oddsDisplay.ts',
+      'src/lib/seekerLinkMessage.ts',
     ],
   },
   {

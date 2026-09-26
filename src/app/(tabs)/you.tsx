@@ -6,8 +6,9 @@ import { Link, type Href } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { useFreeUserActivity, useIsScreenFocused, usePaidMajorityUserPositions, usePaidMarketUserPositions, useProfile, useUsdcBalance } from '@/api/queries';
+import { useFreeUserActivity, useIsScreenFocused, usePaidMajorityUserPositions, usePaidMarketUserPositions, useProfile, useSeekerStatus, useSolBalance, useUsdcBalance } from '@/api/queries';
 import { FLAVOR } from '@/config';
+import { formatSol } from '@/chain/amm';
 import { shortAddress, usd } from '@/lib/format';
 import { fromFree, fromPaidMajority, fromPaidYesNo, groupPositions } from '@/markets/positions';
 import { useActiveWallet } from '@/store/active-wallet';
@@ -16,9 +17,11 @@ import { useWalletLink } from '@/store/wallet-link';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
 import { Card, Stat, rowStyle } from '@/ui/card';
+import { useFeatures } from '@/ui/config-gate';
 import { EmojiPicker } from '@/ui/emoji-picker';
 import { DepositSheet, WithdrawSheet } from '@/ui/fund-sheet';
 import { Screen } from '@/ui/screen';
+import { SeekerCard } from '@/ui/seeker-card';
 import { SignInCard } from '@/ui/sign-in-card';
 import { ErrorState, Skeleton } from '@/ui/states';
 import { colors, fonts, spacing, type } from '@/ui/theme';
@@ -29,12 +32,19 @@ export default function YouScreen() {
   const active = useActiveWallet();
   const profile = useProfile(active);
   const balance = useUsdcBalance(active, focused);
+  // SOL pays every network fee until trading is gasless (v2), so the person
+  // needs to see it: a wallet with cash and no SOL cannot place a pick.
+  const sol = useSolBalance(active, focused);
   // Cash is read from the chain and polled slowly; a trade on another screen
   // must show here on arrival, so the tab refetches it each time it is opened.
   const refetchBalance = balance.refetch;
   useEffect(() => {
     if (focused && active) void refetchBalance();
   }, [focused, active, refetchBalance]);
+  const refetchSol = sol.refetch;
+  useEffect(() => {
+    if (focused && active) void refetchSol();
+  }, [focused, active, refetchSol]);
   const pm = usePaidMajorityUserPositions(active, focused);
   const pa = usePaidMarketUserPositions(active, focused);
   const fr = useFreeUserActivity(active, focused);
@@ -56,10 +66,14 @@ export default function YouScreen() {
   // else on this screen would say anything, and the trade screens would be
   // the first place the person found out.
   const needsSignIn = useWalletLink((s) => s.status) === 'needs-sign-in';
+  // The Seeker perk is for the signed-in account only. A server without the
+  // route (404) leaves no data, and no data means no card.
+  const seekerPerk = useFeatures().seekerPerk;
+  const seeker = useSeekerStatus(sessionWallet, seekerPerk);
   const [refreshing, setRefreshing] = useState(false);
   const refetchAll = () => {
     setRefreshing(true);
-    Promise.all([profile.refetch(), balance.refetch(), pm.refetch(), pa.refetch(), fr.refetch()]).finally(() => setRefreshing(false));
+    Promise.all([profile.refetch(), balance.refetch(), sol.refetch(), pm.refetch(), pa.refetch(), fr.refetch(), seekerPerk && sessionWallet ? seeker.refetch() : null]).finally(() => setRefreshing(false));
   };
 
   // Balances always show cents: a $0.50 withdrawal must be visible on a $988
@@ -145,6 +159,13 @@ export default function YouScreen() {
               <Stat label="At stake" value={usd(positions.stakedUsd)} align={positions.claimableUsd > 0 ? 'center' : 'right'} />
               {positions.claimableUsd > 0 ? <Stat label="To claim" value={usd(positions.claimableUsd)} tone="up" align="right" /> : null}
             </View>
+            {/* Replaced when trading goes gasless (v2): then SOL is no longer the person's concern. */}
+            <View style={styles.gasRow}>
+              <Ionicons name="flash-outline" size={14} color={colors.textMuted} />
+              <Text style={type.muted}>
+                {sol.data !== undefined ? `${formatSol(BigInt(Math.round(sol.data * 1e9)))} SOL for network fees` : sol.isError ? 'SOL balance unavailable' : 'Checking SOL for network fees'}
+              </Text>
+            </View>
             {own ? (
               <View style={styles.fundRow}>
                 <Button label="Add funds" onPress={() => setFund('deposit')} style={{ flex: 1 }} />
@@ -154,9 +175,12 @@ export default function YouScreen() {
           </Card>
         ) : null}
 
+        {own && seekerPerk && sessionWallet && seeker.data ? <SeekerCard sessionWallet={sessionWallet} status={seeker.data} /> : null}
+
         {active ? (
           <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
             <MenuRow href="/positions" icon="layers-outline" label="Positions" first />
+            {own ? <MenuRow href="/transactions" icon="swap-vertical-outline" label="Transactions" /> : null}
             {own ? <MenuRow href="/referrals" icon="people-outline" label="Referrals" /> : null}
             {own ? <MenuRow href="/bug-report" icon="bug-outline" label="Report a bug" /> : null}
           </Card>
@@ -224,6 +248,7 @@ const styles = StyleSheet.create({
   total: { fontFamily: fonts.bold, fontSize: 44, lineHeight: 52, color: colors.text, fontVariant: ['tabular-nums'], letterSpacing: -0.5 },
   stats: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.sm },
   fundRow: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.md },
+  gasRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingTop: spacing.sm },
   rowLabel: { ...type.body, flex: 1, fontFamily: fonts.semibold },
   devRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.lg },
 });

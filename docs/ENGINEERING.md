@@ -351,6 +351,47 @@ which needs a lookup rather than a rewrite. Anything unrecognised returns null:
 a tap that does nothing is better than a tap that opens the wrong market, and
 the row still reads fine on its own.
 
+### A Seeker is proved by its Genesis Token, and the stake is paid once per token
+
+A phone model string or a dApp Store install can be faked; the Seeker Genesis
+Token cannot. Every Seeker mints one SGT into its Seed Vault wallet, so the app
+has that wallet sign one message (`src/lib/seekerLinkMessage.ts`, ported from the
+web) naming the Seeker and the signed-in account, and the server checks the
+signature, then checks on mainnet that the wallet holds an SGT with a non-zero
+balance. Naming the account stops a signature from one Seeker being replayed
+to link it to someone else.
+
+The anti-sybil key is the SGT's mint, not the wallet or the account: the
+server's `seeker_links.sgt_mint` is unique for ever, so one Seeker funds one
+welcome stake however many accounts its owner makes, and an account's SGT can
+never be swapped (that would free the old one to fund a second account).
+
+The stake ($1 USDC and 0.006 SOL, enough for a first pick) is a plain transfer
+the person could withdraw. Making it spendable only on picks needs a credit in
+the program or the website, which is far more work than $1.50 per Seeker is
+worth protecting. The server saves the signed transfer before broadcasting it
+and only ever re-checks or re-sends those bytes, so "Check again" on a stake
+that is on its way is the same call and cannot pay twice.
+
+SGTs live on mainnet only, so the check always reads mainnet. That is what lets
+staging (devnet) verify a real Seeker and pay the stake in devnet USDC.
+
+### Transaction history is read from the chain, and a transfer is an allowlist
+
+Deposits and withdrawals happen from exchanges, the Seed Vault and the Seeker
+stake, and most never touch the website's database, so the web's
+`/api/wallet/transfers` reads them from the chain: the wallet's recent
+signatures and its USDC account's (a USDC transfer in names only the token
+account), each transaction parsed once and cached for good. The RPC proxy does
+not allow history methods, and letting the app make forty reads per screen
+through it would be the wrong place for that cost.
+
+A transaction counts only if every instruction, inner ones included, belongs to
+System, Token, Token-2022, ATA, Compute Budget or Memo. Excluding the trading
+programs instead was tried on a real devnet wallet and let through rent paid
+into old program versions and MagicBlock delegation. The SOL line on Me is
+there because fees are still paid in SOL; it goes when trading is gasless.
+
 ## What is tested, and what is not
 
 - 501 unit tests over 34 files, offline, against 29 captured fixtures.

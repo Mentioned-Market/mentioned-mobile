@@ -69,6 +69,7 @@ export function WithdrawSheet({ visible, onClose, wallet }: SheetProps) {
     const run = () => {
       void queryClient.invalidateQueries({ queryKey: keys.usdcBalance(wallet) });
       void queryClient.invalidateQueries({ queryKey: keys.solBalance(wallet) });
+      void queryClient.invalidateQueries({ queryKey: keys.walletTransfers(wallet) });
     };
     run();
     setTimeout(run, 4000);
@@ -237,6 +238,7 @@ export function DepositSheet({ visible, onClose, wallet, initialAsset = 'USDC' }
     const run = () => {
       void queryClient.invalidateQueries({ queryKey: keys.usdcBalance(wallet) });
       void queryClient.invalidateQueries({ queryKey: keys.solBalance(wallet) });
+      void queryClient.invalidateQueries({ queryKey: keys.walletTransfers(wallet) });
       if (seeker) {
         void queryClient.invalidateQueries({ queryKey: keys.usdcBalance(seeker) });
         void queryClient.invalidateQueries({ queryKey: keys.solBalance(seeker) });

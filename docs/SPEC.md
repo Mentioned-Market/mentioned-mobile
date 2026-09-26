@@ -338,14 +338,29 @@ and blockhash before `transact()`; on foreground resume by checking the
 signature status or rebuilding with a fresh blockhash. 120s timeout, clear
 retry.
 
-### 6.5 Seeker link
+### 6.5 Seeker link and welcome stake
 
-`POST /api/seeker/link` (web, section 15): the app requests a nonce, signs it
-with MWA `signMessages` from the Seed Vault address, posts address + signature.
-Server verifies, stores `seeker_wallet` on the profile, runs the Seeker Genesis
-Token check via Helius DAS, sets `seeker_verified_at`. Profile shows a Seeker
-badge. This runs automatically after the first successful deposit and is also
-offered on the You tab.
+Built Sep 25 2026 (web `app/api/seeker/*`, app `src/ui/seeker-card.tsx`).
+
+1. **Link.** The app has the Seed Vault wallet sign, via MWA `signMessages`, the
+   text from `lib/seekerLinkMessage.ts` (Seeker address, the session wallet,
+   a timestamp; valid for 10 minutes). No nonce round trip: naming the account
+   and the timestamp is what stops a replay. `POST /api/seeker/link` verifies
+   the signature, then checks on **mainnet** that the wallet holds a Seeker
+   Genesis Token with a non-zero balance (MetadataPointer and TokenGroupMember
+   both `GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te`, per Solana Mobile's
+   docs). The row in `seeker_links` is unique on the account and on the SGT mint.
+2. **Welcome stake.** Straight after a link, the app calls
+   `POST /api/seeker/grant`: one transfer of $1 USDC plus 0.006 SOL from a
+   dedicated funder (`SEEKER_FUNDER_SECRET_KEY`) to the app wallet, once per SGT.
+   Reserved atomically, signed transfer saved before broadcast, released only
+   on chain proof that nothing moved. 202 means on its way; calling again
+   settles it from the chain. Off unless `SEEKER_GRANT_ENABLED=true`; capped by
+   `SEEKER_GRANT_DAILY_CAP`.
+3. `GET /api/seeker/status` drives the card on Me, behind the `seekerPerk` flag.
+
+Not built: a Seeker badge on public profiles, and linking automatically after a
+deposit (the card on Me is the only entry point).
 
 ## 7. v4: trading
 
@@ -1079,7 +1094,7 @@ NativeWind for styling.
 3. Openfort: mainnet keys and Shield keys for the mobile identity; whether the
    RN SDK needs its own Openfort project or shares the web one (the
    encryption-session route must accept tokens from whichever it is).
-4. Seeker Genesis Token collection address for the DAS check.
+4. ~~Seeker Genesis Token collection address for the DAS check.~~ Resolved Sep 25 2026: no DAS; metadata and group address `GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te` (section 6.5).
 5. Which company wallet mints the publisher NFT; who holds the store keystore.
 6. Firebase project ownership and where the FCM service account lives in
    Railway.
