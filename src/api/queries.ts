@@ -17,6 +17,8 @@ import * as paidMajority from './paidMajority';
 import * as paidMarkets from './paidMarkets';
 import * as referral from './referral';
 import * as results from './results';
+import * as seeker from './seeker';
+import * as transfers from './transfers';
 import * as sidebar from './sidebar';
 import * as ticker from './ticker';
 import * as user from './user';
@@ -87,6 +89,8 @@ export const keys = {
   team: (slug: string, wallet: string) => ['arena', 'team', slug, wallet] as const,
   arenaAll: ['arena'] as const,
   referral: (wallet: string) => ['referral', wallet] as const,
+  seekerStatus: (wallet: string) => ['seeker', 'status', wallet] as const,
+  walletTransfers: (wallet: string) => ['wallet', 'transfers', wallet] as const,
   ammClaimAll: ['chain', 'amm-claim'] as const,
   recentTrades: ['trades', 'recent'] as const,
   trendingWords: ['trending', 'words'] as const,
@@ -316,4 +320,24 @@ export const useReferral = (wallet: string | null) =>
     queryFn: () => referral.getReferral(wallet as string),
     enabled: !!wallet,
     staleTime: 60_000,
+  });
+
+// The signed-in account's Seeker link and welcome stake. Keyed by the session
+// wallet because the route answers for the bearer, not for a wallet it is told.
+export const useSeekerStatus = (sessionWallet: string | null, enabled: boolean) =>
+  useQuery({
+    queryKey: keys.seekerStatus(sessionWallet ?? ''),
+    queryFn: seeker.getSeekerStatus,
+    enabled: enabled && !!sessionWallet,
+    staleTime: 60_000,
+  });
+
+// Deposits and withdrawals, read from the chain by the server. Keyed by the
+// session wallet for the same reason as the Seeker status.
+export const useWalletTransfers = (sessionWallet: string | null) =>
+  useQuery({
+    queryKey: keys.walletTransfers(sessionWallet ?? ''),
+    queryFn: transfers.getWalletTransfers,
+    enabled: !!sessionWallet,
+    staleTime: 30_000,
   });
