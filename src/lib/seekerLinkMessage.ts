@@ -1,4 +1,4 @@
-// PORTED_FROM mentioned/lib/seekerLinkMessage.ts @ uncommitted
+// PORTED_FROM mentioned/lib/seekerLinkMessage.ts @ 6cc74ef
 // Keep byte-identical to the web copy. If the signed message format changes, change both.
 // Mobile edits: none.
 
