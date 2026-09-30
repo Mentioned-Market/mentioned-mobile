@@ -22,6 +22,7 @@ import {
   useSolBalance,
   useUsdcBalance,
 } from '@/api/queries';
+import { chatEventId } from '@/chat/rules';
 import { deserializeMarketAccount, estimateBuyCost, estimateSellReturn, impliedYesPrice, MarketStatus, sharesForUsdc } from '@/chain/amm';
 import { base64ToBytes } from '@/lib/bytes';
 import { shortAddress, usd, usdc } from '@/lib/format';
@@ -66,6 +67,7 @@ import { TradeProgress } from '@/ui/trade-progress';
 import { TradeSheet, TradeSheetHeader, type Preset, type SheetChip, type SheetWord, type Side, type TradeMode } from '@/ui/trade-sheet';
 import { WordList } from '@/ui/word-list';
 import { YourPositions, type HeldRow } from '@/ui/your-positions';
+import { ChatPreview } from '@/ui/chat-preview';
 
 /** Dollars, rounded DOWN to the cent, so a preset can never land a cent over the cap. */
 const centsDown = (usd: number) => (Math.floor(usd * 100) / 100).toFixed(2);
@@ -391,6 +393,7 @@ export default function PaidYesNoScreen() {
           eventAt={meta.data?.event_start_time ? Date.parse(meta.data.event_start_time) : null}
           now={now}
           description={meta.data?.description}
+          kind="paid-yesno"
         />
         <YourPositions connected={!!viewed} rows={heldRows} loading={!!viewed && positions.isPending} />
         {status === 'resolved' ? (
@@ -424,6 +427,7 @@ export default function PaidYesNoScreen() {
             </Card>
           </>
         ) : null}
+        <ChatPreview eventId={chatEventId('paid-yesno', id)} title={title} focused={focused} now={now} />
         <SimilarMarkets currentKey={`paid-yesno:${id}`} />
         <FeaturedWords />
       </ScrollView>

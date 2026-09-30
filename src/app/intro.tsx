@@ -16,7 +16,7 @@ import { Wordmark } from '@/ui/wordmark';
 const SLIDES = [
   {
     title: 'Pick what gets said',
-    body: 'Pick the words you think will be spoken during a match, a launch, an earnings call. If they are said, you win.',
+    body: 'Each market is about something coming up: a match, an X\u00A0post, an album release. Call Yes or No on each word, or pick the one that gets said the most.',
     image: require('@/assets/images/intro/market.png'),
   },
   {
@@ -63,7 +63,7 @@ export default function IntroScreen() {
     scroll.current?.scrollTo({ x: i * width, animated: true });
     setIndex(i);
   };
-  const finish = (to: '/' | '/sign-in') => {
+  const finish = (to: '/' | '/markets' | '/sign-in') => {
     setIntroSeen(true);
     router.replace(to);
   };
@@ -104,7 +104,7 @@ export default function IntroScreen() {
         {last ? (
           <View style={{ gap: spacing.sm }}>
             <Button label="Sign in" onPress={() => finish('/sign-in')} />
-            <Button label="Browse markets" tone="neutral" onPress={() => finish('/')} />
+            <Button label="Browse markets" tone="neutral" onPress={() => finish('/markets')} />
           </View>
         ) : (
           <View style={{ gap: spacing.sm }}>

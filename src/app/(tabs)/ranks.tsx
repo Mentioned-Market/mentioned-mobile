@@ -1,6 +1,7 @@
 // Ranks (SPEC v1 step 3): weekly points board with your row pinned, the prize
 // pool split, and the raffle. The leaderboard route only knows this week and
 // last week, so the switcher toggles between the two.
+import { Ionicons } from '@expo/vector-icons';
 import { Link, type Href } from 'expo-router';
 import { memo, useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
@@ -8,8 +9,10 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'rea
 import { useIsScreenFocused, useLeaderboard, usePrizePool, useRaffle } from '@/api/queries';
 import type { LeaderboardEntry, LeaderboardWeek } from '@/api/user';
 import { shortAddress, usd } from '@/lib/format';
+import { raffleRules, raffleShare } from '@/lib/raffle-view';
 import { useActiveWallet } from '@/store/active-wallet';
 import { CURRENT_ARENA, arenaStatus } from '@/arena/arenas';
+import { BottomSheet } from '@/ui/bottom-sheet';
 import { Card, SectionTitle, Stat } from '@/ui/card';
 import { Pill } from '@/ui/pill';
 import { Screen } from '@/ui/screen';
@@ -32,7 +35,9 @@ function weekKey(weekStartIso: string | undefined, week: LeaderboardWeek): strin
 
 function rangeLabel(start?: string, end?: string | null): string {
   if (!start) return 'This week';
-  const fmt = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  // Weeks are UTC (Monday to Sunday), so the dates are too: in local time the
+  // end read as Monday east of UTC and the start as Sunday west of it.
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' });
   const endDate = end ? new Date(new Date(end).getTime() - 1) : null;
   return endDate ? `${fmt(start)} to ${fmt(endDate.toISOString())}` : `Week of ${fmt(start)}`;
 }
@@ -41,6 +46,7 @@ export default function RanksScreen() {
   const focused = useIsScreenFocused();
   const viewed = useActiveWallet();
   const [week, setWeek] = useState<LeaderboardWeek>('current');
+  const [raffleInfo, setRaffleInfo] = useState(false);
   const board = useLeaderboard(week, viewed, focused);
   const key = weekKey(board.data?.weekStart, week);
   const pool = usePrizePool(key, focused);
@@ -129,7 +135,12 @@ export default function RanksScreen() {
                 <ErrorState error={raffle.error} onRetry={() => raffle.refetch()} title="Could not load the raffle" />
               ) : (
                 <Card style={{ gap: spacing.sm }}>
-                  <Text style={type.heading}>Raffle</Text>
+                  <View style={styles.raffleHead}>
+                    <Text style={type.heading}>Raffle</Text>
+                    <Pressable onPress={() => setRaffleInfo(true)} hitSlop={12} accessibilityRole="button" accessibilityLabel="How the raffle works">
+                      <Ionicons name="information-circle-outline" size={20} color={colors.textMuted} />
+                    </Pressable>
+                  </View>
                   <Text style={type.muted}>{raffle.data.totalTickets} tickets in the draw</Text>
                   {raffle.data.me ? (
                     <Text style={type.body}>
@@ -143,7 +154,7 @@ export default function RanksScreen() {
                             : ''}
                     </Text>
                   ) : (
-                    <Text style={type.muted}>Connect a wallet to see your tickets. Every point earned this week is a ticket.</Text>
+                    <Text style={type.muted}>Sign in to see your tickets. Every $1 word you pick on a majority market is a ticket.</Text>
                   )}
                   {raffle.data.winner ? (
                     <Text style={type.muted}>
@@ -175,6 +186,16 @@ export default function RanksScreen() {
           boardReady && rows.length === 0 ? <EmptyState title="No points yet this week" body="Make a pick to get on the board." /> : null
         }
       />
+      <BottomSheet visible={raffleInfo} onClose={() => setRaffleInfo(false)} title="How the raffle works">
+        <View style={styles.rules}>
+          {raffleRules(raffleShare(pool.data?.split), pool.data?.isCurrent ?? true).map((r) => (
+            <View key={r.emoji} style={styles.rule}>
+              <Text style={styles.ruleEmoji}>{r.emoji}</Text>
+              <Text style={[type.body, { flex: 1 }]}>{r.text}</Text>
+            </View>
+          ))}
+        </View>
+      </BottomSheet>
     </Screen>
   );
 }
@@ -206,6 +227,10 @@ const Row = memo(function Row({ entry, rank, you, top, bottom }: { entry: Leader
 // A Pressable used as `<Link asChild>`'s child must be given a FLAT style,
 // which is why the rows above go through StyleSheet.flatten.
 const styles = StyleSheet.create({
+  raffleHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  rules: { gap: spacing.md, paddingBottom: spacing.md },
+  rule: { flexDirection: 'row', gap: spacing.sm + 4, alignItems: 'flex-start' },
+  ruleEmoji: { fontSize: 20, lineHeight: 24 },
   header: { gap: spacing.md, paddingBottom: spacing.sm },
   weekRow: { alignItems: 'center', gap: spacing.sm },
   poolAmount: { fontFamily: fonts.bold, fontSize: 40, lineHeight: 48, color: colors.text, fontVariant: ['tabular-nums'], letterSpacing: -0.5 },

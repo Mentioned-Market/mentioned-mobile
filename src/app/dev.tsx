@@ -3,7 +3,7 @@
 // `mentioned://dev?wallet=<base58>` sets the viewed wallet on open (QA shortcut).
 import { AccountTypeEnum, ChainTypeEnum, EmbeddedState } from '@openfort/openfort-js';
 import { useEmbeddedSolanaWallet, useOpenfortClient, useUser } from '@openfort/react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -17,8 +17,12 @@ import { API_BASE, FLAVOR, isOpenfortConfigured } from '@/config';
 import * as Application from 'expo-application';
 
 import type { MobileConfig } from '@/api/mobileConfig';
-import { useMobileConfig } from '@/api/queries';
+import { useLeaderboard, useMobileConfig } from '@/api/queries';
 import { evaluateMobileConfig } from '@/lib/mobile-config';
+import { usePositionGroups } from '@/lib/use-position-groups';
+import { standingOf, winKeys } from '@/markets/moments';
+import { useActiveWallet } from '@/store/active-wallet';
+import { useMoments } from '@/store/moments';
 import { usePrivyAuth } from '@/auth/privy';
 import { ensureEmbeddedSigner } from '@/auth/recover-wallet';
 import { usePrefs } from '@/store/prefs';
@@ -27,6 +31,11 @@ import { useSession } from '@/store/session';
 import { useWallet } from '@/store/wallet';
 import { Card } from '@/ui/card';
 import { Screen } from '@/ui/screen';
+import { showAchievements, showPoints } from '@/ui/toast';
+import { WinMomentPreview } from '@/ui/win-moment';
+import { HowItWorks } from '@/ui/how-it-works';
+import { SeekerOfferCard } from '@/ui/seeker-offer';
+import { seekerHomeOffer } from '@/lib/seeker-perk';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
 export default function DevScreen() {
@@ -76,7 +85,7 @@ export default function DevScreen() {
   }, [walletParam, setWallet]);
 
   return (
-    <Screen title="Smoke tests">
+    <Screen title="Smoke tests" actions={false}>
       <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
         <Card style={styles.row}>
           <Text style={type.heading}>Build</Text>
@@ -111,6 +120,7 @@ export default function DevScreen() {
         </Card>
         <WalletSection />
         <PushSection />
+        <MomentsSection />
         <Card style={styles.row}>
           <Text style={type.heading}>View as any address</Text>
           <Text style={type.muted}>QA helper: sets the viewed wallet without MWA. Current: {viewedAddress ?? 'none'}</Text>
@@ -330,6 +340,77 @@ function PushSection() {
       <Pressable onPress={() => void showTest()} style={[styles.button, { backgroundColor: colors.surfaceRaised }]}>
         <Text style={styles.buttonLabel}>Show a test notification</Text>
       </Pressable>
+    </Card>
+  );
+}
+
+const SAMPLE_GRANT = { usdcBaseUnits: '1000000', lamports: '6000000', signature: null };
+/** The three states Home can show, for the Moments preview. */
+const SEEKER_SAMPLES = [
+  { name: 'link', justFunded: false, status: { linked: false, seekerWallet: null, verifiedAt: null, grant: { ...SAMPLE_GRANT, status: 'available' as const } } },
+  { name: 'claim', justFunded: false, status: { linked: true, seekerWallet: null, verifiedAt: null, grant: { ...SAMPLE_GRANT, status: 'available' as const } } },
+  { name: 'funded', justFunded: true, status: { linked: true, seekerWallet: null, verifiedAt: null, grant: { ...SAMPLE_GRANT, status: 'funded' as const } } },
+];
+
+/**
+ * QA for the moments (src/ui/win-moment.tsx, src/ui/toast.tsx, Home's "Your
+ * week"). The toasts are previews; the other two go through the real path by
+ * rewinding what this phone remembers, so Home then does what it would do.
+ */
+function MomentsSection() {
+  const router = useRouter();
+  const wallet = useActiveWallet();
+  const groups = usePositionGroups(wallet, true);
+  const board = useLeaderboard('current', wallet, true);
+  const celebrated = useMoments((st) => (wallet ? st.celebrated[wallet] : undefined));
+  const setCelebrated = useMoments((st) => st.setCelebrated);
+  const setStanding = useMoments((st) => st.setStanding);
+  const wins = winKeys(groups.finished);
+  const standing = wallet && board.data ? standingOf(board.data, wallet) : null;
+  const [previewWin, setPreviewWin] = useState(false);
+
+  const replayWin = () => {
+    if (!wallet || wins.length === 0) return;
+    setCelebrated(wallet, (celebrated ?? wins).filter((k) => k !== wins[0]));
+    router.navigate('/');
+  };
+  const rewindWeek = () => {
+    if (!wallet || !standing) return;
+    setStanding(wallet, { week: standing.week, points: Math.max(0, standing.points - 50), rank: standing.rank === null ? null : standing.rank + 3 });
+    router.navigate('/');
+  };
+
+  return (
+    <Card style={styles.row}>
+      <Text style={type.heading}>Moments</Text>
+      <Text style={type.muted}>
+        {wallet ? `${wins.length} finished win${wins.length === 1 ? '' : 's'} · ${standing ? `#${standing.rank ?? '?'} with ${standing.points} pts` : 'not on the board'}` : 'Sign in or set a viewed wallet first'}
+      </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        <Pressable onPress={() => showPoints(50, 'Preview')} style={styles.button}>
+          <Text style={styles.buttonLabel}>Points toast</Text>
+        </Pressable>
+        <Pressable onPress={() => showAchievements([{ emoji: '🃏', title: 'First Share', points: 60 }])} style={styles.button}>
+          <Text style={styles.buttonLabel}>Achievement toast</Text>
+        </Pressable>
+        <Pressable onPress={() => setPreviewWin(true)} style={styles.button}>
+          <Text style={styles.buttonLabel}>Win screen</Text>
+        </Pressable>
+        <Pressable onPress={replayWin} disabled={wins.length === 0} style={[styles.button, wins.length === 0 && styles.buttonDisabled]}>
+          <Text style={styles.buttonLabel}>Replay my latest win</Text>
+        </Pressable>
+        <Pressable onPress={rewindWeek} disabled={!standing} style={[styles.button, !standing && styles.buttonDisabled]}>
+          <Text style={styles.buttonLabel}>Preview week movement</Text>
+        </Pressable>
+      </View>
+      <WinMomentPreview visible={previewWin} onClose={() => setPreviewWin(false)} />
+      <Text style={type.muted}>{"Home's Seeker offer, with sample amounts (the buttons do nothing here):"}</Text>
+      {SEEKER_SAMPLES.map((sample) => {
+        const offer = seekerHomeOffer(sample.status, sample.justFunded);
+        return offer ? <SeekerOfferCard key={sample.name} offer={offer} busy={false} progress={null} error={null} onPress={() => {}} onDismiss={() => {}} /> : null;
+      })}
+      <Text style={type.muted}>{"Home's first card when signed out (its buttons work):"}</Text>
+      <HowItWorks tryHref="/markets" />
     </Card>
   );
 }

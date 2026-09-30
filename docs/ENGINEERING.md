@@ -392,6 +392,73 @@ programs instead was tried on a real devnet wallet and let through rent paid
 into old program versions and MagicBlock delegation. The SOL line on Me is
 there because fees are still paid in SOL; it goes when trading is gasless.
 
+### The tabs are a pager of our own
+
+A sideways swipe anywhere moves to the next or previous tab, with both pages
+following the finger (`src/ui/swipe-tabs.tsx`). Bottom tabs cannot be dragged,
+only animated after a tap. Material top tabs can, but need
+react-native-pager-view, a native pager that decides for itself which
+horizontal touches it takes, and its current release is built on Compose, so
+whether the Home rails still scroll inside it was an open question with a
+native rebuild behind each answer.
+
+So the navigator is React Navigation's `TabRouter` (back button, deep links
+and `router.navigate` unchanged) and the stock `BottomTabBar`, over pages
+positioned from shared values on the UI thread. Rails need no exceptions: a
+native horizontal ScrollView claims the touch at Android's 8dp slop, and
+gesture-handler cancels every gesture when a native view does that, so the
+pager waits for 16dp and a rail that can scroll always wins. `adb shell input
+swipe` faster than about 300ms jumps both thresholds in one event and the pager
+wins; a finger reports in far smaller steps. `freezeOnBlur` became a `Freeze`
+around every tab but the current one and its neighbours, which have to stay
+live to be seen mid-swipe.
+
+### Moments are only ever for things the server confirmed
+
+The win screen, the points toasts and "▲4" on Home (`src/markets/moments.ts`
+for the rules, `src/store/moments.ts` for what the phone remembers) never show
+a number the app made up. A trade's ten points are awarded later by the
+website's webhook, so a trade toasts nothing; the gain turns up on the weekly
+board, and Home toasts it from there, compared against what this phone saw
+last time. A share claim toasts the `awarded` the route returned, and an
+unlock only when a route reports it.
+
+Two rules keep the win screen honest. The first time a wallet is seen on a
+phone, its existing wins are remembered without a moment, so an update does
+not replay a season of old wins. And a win is marked when its moment is
+dismissed, not when it is found, so one found as the app closes is not lost.
+Every win still in the positions list stays remembered however many there
+are; only keys the list no longer carries are trimmed.
+
+`mentioned://dev` has a Moments section: toast previews, a win screen with a
+sample market, and two buttons that rewind what the phone remembers (your
+latest win, your standing) so Home goes through the real path again.
+
+### Chat is the website's rooms, live over its SSE stream
+
+Global chat and one room per market (`paid_<id>`, `paidmaj_<id>`, `custom_<id>`,
+the website's own event ids; `chatEventId` in src/chat/rules.ts, pinned by the
+contract test). A room is live only while its screen is focused, the rule the
+website follows to keep connections down; a market screen shows a slow-polled
+card of the last few messages instead, since a composer and a keyboard have no
+place on a screen that pins a trade bar.
+
+React Native has no EventSource, but its XMLHttpRequest reports the response
+as it grows, so src/chat/sse.ts is a small reader rather than a dependency
+(the format parser is unit tested). The connection is recycled every five
+minutes because `responseText` only grows. If the stream fails, the room polls
+`?after=` every five seconds and retries the stream; every (re)connect fetches
+what it missed first, because the stream does not replay.
+
+A long press on a message offers Report (to the bug-report route, which lands
+in Discord) and Hide (this phone only). Stores ask any app that shows what
+strangers write for both.
+
+The app is edge to edge, so Android draws the keyboard over the screen rather
+than resizing it and `KeyboardAvoidingView` lifts nothing. The chat screen lifts
+itself by the keyboard's reported height plus the bottom inset, which that
+height leaves out.
+
 ## What is tested, and what is not
 
 - 501 unit tests over 34 files, offline, against 29 captured fixtures.

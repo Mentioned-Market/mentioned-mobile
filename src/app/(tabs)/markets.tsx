@@ -1,12 +1,11 @@
 // Markets: every market, sectioned by where it is in its life. The filter is
-// the only control; the search button is the only other thing in the header.
+// the only control; the header carries the shared search, chat and bell.
 import { useCallback, useMemo, useState } from 'react';
 import { RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 
 import { useFreeList, useIsScreenFocused, usePaidMajorityList, usePaidMarketsList } from '@/api/queries';
 import { useNow } from '@/lib/use-now';
 import { filterMarkets, mergeMarkets, sectionMarkets, type MarketFilter, type MarketSummary } from '@/markets/merge';
-import { IconButton } from '@/ui/icon-button';
 import { MarketCard } from '@/ui/market-card';
 import { Screen } from '@/ui/screen';
 import { Segmented } from '@/ui/segmented';
@@ -43,7 +42,10 @@ export default function MarketsScreen() {
   // there through every poll, and a list that fails is reported above it.
   const loading = queries.every((q) => q.data === undefined) && queries.some((q) => q.isPending);
   const allFailed = queries.every((q) => q.isError);
-  const someFailed = queries.some((q) => q.isError);
+  // Only a list the filter shows can be missing from it: a paid list that
+  // failed is no gap on Free.
+  const shown = filter === 'free' ? [free] : filter === 'paid' ? [paidMajority, paidYesNo] : queries;
+  const failed = shown.find((q) => q.isError);
   const [refreshing, setRefreshing] = useState(false);
 
   const sections = useMemo(
@@ -54,7 +56,7 @@ export default function MarketsScreen() {
 
   // Every card looks the same now; `isHero` only decides the order, which
   // `mergeMarkets` has already applied.
-  const renderItem = useCallback(({ item }: { item: MarketSummary }) => <MarketCard market={item} now={now} />, [now]);
+  const renderItem = useCallback(({ item }: { item: MarketSummary }) => <MarketCard market={item} />, []);
 
   const retryAll = () => {
     setRefreshing(true);
@@ -64,7 +66,6 @@ export default function MarketsScreen() {
   return (
     <Screen
       title="Markets"
-      right={<IconButton name="search" label="Search" href="/search" />}
     >
       <Segmented options={FILTERS} value={filter} onChange={setFilter} stretch={false} size="sm" style={{ marginBottom: spacing.md }} />
 
@@ -94,9 +95,9 @@ export default function MarketsScreen() {
           windowSize={5}
           updateCellsBatchingPeriod={50}
           ListHeaderComponent={
-            someFailed ? (
+            failed ? (
               <View style={{ marginBottom: spacing.md }}>
-                <ErrorState error={paidMajority.error ?? paidYesNo.error ?? free.error} onRetry={retryAll} title="Some markets did not load" />
+                <ErrorState error={failed.error} onRetry={retryAll} title="Some markets did not load" />
               </View>
             ) : null
           }
