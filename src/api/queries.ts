@@ -10,6 +10,7 @@ import { base64ToBytes } from '@/lib/bytes';
 import { fetchAmmClaim } from '@/trade/claim';
 import * as achievements from './achievements';
 import * as arena from './arena';
+import * as chat from './chat';
 import * as free from './free';
 import * as mobileConfig from './mobileConfig';
 import * as notifications from './notifications';
@@ -94,6 +95,8 @@ export const keys = {
   ammClaimAll: ['chain', 'amm-claim'] as const,
   recentTrades: ['trades', 'recent'] as const,
   trendingWords: ['trending', 'words'] as const,
+  chatPreview: (eventId: string) => ['chat', 'preview', eventId] as const,
+  globalChatLatest: ['chat', 'global', 'latest'] as const,
   ammClaim: (wallet: string, id: string) => ['chain', 'amm-claim', wallet, id] as const,
 };
 
@@ -341,3 +344,14 @@ export const useWalletTransfers = (sessionWallet: string | null) =>
     enabled: !!sessionWallet,
     staleTime: 30_000,
   });
+
+// Chat. The rooms themselves are live over SSE (src/chat/use-chat.ts); these
+// are the two cheap reads around them, polled slowly and only while focused.
+
+/** The latest few messages for a market screen's chat card. */
+export const useChatPreview = (eventId: string, focused: boolean) =>
+  useQuery({ queryKey: keys.chatPreview(eventId), queryFn: () => chat.getChat(eventId), staleTime: 15_000, ...poll(focused, 30_000) });
+
+/** The newest global message id, for the unread dot on Home. Served from memory on the web. */
+export const useGlobalChatLatest = (focused: boolean) =>
+  useQuery({ queryKey: keys.globalChatLatest, queryFn: () => chat.getGlobalChatLatest(), staleTime: 30_000, ...poll(focused, 60_000) });
