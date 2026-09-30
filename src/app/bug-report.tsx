@@ -10,7 +10,7 @@ import { spacing } from '@/ui/theme';
 export default function BugReportScreen() {
   const wallet = useActiveWallet();
   return (
-    <Screen title="Report a bug" back>
+    <Screen title="Report a bug" back actions={false}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <BugReport wallet={wallet} />
       </ScrollView>

@@ -89,7 +89,7 @@ export default function NotificationSettingsScreen() {
 
   if (!signedIn) {
     return (
-      <Screen title="Notifications" back>
+      <Screen title="Notifications" back actions={['search', 'chat']}>
         <SignInCard />
       </Screen>
     );
@@ -99,7 +99,7 @@ export default function NotificationSettingsScreen() {
   const supported = settings.data ? ROWS.every((r) => typeof settings.data[r.key] === 'boolean') : true;
 
   return (
-    <Screen title="Notifications" back>
+    <Screen title="Notifications" back actions={['search', 'chat']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {permission === 'denied' ? (
           <Card style={styles.card}>
