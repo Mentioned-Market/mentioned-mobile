@@ -40,4 +40,10 @@ describe('tickerItems', () => {
     expect(items).toHaveLength(1);
     expect(items[0].who).toBe('49GT…u2fY');
   });
+
+  it('carries the market title and when the trade was made, for the feed', () => {
+    const [i] = tickerItems([base]);
+    expect(i.title).toBe('Rangers vs Red Sox');
+    expect(i.at).toBe(Date.parse('2026-09-15T20:23:52.291Z'));
+  });
 });

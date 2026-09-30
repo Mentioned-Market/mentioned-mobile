@@ -1,9 +1,10 @@
-// One chip per trade for the ticker, and where a tap on it goes.
+// One item per trade for the activity feed on Home, and where a tap on it goes.
 //
-// Split into parts rather than a sentence: the ticker puts the name, the side
-// and the amount in fixed places so each can be read as it slides past.
+// Split into parts rather than a sentence: the feed puts the name, the side
+// and the amount in fixed places so a column of them can be scanned.
 import type { RecentTrade } from '@/api/ticker';
 import { shortAddress, tokens, usdc } from '@/lib/format';
+import { toMs } from '@/lib/time';
 
 export type TickerItem = {
   key: string;
@@ -15,6 +16,10 @@ export type TickerItem = {
   word: string | null;
   amount: string;
   href: string | null;
+  /** The market's title, where the feed carries one. */
+  title: string | null;
+  /** When the trade was made, in ms. */
+  at: number | null;
 };
 
 /** Free markets are addressed by slug from this feed; the free route resolves it. */
@@ -35,18 +40,19 @@ export function tickerItems(trades: RecentTrade[]): TickerItem[] {
     if (t.type === 'polymarket') continue;
     const who = t.username ?? shortAddress(t.wallet);
     const word = t.wordLabel ?? null;
+    const base = { key: t.id, who, word, href: hrefFor(t), title: t.marketTitle, at: toMs(t.createdAt) };
     if (t.type === 'majority') {
-      out.push({ key: t.id, who, verb: 'picked', side: null, word, amount: usdc(t.amountUsd, { dp: 2 }), href: hrefFor(t) });
+      out.push({ ...base, verb: 'picked', side: null, amount: usdc(t.amountUsd, { dp: 2 }) });
       continue;
     }
     const verb = t.isBuy ? 'bought' : 'sold';
     const side = t.isYes ? 'YES' : 'NO';
     if (t.type === 'paid') {
-      out.push({ key: t.id, who, verb, side, word, amount: usdc(t.amountUsd, { dp: 2 }), href: hrefFor(t) });
+      out.push({ ...base, verb, side, amount: usdc(t.amountUsd, { dp: 2 }) });
       continue;
     }
     const cost = Math.abs(Number(t.cost ?? 0));
-    out.push({ key: t.id, who, verb, side, word, amount: cost > 0 ? `${tokens(cost)} tk` : '', href: hrefFor(t) });
+    out.push({ ...base, verb, side, amount: cost > 0 ? `${tokens(cost)} tk` : '' });
   }
   return out;
 }
