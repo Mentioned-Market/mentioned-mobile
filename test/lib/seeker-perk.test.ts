@@ -4,7 +4,7 @@ import bs58 from 'bs58';
 import { ApiError } from '@/api/client';
 import { SeekerStatus } from '@/api/seeker';
 import { base64ToBytes, bytesToBase64 } from '@/lib/bytes';
-import { grantAmountText, seekerCard, seekerErrorMessage, sendingLabel, signatureFromSignedPayload } from '@/lib/seeker-perk';
+import { grantAmountText, seekerCard, seekerErrorMessage, seekerHomeOffer, sendingLabel, signatureFromSignedPayload } from '@/lib/seeker-perk';
 import { buildSeekerLinkMessage, isValidSeekerLinkMessage } from '@/lib/seekerLinkMessage';
 
 const status = (over: Partial<SeekerStatus> = {}, grant: Partial<SeekerStatus['grant']> = {}): SeekerStatus => ({
@@ -159,5 +159,37 @@ describe('SeekerStatus schema', () => {
 
   it('rejects an unknown grant state', () => {
     expect(SeekerStatus.safeParse(status({}, { status: 'lost' as never })).success).toBe(false);
+  });
+});
+
+describe('seekerHomeOffer', () => {
+  it('leads with the money when a Seeker can still be linked for the stake', () => {
+    const offer = seekerHomeOffer(status())!;
+    expect(offer.action).toBe('link');
+    expect(offer.amount).toBe('$1.00');
+    expect(offer.title).toContain(offer.amount);
+    expect(offer.subtitle).toContain('0.006 SOL');
+  });
+
+  it('offers the collect when linked with the stake still waiting', () => {
+    const offer = seekerHomeOffer(status({ linked: true }))!;
+    expect(offer.action).toBe('claim');
+    expect(offer.title).toContain('$1.00');
+  });
+
+  // Home is for the money. With none on offer, the link stays on Me only.
+  it('shows nothing when there is no stake to promise', () => {
+    expect(seekerHomeOffer(status({}, { status: 'unavailable' }))).toBeNull();
+    expect(seekerHomeOffer(status({ linked: true }, { status: 'processing' }))).toBeNull();
+    expect(seekerHomeOffer(undefined)).toBeNull();
+  });
+
+  it('celebrates once when the stake lands, then goes', () => {
+    const funded = status({ linked: true }, { status: 'funded' });
+    const offer = seekerHomeOffer(funded, true)!;
+    expect(offer.celebrate).toBe(true);
+    // The component draws `amount` in gold by finding it in the title.
+    expect(offer.title).toContain(offer.amount);
+    expect(seekerHomeOffer(funded, false)).toBeNull();
   });
 });
