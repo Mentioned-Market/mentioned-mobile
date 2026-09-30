@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { Pressable, type ColorValue, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 
+import { SwipeTabs } from '@/ui/swipe-tabs';
 import { colors, fonts } from '@/ui/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -33,7 +34,11 @@ type TabButtonProps = Pick<PressableProps, 'children' | 'onPress' | 'onLongPress
 function TabButton({ children, style, onPress, onLongPress, accessibilityState, accessibilityLabel, testID }: TabButtonProps) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={(e) => {
+        // A tick when the tab changes, as a swipe gives; nothing on the tab you are on.
+        if (!accessibilityState?.selected) void Haptics.selectionAsync();
+        onPress?.(e);
+      }}
       onLongPress={onLongPress}
       accessibilityRole="tab"
       accessibilityState={accessibilityState}
@@ -51,7 +56,7 @@ const renderTabButton = (props: object) => <TabButton {...(props as TabButtonPro
 
 export default function TabsLayout() {
   return (
-    <Tabs
+    <SwipeTabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.gold,
@@ -60,20 +65,16 @@ export default function TabsLayout() {
         tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 12 },
         sceneStyle: { backgroundColor: colors.bg },
         tabBarButton: renderTabButton,
-        animation: 'none',
-        // Every tab polls while focused and stays mounted once visited. Without
-        // this, a blurred screen still re-renders on each state change, so five
-        // trees repaint on a tab press. Freezing them is the difference between
-        // an instant switch and a visible stall.
-        freezeOnBlur: true,
-        lazy: true,
+        // No animation, freezeOnBlur or lazy here: SwipeTabs does its own
+        // sliding, and freezes every tab but the current one and its
+        // neighbours (src/ui/swipe-tabs.tsx).
       }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ICONS.home }} />
-      <Tabs.Screen name="markets" options={{ title: 'Markets', tabBarIcon: ICONS.markets }} />
-      <Tabs.Screen name="ranks" options={{ title: 'Ranks', tabBarIcon: ICONS.ranks }} />
-      <Tabs.Screen name="arena" options={{ title: 'Arena', tabBarIcon: ICONS.arena }} />
-      <Tabs.Screen name="you" options={{ title: 'Me', tabBarIcon: ICONS.you }} />
-    </Tabs>
+      <SwipeTabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ICONS.home }} />
+      <SwipeTabs.Screen name="markets" options={{ title: 'Markets', tabBarIcon: ICONS.markets }} />
+      <SwipeTabs.Screen name="ranks" options={{ title: 'Ranks', tabBarIcon: ICONS.ranks }} />
+      <SwipeTabs.Screen name="arena" options={{ title: 'Arena', tabBarIcon: ICONS.arena }} />
+      <SwipeTabs.Screen name="you" options={{ title: 'Me', tabBarIcon: ICONS.you }} />
+    </SwipeTabs>
   );
 }
