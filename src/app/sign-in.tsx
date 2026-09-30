@@ -1,6 +1,7 @@
 // Openfort sign-in, with Privy for accounts made before the move to Openfort.
-// Email code needs no dashboard configuration, so it works first; Google and
-// X need the redirect on the dev screen allowlisted in the Openfort dashboard.
+// Google and X lead, as the way we want people in; an email code is one link
+// below them. Google and X need the redirect on the dev screen allowlisted in
+// the Openfort dashboard (and Privy's); an email code needs nothing.
 //
 // After authenticating we recover or create the embedded Solana wallet, then
 // hand the access token to the Mentioned sign-in route, which verifies it
@@ -13,7 +14,7 @@
 // src/auth/wallet-routing.ts for the whole rule.
 import { AccountTypeEnum, ChainTypeEnum, OAuthProvider } from '@openfort/openfort-js';
 import { useEmailAuthOtp, useEmbeddedSolanaWallet, useOAuth, useOpenfortClient, useUser } from '@openfort/react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput } from 'react-native';
 
@@ -34,15 +35,18 @@ import { usePrefs } from '@/store/prefs';
 import { useSession } from '@/store/session';
 import { Button } from '@/ui/button';
 import { Card } from '@/ui/card';
+import { ProviderButton } from '@/ui/provider-button';
+import { TextLink } from '@/ui/text-link';
 import { Loader } from '@/ui/loader';
 import { Screen } from '@/ui/screen';
+import { showToast } from '@/ui/toast';
 import { UsernameForm } from '@/ui/username-form';
 import { colors, fonts, spacing, type } from '@/ui/theme';
 
 export default function SignInScreen() {
   if (!isOpenfortConfigured) {
     return (
-      <Screen title="Sign in" back>
+      <Screen title="Sign in" back actions={false}>
         <Card style={styles.card}>
           <Text style={type.heading}>Not available in this build</Text>
           <Text style={type.muted}>This build was made without the Openfort keys, so sign-in is switched off. Browsing works as normal.</Text>
@@ -61,8 +65,10 @@ type Step =
   | 'privy'
   | 'privy-code'
   | 'privy-wallet'
-  | 'username'
-  | 'done';
+  | 'username';
+
+/** Said once signed in when the server set only its cookie, as it did before bearer sessions. */
+const NO_TOKEN_NOTE = 'Verified by the server. The session token is not returned to mobile yet, so trading stays disabled.';
 
 /** How long the whole wallet step gets before the card offers a way out. */
 const WALLET_STEP_MS = 30_000;
@@ -73,6 +79,10 @@ const NO_LEGACY_LOGIN =
 
 function SignInFlow() {
   const router = useRouter();
+  // A sign-in card elsewhere (Me, Positions, ...) shows the same three ways in
+  // and opens this screen with the one chosen: `google` and `x` start the
+  // browser login at once, `email` opens the email form.
+  const { start } = useLocalSearchParams<{ start?: 'google' | 'x' | 'email' }>();
   const { getAccessToken, isAuthenticated } = useUser();
   const solana = useEmbeddedSolanaWallet();
   const client = useOpenfortClient();
@@ -96,6 +106,8 @@ function SignInFlow() {
 
   const [chosenStep, setStep] = useState<Step | null>(null);
   const [email, setEmail] = useState('');
+  // The email form stays folded under the Google and X buttons until asked for.
+  const [emailOpen, setEmailOpen] = useState(start === 'email');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -324,10 +336,23 @@ function SignInFlow() {
       // If the profile cannot be read, do not block sign-in on it; the You tab
       // asks again whenever the username is missing.
     }
-    setStep(hasName ? 'done' : 'username');
-    setNote(
-      result.sessionToken ? 'Signed in.' : 'Verified by the server. The session token is not returned to mobile yet, so trading stays disabled.',
-    );
+    if (!hasName) return setStep('username');
+    goHome(result.sessionToken ? undefined : NO_TOKEN_NOTE);
+  };
+
+  // Signed in: straight to Home, with a toast to say so, rather than a card
+  // with a Done button. Everything under Home in the stack goes too: this
+  // screen, and the second copy of it a browser login's return can open. When
+  // sign-in is the whole stack (the intro replaced itself with it), Home
+  // replaces it instead.
+  const goHome = (note?: string) => {
+    showToast({ emoji: '👋', title: 'Signed in', body: note });
+    if (router.canDismiss()) {
+      router.dismissAll();
+      router.navigate('/');
+    } else {
+      router.replace('/');
+    }
   };
 
   // The wallet step runs itself: as soon as the SDK reports the person
@@ -351,6 +376,22 @@ function SignInFlow() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, settled, busy, privy.user]);
 
+  // A login chosen on a card starts once, when the SDK has restored and found
+  // nobody signed in. The param is cleared as it is used: the browser login
+  // returns through a deep link that can remount this screen, and a remount
+  // that still read `start` would open the browser a second time.
+  const started = useRef(false);
+  useEffect(() => {
+    if ((start !== 'google' && start !== 'x') || started.current || busy || step !== 'email' || !settled) return;
+    started.current = true;
+    router.setParams({ start: undefined });
+    const provider = start === 'google' ? OAuthProvider.GOOGLE : OAuthProvider.TWITTER;
+    const login = async () => void (await initOAuth({ provider }));
+    void run(login);
+    // run and initOAuth are stable enough for this: it fires once per mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start, busy, step, settled]);
+
   // And nothing at all after this long is a failure, not a wait: the SDK's
   // wallet state can sit in 'connecting' or 'error' indefinitely, in which
   // case `settled` never comes true, the step above never runs, and the card
@@ -368,15 +409,24 @@ function SignInFlow() {
   };
 
   return (
-    <Screen title="Sign in" back>
+    <Screen title="Sign in" back actions={false}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {step === 'email' ? (
-          <Card style={styles.card}>
-            <Text style={type.heading}>Email code</Text>
-            <Text style={type.muted}>No password. We send a code to your email.</Text>
-            <EmailInput value={email} onChangeText={setEmail} />
-            <Button label={busy ? 'Sending' : 'Send code'} onPress={sendCode} disabled={busy || !email.includes('@')} />
-          </Card>
+          <>
+            <Text style={type.muted}>You get a wallet with no seed phrase to remember.</Text>
+            <ProviderButton provider="google" onPress={withGoogle} disabled={busy} />
+            <ProviderButton provider="x" onPress={withX} disabled={busy} />
+            {emailOpen ? (
+              <Card style={styles.card}>
+                <Text style={type.heading}>Email code</Text>
+                <Text style={type.muted}>No password. We send a code to your email.</Text>
+                <EmailInput value={email} onChangeText={setEmail} autoFocus />
+                <Button label={busy ? 'Sending' : 'Send code'} onPress={sendCode} disabled={busy || !email.includes('@')} />
+              </Card>
+            ) : (
+              <TextLink label="Continue with email instead" onPress={() => setEmailOpen(true)} />
+            )}
+          </>
         ) : null}
 
         {step === 'code' ? (
@@ -388,15 +438,6 @@ function SignInFlow() {
           </Card>
         ) : null}
 
-        {step === 'email' ? (
-          <Card style={styles.card}>
-            <Text style={type.heading}>Or continue with</Text>
-            <Button label="Google" tone="neutral" onPress={withGoogle} disabled={busy} />
-            <Button label="X" tone="neutral" onPress={withX} disabled={busy} />
-            <Text style={type.muted}>Social sign-in needs the app redirect allowlisted in Openfort. Email works without it.</Text>
-          </Card>
-        ) : null}
-
         {step === 'privy' ? (
           <>
             <Card style={styles.card}>
@@ -404,15 +445,19 @@ function SignInFlow() {
               <Text style={type.muted}>
                 Your account was made before we upgraded sign-in. Sign in the way you did then to reach it. Your funds and positions are all there.
               </Text>
-              <Button label="Continue with Google" tone="neutral" onPress={() => privyOAuth('google')} disabled={busy} />
-              <Button label="Continue with X" tone="neutral" onPress={() => privyOAuth('twitter')} disabled={busy} />
             </Card>
-            <Card style={styles.card}>
-              <Text style={type.heading}>Or an email code</Text>
-              <EmailInput value={email} onChangeText={setEmail} />
-              <Button label={busy ? 'Sending' : 'Send code'} onPress={privySendCode} disabled={busy || !email.includes('@')} />
-              <Button label="Use a different account" tone="neutral" onPress={startOver} disabled={busy} />
-            </Card>
+            <ProviderButton provider="google" onPress={() => privyOAuth('google')} disabled={busy} />
+            <ProviderButton provider="x" onPress={() => privyOAuth('twitter')} disabled={busy} />
+            {emailOpen ? (
+              <Card style={styles.card}>
+                <Text style={type.heading}>Email code</Text>
+                <EmailInput value={email} onChangeText={setEmail} autoFocus />
+                <Button label={busy ? 'Sending' : 'Send code'} onPress={privySendCode} disabled={busy || !email.includes('@')} />
+              </Card>
+            ) : (
+              <TextLink label="Use an email code instead" onPress={() => setEmailOpen(true)} />
+            )}
+            <Button label="Use a different account" tone="neutral" onPress={startOver} disabled={busy} />
           </>
         ) : null}
 
@@ -454,24 +499,17 @@ function SignInFlow() {
           </Card>
         ) : null}
 
-        {step === 'username' && sessionWallet ? <UsernameForm wallet={sessionWallet} onSaved={() => setStep('done')} /> : null}
+        {step === 'username' && sessionWallet ? <UsernameForm wallet={sessionWallet} onSaved={() => goHome()} /> : null}
 
-        {step === 'done' ? (
-          <Card style={styles.card}>
-            <Text style={type.heading}>Signed in</Text>
-            <Text style={type.muted}>{note}</Text>
-            <Button label="Done" onPress={() => router.replace('/you')} />
-          </Card>
-        ) : null}
-
-        {note && step !== 'done' ? <Text style={type.muted}>{note}</Text> : null}
+        {/* The wallet step's loader already shows the note, and it is stale once that step fails. */}
+        {note && !onWalletStep ? <Text style={type.muted}>{note}</Text> : null}
         {error ? <Text style={[type.body, { color: colors.no }]}>{error}</Text> : null}
       </ScrollView>
     </Screen>
   );
 }
 
-function EmailInput(props: { value: string; onChangeText: (v: string) => void }) {
+function EmailInput(props: { value: string; onChangeText: (v: string) => void; autoFocus?: boolean }) {
   return (
     <TextInput
       {...props}
