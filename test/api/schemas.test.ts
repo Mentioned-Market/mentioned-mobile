@@ -70,6 +70,12 @@ describe('paid YES/NO schemas', () => {
   it('parses every list entry', () => {
     for (const m of ammList.markets) expectParses(PaidMarketListEntry, m);
   });
+  // The website sends a null slug when a market's metadata has none, and one
+  // such market used to fail the whole paid list on the Markets tab.
+  it('accepts a market without a slug', () => {
+    expectParses(PaidMarketListEntry, { ...ammList.markets[0], slug: null });
+    expectParses(PaidMajorityListEntry, { ...majList.markets[0], slug: null });
+  });
   it('parses the account route', () => expectParses(PaidMarketAccount, { account: ammAccount.account, vaultAmount: ammAccount.vaultAmount }));
   it('parses metadata', () => expectParses(PaidMarketMetadata, ammMetadata));
   it('parses the chart', () => expectParses(PaidMarketChart, ammChart));

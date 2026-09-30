@@ -1,4 +1,4 @@
-// PORTED_FROM mentioned/lib/customMarketUtils.ts @ ae8c82e
+// PORTED_FROM mentioned/lib/customMarketUtils.ts @ 7ee2d37
 // Keep byte-identical to the web copy. If the program changes, change both.
 // Mobile edits: import path ./lmsr. Tailwind class helpers kept as plain strings, unused here.
 
@@ -8,10 +8,39 @@ import { virtualSellReturn } from './lmsr'
 
 export type CustomMarketStatus = 'draft' | 'open' | 'locked' | 'resolved' | 'cancelled'
 
+// ── Free-market points ───────────────────────────────────────────────────
+// Client-safe (no server deps) so the trade preview and the resolution scoring
+// (lib/customScoring.ts) share one formula and can't drift.
+
+/** Platform points per token of net virtual profit on a free market. */
+export const VIRTUAL_MARKET_POINTS_MULTIPLIER = 0.2
+
+/**
+ * Max points one wallet can earn from a single free market. Free markets have no
+ * money at stake and no Discord/age gate, so a fresh wallet is cheap: the cap keeps
+ * the per-wallet payoff small enough that farming them with many accounts isn't
+ * worth the effort next to a single paid market (majority max 300, AMM max 500).
+ * Reached at +500 tokens net (doubling the 500-token start).
+ */
+export const VIRTUAL_MARKET_POINTS_CAP = 100
+
+/**
+ * Points a wallet earns from one free market: net virtual profit times the
+ * multiplier, floored at 0 (losers earn nothing) and capped per market.
+ */
+export function computeVirtualMarketPoints(net: number): number {
+  const raw = Math.max(0, Math.floor(net * VIRTUAL_MARKET_POINTS_MULTIPLIER))
+  return Math.min(raw, VIRTUAL_MARKET_POINTS_CAP)
+}
+
+// 'locked' -> 'open' is a deliberate reopen: locking is often preemptive (an
+// admin locks while checking a possible mention) and nothing about it is
+// terminal, so an admin can hand the remaining window back to traders. Only
+// 'resolved' and 'cancelled' are one-way.
 const VALID_TRANSITIONS: Record<string, string[]> = {
   draft: ['open', 'cancelled'],
   open: ['locked', 'cancelled'],
-  locked: ['resolved', 'cancelled'],
+  locked: ['open', 'resolved', 'cancelled'],
   resolved: [],
   cancelled: [],
 }

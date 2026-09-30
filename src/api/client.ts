@@ -6,6 +6,12 @@ import type { z } from 'zod';
 import { fetchWith429Retry } from '@/chain/fetchRetry';
 import { API_BASE } from '@/config';
 
+/**
+ * The code on an ApiError for a response the app could not read. The message
+ * keeps the detail for the logs; the screen says something plain instead.
+ */
+export const BAD_SHAPE = 'BAD_SHAPE';
+
 export class ApiError extends Error {
   constructor(
     public readonly path: string,
@@ -74,7 +80,7 @@ export async function get<S extends z.ZodType>(path: string, schema: S): Promise
     const json: unknown = await res.json();
     const parsed = schema.safeParse(json);
     if (!parsed.success) {
-      throw new ApiError(path, res.status, `Unexpected response shape for ${path}: ${parsed.error.issues[0]?.path.join('.')} ${parsed.error.issues[0]?.message}`);
+      throw new ApiError(path, res.status, `Unexpected response shape for ${path}: ${parsed.error.issues[0]?.path.join('.')} ${parsed.error.issues[0]?.message}`, BAD_SHAPE);
     }
     return parsed.data;
   } finally {
@@ -137,7 +143,7 @@ async function send<S extends z.ZodType>(method: 'POST' | 'PUT' | 'PATCH' | 'DEL
     }
     const parsed = schema.safeParse(json);
     if (!parsed.success) {
-      throw new ApiError(path, res.status, `Unexpected response shape for ${path}: ${parsed.error.issues[0]?.path.join('.')} ${parsed.error.issues[0]?.message}`);
+      throw new ApiError(path, res.status, `Unexpected response shape for ${path}: ${parsed.error.issues[0]?.path.join('.')} ${parsed.error.issues[0]?.message}`, BAD_SHAPE);
     }
     return parsed.data;
   } finally {
