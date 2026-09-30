@@ -1,6 +1,6 @@
 // Lock times arrive as unix seconds from the paid routes and as ISO strings
 // from the free ones. Everything downstream assumes milliseconds.
-import { ago, closesIn, countdown, eventDate, toMs } from '@/lib/time';
+import { URGENT_MS, ago, closesIn, countdown, eventDate, isUrgent, toMs } from '@/lib/time';
 
 const NOW = Date.parse('2026-09-10T12:00:00Z');
 
@@ -38,17 +38,28 @@ describe('closesIn', () => {
     expect(closesIn(NOW + 3 * 3_600_000 + 12 * 60_000, NOW)).toBe('Closes 3h 12m');
   });
 
-  it('counts minutes in the last hour', () => {
-    expect(closesIn(NOW + 8 * 60_000, NOW)).toBe('Closes 8m');
+  it('counts minutes and seconds in the last hour', () => {
+    expect(closesIn(NOW + 8 * 60_000, NOW)).toBe('Closes 8m 00s');
+    expect(closesIn(NOW + 8 * 60_000 + 5_000, NOW)).toBe('Closes 8m 05s');
   });
 
-  it('never says zero minutes', () => {
-    expect(closesIn(NOW + 5_000, NOW)).toBe('Closes 1m');
+  it('counts seconds alone in the last minute, and never says zero', () => {
+    expect(closesIn(NOW + 42_000, NOW)).toBe('Closes 42s');
+    expect(closesIn(NOW + 400, NOW)).toBe('Closes 1s');
   });
 
   it('goes quiet once the lock has passed', () => {
     expect(closesIn(NOW - 1, NOW)).toBeNull();
     expect(closesIn(null, NOW)).toBeNull();
+  });
+});
+
+describe('isUrgent', () => {
+  it('is the last hour before the lock, and nothing else', () => {
+    expect(isUrgent(NOW + URGENT_MS - 1, NOW)).toBe(true);
+    expect(isUrgent(NOW + URGENT_MS, NOW)).toBe(false);
+    expect(isUrgent(NOW - 1, NOW)).toBe(false);
+    expect(isUrgent(null, NOW)).toBe(false);
   });
 });
 

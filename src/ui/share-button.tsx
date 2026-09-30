@@ -24,6 +24,7 @@ import {
 } from '@/api/share';
 import { Button } from '@/ui/button';
 import { colors, spacing, type } from '@/ui/theme';
+import { showAchievements, showPoints } from '@/ui/toast';
 
 type Props = {
   card: ShareCard;
@@ -58,7 +59,10 @@ export function ShareButton({ card, marketId, family, refCode, signedIn }: Props
       Haptics.selectionAsync();
       if (!signedIn) return;
       const recorded = await recordShare(card.kind, marketId);
-      if (recorded.newAchievements.length > 0) setUnlocked(recorded.newAchievements);
+      if (recorded.newAchievements.length > 0) {
+        setUnlocked(recorded.newAchievements);
+        showAchievements(recorded.newAchievements);
+      }
     } catch {
       setError('That did not open. Try again.');
     }
@@ -75,6 +79,7 @@ export function ShareButton({ card, marketId, family, refCode, signedIn }: Props
     try {
       const result = await claimSharePoints(family, marketId, postUrl.trim());
       setClaimed(result.alreadyShared ? 'Already claimed for this market.' : `+${result.awarded} points`);
+      if (!result.alreadyShared) showPoints(result.awarded, 'For sharing this market');
     } catch (e) {
       setError(
         e instanceof ApiError

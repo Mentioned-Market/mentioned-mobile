@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { pct } from '@/lib/format';
+import { LiveNumber } from '@/ui/live-number';
 import { Pill } from '@/ui/pill';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
@@ -56,7 +57,7 @@ export function WordBoard({ words, selected, onToggle, selectable }: Props) {
                 {isSelected && w.winLabel ? w.winLabel : w.countLabel}
               </Text>
             </View>
-            <Text style={[styles.share, w.outcome === 'winner' && { color: colors.yes }]}>{pct(w.share)}</Text>
+            <LiveNumber value={w.share} format={pct} style={StyleSheet.flatten([styles.share, w.outcome === 'winner' && { color: colors.yes }])} />
             {canPick ? (
               <View style={[styles.check, isSelected && styles.checkOn]}>{isSelected ? <Ionicons name="checkmark" size={16} color={colors.bg} /> : null}</View>
             ) : null}

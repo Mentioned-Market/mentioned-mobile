@@ -2,8 +2,7 @@
 // screen. A wrong `false` only costs a re-render; a wrong `true` silently
 // freezes a price, a countdown or a result in front of the user, which is the
 // failure worth pinning here.
-import type { MarketSummary } from '@/markets/merge';
-import { sameMarket } from '@/ui/market-card';
+import { sameMarket, type MarketSummary } from '@/markets/merge';
 
 const BASE: MarketSummary = {
   kind: 'paid-yesno',

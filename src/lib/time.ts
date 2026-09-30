@@ -9,7 +9,24 @@ export function toMs(v: string | number | null | undefined): number | null {
   return Number.isNaN(t) ? null : t;
 }
 
-/** "Closes 2d 4h" / "Closes 3h 12m" / "Closes 8m", or null once passed. */
+/**
+ * The last stretch before a market locks, when its countdown shows seconds and
+ * ticks every second (`useCountdown`). Real urgency, so it can be shown as such.
+ */
+export const URGENT_MS = 3_600_000;
+
+/** Whether a lock time is in the future and inside the last hour. */
+export function isUrgent(lockMs: number | null, now = Date.now()): boolean {
+  if (!lockMs) return false;
+  const diff = lockMs - now;
+  return diff > 0 && diff < URGENT_MS;
+}
+
+/**
+ * "Closes 2d 4h" / "Closes 3h 12m", then with seconds inside the last hour,
+ * "Closes 8m 05s" / "Closes 42s", or null once passed. Seconds are only right
+ * if the caller re-renders every second, which `useCountdown` does.
+ */
 export function closesIn(lockMs: number | null, now = Date.now()): string | null {
   if (!lockMs) return null;
   const diff = lockMs - now;
@@ -20,7 +37,9 @@ export function closesIn(lockMs: number | null, now = Date.now()): string | null
   const mins = Math.floor((diff % 3_600_000) / 60_000);
   if (days > 0) return `Closes ${days}d ${hours}h`;
   if (totalHours > 0) return `Closes ${totalHours}h ${mins}m`;
-  return `Closes ${Math.max(mins, 1)}m`;
+  const secs = Math.floor((diff % 60_000) / 1000);
+  if (mins > 0) return `Closes ${mins}m ${String(secs).padStart(2, '0')}s`;
+  return `Closes ${Math.max(secs, 1)}s`;
 }
 
 /** Bare countdown "2d 4h" / "3h 12m" / "8m 30s" / "0s". */

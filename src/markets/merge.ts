@@ -186,3 +186,35 @@ export function findWordParam(labels: readonly string[], param: string | string[
   if (!wanted) return -1;
   return labels.findIndex((l) => l.trim().toLowerCase() === wanted);
 }
+
+/**
+ * Does this market render identically to that one?
+ *
+ * Deliberately structural rather than by reference: `mergeMarkets` builds fresh
+ * objects on every call and the lists call it on a 30s clock, so every card gets
+ * a new `market` twice a minute even when nothing about it changed. Comparing by
+ * reference here would make the memo a no-op.
+ */
+export function sameMarket(a: MarketSummary, b: MarketSummary): boolean {
+  if (
+    a.id !== b.id ||
+    a.kind !== b.kind ||
+    a.href !== b.href ||
+    a.title !== b.title ||
+    a.cover !== b.cover ||
+    a.status !== b.status ||
+    a.lockAt !== b.lockAt ||
+    a.eventAt !== b.eventAt ||
+    a.traderCount !== b.traderCount ||
+    a.words.length !== b.words.length
+  ) {
+    return false;
+  }
+  if (a.pool.kind !== b.pool.kind) return false;
+  if (a.pool.kind === 'usdc' && b.pool.kind === 'usdc' && a.pool.usd !== b.pool.usd) return false;
+  if (a.pool.kind === 'tokens' && b.pool.kind === 'tokens' && a.pool.tokens !== b.pool.tokens) return false;
+  return a.words.every((w, i) => {
+    const o = b.words[i];
+    return w.label === o.label && w.pct === o.pct && w.outcome === o.outcome;
+  });
+}

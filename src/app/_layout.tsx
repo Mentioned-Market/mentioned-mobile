@@ -24,6 +24,7 @@ import { usePrefs } from '@/store/prefs';
 import { useSession } from '@/store/session';
 import { useWallet } from '@/store/wallet';
 import { colors } from '@/ui/theme';
+import { ToastHost } from '@/ui/toast';
 
 SplashScreen.preventAutoHideAsync();
 logPolyfillChecks();
@@ -140,6 +141,8 @@ export default function RootLayout() {
                   <Stack.Screen name="intro" options={{ animation: 'fade' }} />
                 </Stack>
                 {launching ? <LaunchOverlay onReady={hideSplash} onDone={endLaunch} /> : null}
+                {/* Points and achievement toasts, above every screen. */}
+                <ToastHost />
               </ConfigGate>
             </ThemeProvider>
           </QueryClientProvider>
