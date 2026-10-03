@@ -303,6 +303,60 @@ simulation, twice on a 5xx, a 429 or a dropped connection. Both happen before
 anything is signed, so a retry cannot move money. A JSON-RPC error is an answer,
 not an outage, and is not retried.
 
+### A real-money trade needs the website's integrity confirmation first
+
+On Sep 25 2026 the website began refusing, at its RPC proxy, to broadcast a
+trade on a market the trader has not confirmed its integrity rules for, and
+refusing an Arena entry without the season's own confirmation. The app sent
+trades without asking, so every paid trade on an unconfirmed market failed with
+the raw code `ATTESTATION_REQUIRED`.
+
+The app now asks before it builds anything. `src/trade/use-attestation-gate.tsx`
+reads what is due from `/api/attestations`, shows the checklist, records it and
+only then lets the trade continue. The copy, its versions and the rule for
+which sheet is due are the website's file, ported byte for byte into
+`src/lib/attestation.ts`: a confirmation is a record of the exact words agreed
+to, so the two surfaces must not drift. The decisions (what a 401 says, what a
+variant mismatch does) are in `src/trade/attestation.ts`, unit tested.
+
+Three choices worth knowing:
+
+- The gate runs before the quote is planned, not between the plan and the
+  signature. A quote taken first would be stale by the time the checklist had
+  been read.
+- The sheet reports its outcome only after it has slid away, so the trade's
+  progress is never drawn underneath it, and it cannot be dismissed while the
+  confirmation is being saved, so a cancel cannot race a row into the audit
+  table.
+- Recording is a write to the website and is never retried. A 409
+  `VARIANT_MISMATCH` means nothing was recorded; the app re-reads what is due
+  and shows that sheet instead.
+
+The proxy's refusal is still mapped to a sentence in `useTrade`, as the
+backstop. The gate is the first thing on the paid trade path that needs a live
+session: the proxy itself is unauthenticated, so a wallet whose seven-day
+session has lapsed could trade before and now has to sign in again first.
+
+### The weekly leaderboard steps aside while a season is live
+
+While an Arena season runs, the website pays no weekly prizes and draws no
+raffle; the money goes to the Arena, and the points board is scored over the
+whole season. The app used to show the weekly prize card on Home regardless,
+which during a season read "Prize pool this week $0.00" above a podium nobody
+was being paid for.
+
+Home now leaves that card out while the season is live, and Ranks replaces the
+prize pool and the raffle with a notice: paused for which season, where the
+money is going, and the day the weekly board returns. Before kickoff nothing
+changes, as on the website. The rule and every word of the notice are in
+`weeklyPauseNotice` (`src/lib/arena-view.ts`). This week is decided from the
+ported season registry, so the notice is there on the first frame with no
+request; last week is decided by the `paused` field the prize pool route sends,
+because only the server knows which season a past week fell in.
+
+Home still fetches the points board during a season. Points keep accruing, and
+the "points since your last visit" toast is read from it.
+
 ### The UI is a small set of parts, and screens only arrange them
 
 `src/ui/` holds the whole visual vocabulary after v7: `Screen`, `Card` and
@@ -412,6 +466,17 @@ swipe` faster than about 300ms jumps both thresholds in one event and the pager
 wins; a finger reports in far smaller steps. `freezeOnBlur` became a `Freeze`
 around every tab but the current one and its neighbours, which have to stay
 live to be seen mid-swipe.
+
+A frozen tab draws nothing, which makes the pager's position and the router's
+tab a pair that must never disagree: if the pager rests on a tab the router has
+left, that tab is frozen and the screen is black. It did disagree, on two quick
+taps. Tap Ranks from Home and then Home again before the slide lands: the pager
+compared the tab named with the tab at rest, found Home "already there", and
+let the slide to Ranks run on to a frozen page. The decision is now `reconcile`
+in `src/lib/swipe-nav.ts` (slide, come back, or stay), made on the UI thread in
+one step with the values it reads, so a slide cannot finish between the read
+and the write. Tabs on their way out are kept live as a list rather than one,
+because after two quick taps the page still on screen is from two tabs ago.
 
 ### Moments are only ever for things the server confirmed
 

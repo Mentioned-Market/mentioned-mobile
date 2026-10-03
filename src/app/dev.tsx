@@ -27,8 +27,11 @@ import { usePrivyAuth } from '@/auth/privy';
 import { ensureEmbeddedSigner } from '@/auth/recover-wallet';
 import { usePrefs } from '@/store/prefs';
 import { useWalletLink } from '@/store/wallet-link';
+import type { AttestationVariant } from '@/lib/attestation';
 import { useSession } from '@/store/session';
 import { useWallet } from '@/store/wallet';
+import { AttestationSheet } from '@/ui/attestation-sheet';
+import { BottomSheet } from '@/ui/bottom-sheet';
 import { Card } from '@/ui/card';
 import { Screen } from '@/ui/screen';
 import { showAchievements, showPoints } from '@/ui/toast';
@@ -368,6 +371,10 @@ function MomentsSection() {
   const wins = winKeys(groups.finished);
   const standing = wallet && board.data ? standingOf(board.data, wallet) : null;
   const [previewWin, setPreviewWin] = useState(false);
+  // The confirmation sheets open over another sheet, as they do over the trade
+  // sheet, and save nothing: Confirm here only waits a moment and closes.
+  const [underSheet, setUnderSheet] = useState(false);
+  const [checklist, setChecklist] = useState<AttestationVariant | null>(null);
 
   const replayWin = () => {
     if (!wallet || wins.length === 0) return;
@@ -404,6 +411,27 @@ function MomentsSection() {
         </Pressable>
       </View>
       <WinMomentPreview visible={previewWin} onClose={() => setPreviewWin(false)} />
+      <Text style={type.muted}>The integrity confirmation, over a sheet the way it opens over a trade. Nothing is saved from here:</Text>
+      <Pressable onPress={() => setUnderSheet(true)} style={[styles.button, { alignSelf: 'flex-start' }]}>
+        <Text style={styles.buttonLabel}>Confirmation sheets</Text>
+      </Pressable>
+      <BottomSheet visible={underSheet} onClose={() => setUnderSheet(false)} title="Standing in for the trade sheet">
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingBottom: spacing.md }}>
+          {(['full', 'compact', 'arena'] as const).map((v) => (
+            <Pressable key={v} onPress={() => setChecklist(v)} style={styles.button}>
+              <Text style={styles.buttonLabel}>{v}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </BottomSheet>
+      {checklist ? (
+        <AttestationSheet
+          key={checklist}
+          variant={checklist}
+          onConfirm={() => new Promise<true>((resolve) => setTimeout(() => resolve(true), 800))}
+          onClosed={() => setChecklist(null)}
+        />
+      ) : null}
       <Text style={type.muted}>{"Home's Seeker offer, with sample amounts (the buttons do nothing here):"}</Text>
       {SEEKER_SAMPLES.map((sample) => {
         const offer = seekerHomeOffer(sample.status, sample.justFunded);

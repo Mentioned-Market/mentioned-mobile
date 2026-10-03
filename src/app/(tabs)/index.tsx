@@ -2,8 +2,10 @@
 // a day. Signed out, it opens on what Mentioned is (HowItWorks). Then it
 // answers, in order: what you have riding (when signed in), what
 // closes next, who is winning this week, what just settled. An open Arena
-// season leads. Below that, the latest picks across every market, which is the
-// part worth scrolling for.
+// season leads, and while it is live the week's prize pool and podium are not
+// shown at all: the weekly board is paused then, so its card would advertise a
+// $0.00 pool nobody can win. Below that, the latest picks across every market,
+// which is the part worth scrolling for.
 //
 // Each answer has its own shape (docs/DESIGN.md): the week is a podium on a
 // gold card, what closes next is a rail of cover images, what settled is a
@@ -22,7 +24,7 @@ import { CURRENT_ARENA, arenaStatus } from '@/arena/arenas';
 import { FLAVOR } from '@/config';
 import { shortAddress, usd } from '@/lib/format';
 import { countdown } from '@/lib/time';
-import { formatCountdown, leaderboardPool, seasonCountdown } from '@/lib/arena-view';
+import { weeklyPaused } from '@/lib/arena-view';
 import { tickerItems } from '@/lib/ticker';
 import { useCountdown } from '@/lib/use-countdown';
 import { useNow } from '@/lib/use-now';
@@ -74,7 +76,14 @@ export default function HomeScreen() {
   const paidMajority = usePaidMajorityList(focused);
   const paidYesNo = usePaidMarketsList(focused);
   const free = useFreeList(focused);
-  const pool = usePrizePool(undefined, focused);
+  // A season in progress is what Home leads with. Before kickoff the week still
+  // runs, so its prize pool and podium sit below the ticker; once the season is
+  // live the weekly board is paused and Home does not show it. The pool is not
+  // fetched then; the board still is, because points keep accruing through a
+  // season and the "points since your last visit" toast is read from it.
+  const arenaOpen = arenaStatus(CURRENT_ARENA) !== 'ended';
+  const weeklyOff = weeklyPaused(CURRENT_ARENA);
+  const pool = usePrizePool(undefined, focused && !weeklyOff);
   const board = useLeaderboard('current', wallet, focused);
   const trades = useRecentTrades(focused);
   // One feed, two views: the ticker slides the latest twenty past, Activity
@@ -99,19 +108,16 @@ export default function HomeScreen() {
 
   const refetchAll = () => {
     setRefreshing(true);
-    Promise.all([paidMajority.refetch(), paidYesNo.refetch(), free.refetch(), pool.refetch(), board.refetch(), trades.refetch(), positions.refetch()]).finally(() =>
+    Promise.all([paidMajority.refetch(), paidYesNo.refetch(), free.refetch(), ...(weeklyOff ? [] : [pool.refetch()]), board.refetch(), trades.refetch(), positions.refetch()]).finally(() =>
       setRefreshing(false),
     );
   };
 
   const weekEnd = pool.data ? Date.parse(pool.data.weekEnd) : null;
-  // A season in progress is what Home leads with; the week's prize pool and
-  // podium move below the ticker until it ends.
-  const arenaOpen = arenaStatus(CURRENT_ARENA) !== 'ended';
   const top = (board.data?.data ?? []).slice(0, 3);
 
-  /** The week's prize pool and its podium; placed above or below by `arenaOpen`. */
-  const weeklyBoard =
+  /** The week's prize pool and its podium; placed above or below by `arenaOpen`, and absent while the week is paused. */
+  const weeklyBoard = weeklyOff ? null :
     board.isPending && !board.data && pool.isPending ? (
       <RowsSkeleton />
     ) : board.isError && !board.data ? (

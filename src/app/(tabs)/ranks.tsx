@@ -1,17 +1,24 @@
 // Ranks (SPEC v1 step 3): weekly points board with your row pinned, the prize
 // pool split, and the raffle. The leaderboard route only knows this week and
 // last week, so the switcher toggles between the two.
+//
+// While an Arena season is live the weekly board is paused: no payouts, no
+// raffle, and the points below cover the season. The screen says so in place
+// of the prize pool and the raffle, which would otherwise show $0.00 and a
+// draw that is not happening (weeklyPauseNotice in src/lib/arena-view.ts).
 import { Ionicons } from '@expo/vector-icons';
-import { Link, type Href } from 'expo-router';
+import { Link, useRouter, type Href } from 'expo-router';
 import { memo, useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { useIsScreenFocused, useLeaderboard, usePrizePool, useRaffle } from '@/api/queries';
 import type { LeaderboardEntry, LeaderboardWeek } from '@/api/user';
 import { shortAddress, usd } from '@/lib/format';
+import { weeklyPauseNotice } from '@/lib/arena-view';
 import { raffleRules, raffleShare } from '@/lib/raffle-view';
 import { useActiveWallet } from '@/store/active-wallet';
 import { CURRENT_ARENA, arenaStatus } from '@/arena/arenas';
+import { Button } from '@/ui/button';
 import { BottomSheet } from '@/ui/bottom-sheet';
 import { Card, SectionTitle, Stat } from '@/ui/card';
 import { Pill } from '@/ui/pill';
@@ -63,6 +70,10 @@ export default function RanksScreen() {
   const myIndex = viewed ? rows.findIndex((e) => e.wallet === viewed) : -1;
   const pinned = board.data?.userEntry ?? null;
   const arena = arenaStatus(CURRENT_ARENA);
+  const router = useRouter();
+  // Set when an Arena season stands in for the week being looked at.
+  const pause = weeklyPauseNotice(week, CURRENT_ARENA, pool.data?.paused);
+  const span = week === 'current' && arena === 'active' ? 'this season' : 'this week';
 
   // The rows are one card drawn in pieces: the first piece takes the top
   // corners, the last the bottom ones, and a hairline sits between each pair.
@@ -108,7 +119,17 @@ export default function RanksScreen() {
                 <Text style={[type.muted, { textAlign: 'center' }]}>{rangeLabel(board.data?.weekStart, board.data?.weekEnd ?? pool.data?.weekEnd)}</Text>
               </View>
 
-              {pool.isPending ? (
+              {pause ? (
+                <Card style={styles.pause}>
+                  <View style={styles.pauseHead}>
+                    <Text style={styles.pauseEmoji}>{pause.emoji}</Text>
+                    <Text style={styles.pauseTitle}>{pause.title}</Text>
+                  </View>
+                  <Text style={type.muted}>{pause.body}</Text>
+                  {pause.returns ? <Text style={type.body}>{pause.returns}</Text> : null}
+                  <Button label="View Arena" size="sm" onPress={() => router.navigate('/arena')} />
+                </Card>
+              ) : pool.isPending ? (
                 <Skeleton height={160} radius={radius.card} />
               ) : pool.isError ? (
                 <ErrorState error={pool.error} onRetry={() => pool.refetch()} title="Could not load the prize pool" />
@@ -129,7 +150,7 @@ export default function RanksScreen() {
                 </Card>
               )}
 
-              {raffle.isPending ? (
+              {pause ? null : raffle.isPending ? (
                 <Skeleton height={120} radius={radius.card} />
               ) : raffle.isError ? (
                 <ErrorState error={raffle.error} onRetry={() => raffle.refetch()} title="Could not load the raffle" />
@@ -170,20 +191,20 @@ export default function RanksScreen() {
                 </Card>
               )}
 
-              <SectionTitle title="Points" />
+              <SectionTitle title={span === 'this season' ? 'Season points' : 'Points'} />
               {board.isPending ? (
                 <RowsSkeleton />
               ) : board.isError ? (
                 <ErrorState error={board.error} onRetry={() => board.refetch()} title="Could not load the leaderboard" />
               ) : viewed && myIndex === -1 && !pinned ? (
-                <Text style={type.muted}>Your wallet has no points this week yet.</Text>
+                <Text style={type.muted}>Your wallet has no points {span} yet.</Text>
               ) : null}
             </View>
             {boardReady && pinned ? <Row entry={pinned} rank={null} you top bottom={rows.length === 0} /> : null}
           </View>
         }
         ListEmptyComponent={
-          boardReady && rows.length === 0 ? <EmptyState title="No points yet this week" body="Make a pick to get on the board." /> : null
+          boardReady && rows.length === 0 ? <EmptyState title={`No points yet ${span}`} body="Make a pick to get on the board." /> : null
         }
       />
       <BottomSheet visible={raffleInfo} onClose={() => setRaffleInfo(false)} title="How the raffle works">
@@ -235,6 +256,10 @@ const styles = StyleSheet.create({
   weekRow: { alignItems: 'center', gap: spacing.sm },
   poolAmount: { fontFamily: fonts.bold, fontSize: 40, lineHeight: 48, color: colors.text, fontVariant: ['tabular-nums'], letterSpacing: -0.5 },
   statRow: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.sm },
+  pause: { gap: spacing.sm, backgroundColor: colors.goldTint },
+  pauseHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  pauseEmoji: { fontSize: 24, lineHeight: 30 },
+  pauseTitle: { flex: 1, fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: colors.gold },
 
 
   row: {

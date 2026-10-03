@@ -111,6 +111,12 @@ describe('user schemas', () => {
   it('parses a public profile', () => expectParses(PublicProfile, publicProfile));
   it('parses the leaderboard', () => expectParses(Leaderboard, leaderboard));
   it('parses the prize pool', () => expectParses(PrizePool, prizePool));
+  it('reads the Arena pause on a week a season replaced, and its absence on any other', () => {
+    expect(PrizePool.parse(prizePool).paused?.arena).toBe('worlds-fair');
+    const { paused: _paused, ...normalWeek } = prizePool;
+    expect(PrizePool.parse(normalWeek).paused).toBeUndefined();
+    expect(PrizePool.parse({ ...prizePool, paused: null }).paused).toBeNull();
+  });
   it('parses a prize split with no place or medal', () => {
     // The raffle row carries a null place and medal; a strict schema broke here.
     expectParses(PrizePool, { ...prizePool, split: [{ kind: 'raffle', place: null, label: 'Raffle', medal: null, pct: 0.1, usd: 10 }] });

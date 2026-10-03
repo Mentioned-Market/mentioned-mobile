@@ -132,6 +132,13 @@ The path is one call for a screen, in [`src/trade/send.ts`](src/trade/send.ts):
 5. **Broadcast and confirm** through the website's RPC proxy, retrying only
    what is safe to retry.
 
+Before any of that, a real-money trade or an Arena entry asks for the website's
+integrity confirmation if the wallet still owes one: a short checklist, once in
+full and then one line per market
+([`src/trade/use-attestation-gate.tsx`](src/trade/use-attestation-gate.tsx)).
+The website refuses to broadcast without it. It needs a live session, so a
+lapsed one is asked to sign in again.
+
 A confirmation timeout is reported as "may still land", never as a failure. A
 basket that is split across transactions reports how many parts went through,
 so nothing is paid for twice. See `docs/ENGINEERING.md` for why each of those

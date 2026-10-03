@@ -25,6 +25,7 @@ import { useSession } from '@/store/session';
 import { TradeInputError } from '@/trade/amm';
 import { BUYS_PER_TX, checkCoinedWord, friendlyMajorityError, MIN_SOL_FOR_FEES, planMajorityBuy } from '@/trade/majority';
 import { fundsShortfall } from '@/trade/funds';
+import { useAttestationGate } from '@/trade/use-attestation-gate';
 import { useTrade } from '@/trade/use-trade';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
@@ -61,6 +62,7 @@ export default function PaidMajorityScreen() {
   const usdcBalance = useUsdcBalance(viewed, focused);
   const sol = useSolBalance(viewed, focused);
   const trade = useTrade();
+  const attestation = useAttestationGate();
   const sheetRef = useRef<BottomSheetHandle>(null);
   // The server can pause trading; claims elsewhere are never paused.
   const features = useFeatures();
@@ -213,6 +215,13 @@ export default function PaidMajorityScreen() {
     }
     if (sol.data !== undefined && sol.data < MIN_SOL_FOR_FEES) {
       setInputError('You need about 0.004 SOL for network fees, and a small refundable deposit for any new word. Add SOL to your wallet to trade.');
+      return;
+    }
+
+    // Asked before the plan is built, for the reason given in paid/[id].tsx.
+    const gate = await attestation.requireTrade('majority', id);
+    if (!gate.ok) {
+      if (gate.error) setInputError(gate.error);
       return;
     }
 
@@ -447,6 +456,7 @@ export default function PaidMajorityScreen() {
         )}
       </BottomSheet>
 
+      {attestation.sheet}
       {sessionWallet ? <DepositSheet key={fund ?? 'USDC'} visible={fund !== null} onClose={() => setFund(null)} wallet={sessionWallet} initialAsset={fund ?? 'USDC'} /> : null}
     </Screen>
   );

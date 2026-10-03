@@ -1,4 +1,5 @@
 import {
+  reconcile,
   EDGE_RESISTANCE,
   SETTLE_MAX_MS,
   SETTLE_MIN_MS,
@@ -105,5 +106,23 @@ describe('thresholds', () => {
 
   it('can only commit a flick after it has activated', () => {
     expect(SWIPE_FLICK_MIN_DISTANCE).toBeGreaterThan(SWIPE_ACTIVATE);
+  });
+});
+
+describe('reconcile', () => {
+  it('slides when the router names a tab other than the one at rest', () => {
+    expect(reconcile(2, 0, false)).toBe('slide');
+    // Even mid-slide: tap Ranks, then Arena before it arrives.
+    expect(reconcile(3, 0, true)).toBe('slide');
+  });
+
+  it('comes back when the tab named is at rest but a slide away from it is in flight', () => {
+    // Tap Ranks from Home, then Home again before the slide lands. Treating
+    // this as "already there" left the pager on Ranks, frozen and black.
+    expect(reconcile(0, 0, true)).toBe('return');
+  });
+
+  it('stays put after a swipe, which moves the pages before it tells the router', () => {
+    expect(reconcile(1, 1, false)).toBe('stay');
   });
 });

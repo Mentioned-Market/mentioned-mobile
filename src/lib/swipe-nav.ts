@@ -92,3 +92,22 @@ export function settleDuration(remaining: number, velocityX: number): number {
   const ms = (Math.abs(remaining) / speed) * 1000;
   return Math.min(Math.max(ms, SETTLE_MIN_MS), SETTLE_MAX_MS);
 }
+
+/**
+ * What the pager does when the router names a tab, from wherever the pages
+ * are at that instant:
+ *
+ *  - `slide`: another tab is at rest, so slide from it to the one named.
+ *  - `return`: the tab named is the one at rest, but a slide away from it is
+ *    in flight (tap a tab, then tap back before it arrives). Bring it back.
+ *    Leaving that slide to finish is what parked the pager on a tab the router
+ *    had already left, and that tab was frozen, which drew as a black screen.
+ *  - `stay`: the tab named is at rest and nothing is moving, which is how a
+ *    finished swipe looks, because a swipe moves the pages before it tells the
+ *    router.
+ */
+export function reconcile(to: number, atRest: number, settling: boolean): 'slide' | 'return' | 'stay' {
+  'worklet';
+  if (to !== atRest) return 'slide';
+  return settling ? 'return' : 'stay';
+}

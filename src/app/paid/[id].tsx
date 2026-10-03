@@ -48,6 +48,7 @@ import {
   spendKey,
   useSessionSpend,
 } from '@/trade/spend';
+import { useAttestationGate } from '@/trade/use-attestation-gate';
 import { useTrade } from '@/trade/use-trade';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
@@ -108,6 +109,7 @@ export default function PaidYesNoScreen() {
   // deposit sheet on the asset that ran out.
   const [fund, setFund] = useState<'USDC' | 'SOL' | null>(null);
   const trade = useTrade();
+  const attestation = useAttestationGate();
   const sheetRef = useRef<BottomSheetHandle>(null);
   // The server can pause trading; claims elsewhere are never paused.
   const features = useFeatures();
@@ -261,6 +263,15 @@ export default function PaidYesNoScreen() {
     const limit = mode === 'buy' ? buyLimitError(Number(toBaseUnits(amount)), remaining, side) : null;
     if (limit) {
       setInputError(limit);
+      return;
+    }
+
+    // The website will not broadcast a trade on a market this wallet has not
+    // confirmed the integrity rules for, so ask before building anything: a
+    // quote taken first would be stale by the time the checklist was read.
+    const gate = await attestation.requireTrade('amm', id);
+    if (!gate.ok) {
+      if (gate.error) setInputError(gate.error);
       return;
     }
 
@@ -517,6 +528,7 @@ export default function PaidYesNoScreen() {
         ) : null}
       </BottomSheet>
 
+      {attestation.sheet}
       {sessionWallet ? <DepositSheet key={fund ?? 'USDC'} visible={fund !== null} onClose={() => setFund(null)} wallet={sessionWallet} initialAsset={fund ?? 'USDC'} /> : null}
     </Screen>
   );

@@ -157,6 +157,7 @@ above. Put a header on each copy:
 | `lib/virtualLmsr.ts` | `src/free/lmsr.ts` | None |
 | `lib/customMarketUtils.ts` | `src/free/marketUtils.ts` | Drop the Tailwind class helpers or keep them as plain strings |
 | `lib/seekerLinkMessage.ts` | `src/lib/seekerLinkMessage.ts` | None (the message the Seed Vault signs to link a Seeker) |
+| `lib/attestation.ts` | `src/lib/attestation.ts` | None (integrity confirmation copy, versions and the rule for which one is due) |
 | `lib/solanaConfig.ts` | not copied | Replaced by `src/config.ts` |
 
 Do not copy `lib/rpcProxy.ts` (reads `window.location`) or anything that

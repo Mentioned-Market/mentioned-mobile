@@ -36,16 +36,19 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Dimensions, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Freeze } from 'react-freeze';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { Easing, cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { Easing, cancelAnimation, runOnJS, runOnUI, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { SWIPE_ACTIVATE, SWIPE_FAIL_Y, dragOffset, dragPeer, pageTranslate, settleDuration, settleTarget } from '@/lib/swipe-nav';
+import { SWIPE_ACTIVATE, SWIPE_FAIL_Y, dragOffset, dragPeer, pageTranslate, reconcile, settleDuration, settleTarget } from '@/lib/swipe-nav';
 
 const SPRING = { damping: 22, stiffness: 240, mass: 0.7, overshootClamping: true } as const;
 const TAP_TIMING = { duration: 260, easing: Easing.out(Easing.cubic) } as const;
 
 /** Where a page that is not on screen is parked. Far enough to be neither drawn nor touched. */
 const OFFSCREEN = 100_000;
+
+/** No tab is on its way out. One array, so clearing an empty list is not a state change. */
+const NONE: number[] = [];
 
 /** The tab at `index` and the ones either side of it. */
 function near(index: number, count: number): number[] {
@@ -72,47 +75,69 @@ function SwipeTabView({ state, navigation, descriptors }: ViewProps) {
   // Pages are mounted once visited, and the neighbours of the current tab
   // ahead of time so a swipe always has a page to reveal.
   const [loaded, setLoaded] = useState(() => new Set(near(state.index, count).map((i) => state.routes[i].key)));
-  // The tab being left. It stays unfrozen until its slide out has finished,
-  // however far away the new tab is.
-  const [leaving, setLeaving] = useState(-1);
+  // The tabs being left. They stay unfrozen until the slide has finished,
+  // however far away the new tab is. A list, not one tab: tap a second tab
+  // while the first slide is in flight and the page still on screen is the one
+  // from two tabs ago. A frozen page draws nothing, so freezing it early
+  // slides a black rectangle out instead of the screen.
+  const [leaving, setLeaving] = useState(NONE);
   const [seenIndex, setSeenIndex] = useState(state.index);
   if (seenIndex !== state.index) {
     setSeenIndex(state.index);
-    setLeaving(seenIndex);
+    setLeaving([...leaving, seenIndex]);
     const missing = near(state.index, count).filter((i) => !loaded.has(state.routes[i].key));
     if (missing.length > 0) setLoaded(new Set([...loaded, ...missing.map((i) => state.routes[i].key)]));
   }
 
-  // The tab a finished swipe moved to, set on the UI thread before it tells
-  // the router, so the effect below knows the pages are already there.
-  const swipedTo = useSharedValue(-1);
+  const settled = () => setLeaving(NONE);
 
-  // A change of tab the pager did not make itself (the tab bar, the back
-  // button, a link) slides from the old page to the new one.
+  // The router named a tab: bring the pages to it. Decided on the UI thread,
+  // in one step with the values it reads. Deciding on the JS thread and then
+  // writing left a gap in which a slide could finish, and it also only ever
+  // compared the tab named with the tab at rest: tap Ranks, then Home before
+  // the slide arrives, and Home was "already there", so the slide to Ranks ran
+  // on and ended on a tab the router had left. That tab was frozen, and the
+  // screen was black until the next tap. See `reconcile`.
   useEffect(() => {
-    const to = state.index;
-    if (swipedTo.get() === to) {
-      swipedTo.set(-1);
-      return;
-    }
-    const from = visual.get();
-    if (from === to) return;
-    const w = width.get();
-    cancelAnimation(offset);
-    settling.set(true);
-    peer.set(to);
-    offset.set(0);
-    offset.set(
-      withTiming(to > from ? -w : w, TAP_TIMING, (finished) => {
-        if (!finished) return;
-        visual.set(to);
-        peer.set(-1);
-        offset.set(0);
-        settling.set(false);
-        runOnJS(setLeaving)(-1);
-      }),
-    );
-  }, [state.index, visual, peer, offset, width, settling, swipedTo]);
+    runOnUI((to: number) => {
+      'worklet';
+      const move = reconcile(to, visual.get(), settling.get());
+      if (move === 'stay') {
+        // Nothing to slide (a finished swipe lands here), so nothing is leaving.
+        runOnJS(settled)();
+        return;
+      }
+      cancelAnimation(offset);
+      settling.set(true);
+      if (move === 'return') {
+        offset.set(
+          withTiming(0, TAP_TIMING, (finished) => {
+            if (!finished) return;
+            peer.set(-1);
+            settling.set(false);
+            runOnJS(settled)();
+          }),
+        );
+        return;
+      }
+      const from = visual.get();
+      const w = width.get();
+      peer.set(to);
+      offset.set(0);
+      offset.set(
+        withTiming(to > from ? -w : w, TAP_TIMING, (finished) => {
+          if (!finished) return;
+          visual.set(to);
+          peer.set(-1);
+          offset.set(0);
+          settling.set(false);
+          runOnJS(settled)();
+        }),
+      );
+    })(state.index);
+    // The shared values and `settled` are stable; only a change of tab runs this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.index]);
 
   const onSwiped = (to: number) => {
     void Haptics.selectionAsync();
@@ -154,7 +179,6 @@ function SwipeTabView({ state, navigation, descriptors }: ViewProps) {
           peer.set(-1);
           offset.set(0);
           settling.set(false);
-          swipedTo.set(to);
           runOnJS(onSwiped)(to);
         }),
       );
@@ -168,7 +192,7 @@ function SwipeTabView({ state, navigation, descriptors }: ViewProps) {
             if (!loaded.has(route.key)) return null;
             const descriptor = descriptors[route.key];
             const focused = i === state.index;
-            const live = Math.abs(i - state.index) <= 1 || i === leaving;
+            const live = Math.abs(i - state.index) <= 1 || leaving.includes(i);
             return (
               <Page key={route.key} page={i} focused={focused} visual={visual} peer={peer} offset={offset} width={width} style={descriptor.options.sceneStyle}>
                 {/* Freezing is what keeps five mounted tabs cheap: a frozen tab

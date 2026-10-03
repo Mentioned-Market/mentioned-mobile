@@ -2,7 +2,8 @@
 // countdowns, labels, input checks that match the server's, and the wording of
 // errors. Kept pure so it is tested, and so the screens stay about layout.
 import { ApiError } from '@/api/client';
-import type { Arena, ArenaStatus } from '@/arena/arenas';
+import { arenaStatus, getArenaBySlug, type Arena, type ArenaStatus } from '@/arena/arenas';
+import { ARENA_REFUSED, isAttestationRefusal } from '@/trade/attestation';
 
 export const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -24,6 +25,76 @@ export function seasonCountdown(arena: Arena, now: number): { label: string; ms:
   if (now < arena.start.getTime()) return { label: 'Starts in', ms: arena.start.getTime() - now };
   if (now < arena.end.getTime()) return { label: 'Ends in', ms: arena.end.getTime() - now };
   return null;
+}
+
+// ── The weekly pause ────────────────────────────────────────────────────────
+// The weekly leaderboard, its payouts and its raffle stop while a season is
+// live, and all prize money goes to the Arena instead. Points still accrue, but
+// the server scores the board over the whole season. Before kickoff the week
+// runs as normal. The website's rule (app/leaderboard/page.tsx), said the same
+// way here so the two surfaces do not disagree about where the money is.
+
+/** True only while the season is live: an upcoming one pauses nothing yet. */
+export function weeklyPaused(arena: Arena, now: Date = new Date()): boolean {
+  return arenaStatus(arena, now) === 'active';
+}
+
+/** What the server says about a week an Arena replaced (`paused` on the prize pool route). */
+export type ServerPause = { arena: string; name: string; displayRange: string; resumesAt: string };
+
+export type WeeklyPauseNotice = {
+  emoji: string;
+  title: string;
+  body: string;
+  /** When the weekly board comes back, or null once it already has. */
+  returns: string | null;
+};
+
+const utcDay = (d: Date, weekday = false) =>
+  d.toLocaleDateString('en-US', { ...(weekday ? { weekday: 'long' as const } : {}), month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+/** A season's window with its dash spelled out: "Sep 28 to Oct 11, 2026". */
+const rangeText = (displayRange: string) => displayRange.replace(/\s*[\u2013\u2014-]\s*/, ' to ');
+
+/** Where the season's money goes: "$1,000 across the top 10 teams and 8 medals worth $500". */
+export function arenaPrizeLine(arena: Arena): string {
+  const teams = `the top ${arena.prizes.length} teams`;
+  const b = arena.bounty;
+  return b ? `${b.leaderboardPool} across ${teams} and ${b.bounties.length} medals worth ${b.bountyPool}` : `${arena.prizePool} across ${teams}`;
+}
+
+/**
+ * The notice Ranks shows in place of the prize pool and the raffle, or null
+ * for a week that runs as normal.
+ *
+ * This week is decided from the ported registry, so the notice is there on the
+ * first frame. Any other week is decided by the server's `paused`, which knows
+ * which season a past week fell in; a season this build has never heard of
+ * still gets a notice, from the name and dates the server sent.
+ */
+export function weeklyPauseNotice(week: 'current' | 'last', current: Arena, server: ServerPause | null | undefined, now: Date = new Date()): WeeklyPauseNotice | null {
+  if (week === 'current' && weeklyPaused(current, now)) return liveNotice(current);
+  if (!server) return null;
+  const known = getArenaBySlug(server.arena);
+  if (known && weeklyPaused(known, now)) return liveNotice(known);
+  const resumes = new Date(server.resumesAt);
+  const over = !(now < resumes);
+  return {
+    emoji: known?.emoji ?? '⚔️',
+    title: over ? `The ${server.name} Arena ran in place of this week` : `Weekly leaderboard paused for the ${server.name} Arena`,
+    body: `No weekly payouts and no raffle for this week. The prize money went to the Arena (${rangeText(server.displayRange)}) instead.`,
+    returns: over ? null : `The weekly leaderboard returns on ${utcDay(resumes, true)}.`,
+  };
+}
+
+function liveNotice(arena: Arena): WeeklyPauseNotice {
+  return {
+    emoji: arena.emoji,
+    title: `Weekly leaderboard paused for the ${arena.name} Arena`,
+    body: `No weekly payouts and no raffle while the Arena runs (${rangeText(arena.displayRange)}). The prize money goes to the Arena instead: ${arenaPrizeLine(arena)}. Points still count here, but this board covers the whole season rather than one week. To win prizes right now, join a team in the Arena.`,
+    // The season's end is exclusive, so that day is the first of the weekly cycle again.
+    returns: `The weekly leaderboard returns on ${utcDay(arena.end, true)}.`,
+  };
 }
 
 /** The pill on a season's hero. */
@@ -124,6 +195,7 @@ export function avatarError(fileSize: number | undefined, mimeType: string | und
  */
 export function friendlyTeamError(e: unknown): string {
   if (!(e instanceof ApiError)) return 'That did not go through. Check your connection and try again.';
+  if (isAttestationRefusal(e.message ?? '')) return ARENA_REFUSED;
   const m = (e.message ?? '').toLowerCase();
   if (m.includes('already in a team')) return 'You are already on a team this season.';
   if (m.includes('arena has ended')) return 'This season has ended.';
