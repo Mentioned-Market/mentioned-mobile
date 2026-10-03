@@ -55,6 +55,8 @@ export const PrizePool = z.object({
     }),
   ),
   isCurrent: z.boolean(),
+  /** Set for a week an Arena season replaced: no payouts, no raffle. Absent before the web sent it. */
+  paused: z.object({ arena: z.string(), name: z.string(), displayRange: z.string(), resumesAt: z.string() }).nullable().optional(),
 });
 export type PrizePool = z.infer<typeof PrizePool>;
 

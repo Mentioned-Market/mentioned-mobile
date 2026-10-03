@@ -117,7 +117,7 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <Screen title="Notifications" back right={signedIn ? <IconButton name="settings-outline" label="Notification settings" href="/notification-settings" /> : undefined}>
+    <Screen title="Notifications" back actions={['search', 'chat']} right={signedIn ? <IconButton name="settings-outline" label="Notification settings" href="/notification-settings" /> : undefined}>
       {!signedIn ? (
         <SignInCard />
       ) : (

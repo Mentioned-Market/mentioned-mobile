@@ -8,7 +8,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, type Href } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { createTeam, joinTeam, type MyTeam, type TeamLeaderboardEntry } from '@/api/arena';
@@ -27,8 +27,10 @@ import {
   leaderboardPool,
   appCopy,
 } from '@/lib/arena-view';
+import { ARENA_EXISTING_MEMBER_COPY } from '@/lib/attestation';
 import { useNow } from '@/lib/use-now';
 import { useSession } from '@/store/session';
+import { useAttestationGate } from '@/trade/use-attestation-gate';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
 import { Card, SectionTitle, Stat, rowStyle } from '@/ui/card';
@@ -66,6 +68,7 @@ export default function ArenaScreen() {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const attestation = useAttestationGate();
 
   const rows = useMemo(() => [...(board.data?.data ?? [])].sort((a, b) => b.weekly_points - a.weekly_points), [board.data]);
 
@@ -100,6 +103,14 @@ export default function ArenaScreen() {
       setConfirming(true);
       return;
     }
+    // Entering the Arena needs the season's "one account, one player"
+    // confirmation; the team routes refuse without it. Asked at the commit,
+    // not before, so backing out of the team never leaves a confirmation behind.
+    const gate = await attestation.requireArena();
+    if (!gate.ok) {
+      if (gate.error) setFormError(gate.error);
+      return;
+    }
     setBusy(true);
     setFormError(null);
     try {
@@ -116,6 +127,18 @@ export default function ArenaScreen() {
   };
 
   const myTeam = wallet ? mine.data : null;
+
+  // Members who entered before the confirmation existed are asked once per
+  // visit until they confirm, as on the website. Dismissing it removes nobody
+  // from a team, but prizes are only paid to wallets that have confirmed.
+  const { requireArena } = attestation;
+  const promptedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focused || !wallet || !myTeam || !entryOpen) return;
+    if (promptedFor.current === wallet) return;
+    promptedFor.current = wallet;
+    void requireArena({ copy: ARENA_EXISTING_MEMBER_COPY });
+  }, [focused, wallet, myTeam, entryOpen, requireArena]);
 
   const switcher =
     SEASONS.length > 1 ? (
@@ -354,6 +377,7 @@ export default function ArenaScreen() {
           )
         ) : null}
       </BottomSheet>
+      {attestation.sheet}
     </Screen>
   );
 }

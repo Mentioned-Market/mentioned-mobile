@@ -3,6 +3,8 @@
 import { address as toAddress } from '@solana/kit';
 
 import * as arena from '../src/api/arena';
+import * as chat from '../src/api/chat';
+import { chatEventId } from '../src/chat/rules';
 import * as free from '../src/api/free';
 import * as paidMajority from '../src/api/paidMajority';
 import * as paidMarkets from '../src/api/paidMarkets';
@@ -106,6 +108,19 @@ async function main() {
   add('custom/[id]/results', async () => `${(await results.getFreeResults(resolvedFree.id)).leaderboard.length} rows`);
   add('profile/[username]', async () => `${(await user.getPublicProfile('Michael_Donnn')).stats.allTimePoints} points`);
   add('search', async () => { const r = await user.search('mich'); return `${r.results.length} players, ${r.markets.length} markets`; });
+
+  // Chat. The event ids are the website's (src/chat/rules.ts chatEventId);
+  // an empty market room is fine, a shape change is not.
+  add('chat (global)', async () => `${(await chat.getChat(null)).length} messages`);
+  add('chat/latest-id', async () => `latest ${(await chat.getGlobalChatLatest()).latestId}`);
+  add('chat/event (free market room)', async () => `${(await chat.getChat(chatEventId('free-yesno', freeSheet.id))).length} messages`);
+  add('chat/event (paid market room, paged)', async () => {
+    const room = chatEventId('paid-yesno', amm.marketId);
+    const rows = await chat.getChat(room);
+    if (rows.length === 0) return 'empty room, nothing to page';
+    const older = await chat.getChatBefore(room, rows[0].id);
+    return `${rows.length} newest, ${older.messages.length} older, hasMore ${older.hasMore}`;
+  });
 
   // The wallet balance is read from the chain rather than from an API route, so
   // it fails independently of everything above: the proxy could stop allowing

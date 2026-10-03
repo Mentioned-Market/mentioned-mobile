@@ -6,9 +6,9 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useFreeList, useIsScreenFocused, usePaidMajorityList, usePaidMarketsList } from '@/api/queries';
-import { tokens as fmtTokens, usd } from '@/lib/format';
-import { closesIn } from '@/lib/time';
+import { useCountdown } from '@/lib/use-countdown';
 import { useNow } from '@/lib/use-now';
+import { poolLabel } from '@/markets/game';
 import { mergeMarkets, type MarketSummary } from '@/markets/merge';
 import { similarMarkets } from '@/markets/similar';
 import { Card, SectionTitle, rowStyle } from '@/ui/card';
@@ -33,17 +33,17 @@ export function SimilarMarkets({ currentKey }: { currentKey: string }) {
       <SectionTitle title="More markets" />
       <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
         {markets.map((m, i) => (
-          <Row key={`${m.kind}:${m.id}`} market={m} now={now} first={i === 0} />
+          <Row key={`${m.kind}:${m.id}`} market={m} first={i === 0} />
         ))}
       </Card>
     </View>
   );
 }
 
-function Row({ market, now, first }: { market: MarketSummary; now: number; first: boolean }) {
+function Row({ market, first }: { market: MarketSummary; first: boolean }) {
   const [failed, setFailed] = useState(false);
-  const closes = closesIn(market.lockAt, now);
-  const pool = market.pool.kind === 'usdc' ? (market.pool.usd > 0 ? `${usd(market.pool.usd)} pool` : 'USDC') : `${fmtTokens(market.pool.tokens)} tokens`;
+  const { text: closes } = useCountdown(market.lockAt);
+  const pool = poolLabel(market.pool);
   return (
     <Link href={market.href as Href} asChild>
       <Pressable style={rowStyle(first)} accessibilityRole="button" accessibilityLabel={market.title}>

@@ -18,6 +18,9 @@ import {
   teamSizeCopy,
   leaderboardPool,
   appCopy,
+  arenaPrizeLine,
+  weeklyPaused,
+  weeklyPauseNotice,
 } from '@/lib/arena-view';
 
 const season = (over: Partial<Arena> = {}): Arena => ({ ...CURRENT_ARENA, ...over });
@@ -166,5 +169,72 @@ describe('friendlyTeamError', () => {
   it('never passes an unknown server string through', () => {
     expect(friendlyTeamError(api(400, 'Something the app has never seen'))).toBe('That did not go through. Try again.');
     expect(friendlyTeamError(new Error('network'))).toMatch(/connection/);
+  });
+});
+
+describe('the weekly pause', () => {
+  const season = ARENAS.find((a) => a.slug === 'worlds-fair') ?? CURRENT_ARENA;
+  const during = new Date(season.start.getTime() + 86_400_000);
+  const before = new Date(season.start.getTime() - 86_400_000);
+  const after = new Date(season.end.getTime() + 86_400_000);
+  const server = { arena: season.slug, name: season.name, displayRange: season.displayRange, resumesAt: season.end.toISOString() };
+
+  it('pauses only while the season is live', () => {
+    expect(weeklyPaused(season, before)).toBe(false);
+    expect(weeklyPaused(season, during)).toBe(true);
+    expect(weeklyPaused(season, season.end)).toBe(false);
+    expect(weeklyPaused(season, after)).toBe(false);
+  });
+
+  it('says nothing about a week that runs as normal', () => {
+    expect(weeklyPauseNotice('current', season, null, before)).toBeNull();
+    expect(weeklyPauseNotice('current', season, undefined, after)).toBeNull();
+    expect(weeklyPauseNotice('last', season, null, during)).toBeNull();
+  });
+
+  it('names the season, where the money went and when the week returns', () => {
+    const notice = weeklyPauseNotice('current', season, undefined, during);
+    expect(notice?.title).toBe(`Weekly leaderboard paused for the ${season.name} Arena`);
+    expect(notice?.body).toContain('No weekly payouts and no raffle');
+    expect(notice?.body).toContain(arenaPrizeLine(season));
+    expect(notice?.body).toContain('whole season');
+    // The end is exclusive, so the day it names is the end date itself, in UTC.
+    const day = season.end.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' });
+    expect(notice?.returns).toBe(`The weekly leaderboard returns on ${day}.`);
+  });
+
+  it('needs no server answer for this week, so the notice is there on the first frame', () => {
+    expect(weeklyPauseNotice('current', season, undefined, during)).toEqual(weeklyPauseNotice('current', season, server, during));
+  });
+
+  it('takes the server at its word for last week', () => {
+    expect(weeklyPauseNotice('last', season, server, during)?.title).toContain('paused');
+    const past = weeklyPauseNotice('last', season, server, after);
+    expect(past?.title).toBe(`The ${season.name} Arena ran in place of this week`);
+    expect(past?.returns).toBeNull();
+  });
+
+  it('still explains a season this build has never heard of', () => {
+    const unknown = { arena: 'not-in-this-build', name: 'Mystery', displayRange: 'Jan 1 – Jan 14, 2027', resumesAt: '2027-01-15T00:00:00.000Z' };
+    const notice = weeklyPauseNotice('last', season, unknown, new Date('2027-01-10T00:00:00.000Z'));
+    expect(notice?.title).toBe('Weekly leaderboard paused for the Mystery Arena');
+    expect(notice?.body).toContain('Jan 1 to Jan 14, 2027');
+    expect(notice?.returns).toBe('The weekly leaderboard returns on Friday, Jan 15.');
+  });
+
+  it('spells out the dash in a date range and never says bet', () => {
+    for (const a of ARENAS) {
+      const live = weeklyPauseNotice('current', a, undefined, new Date(a.start.getTime() + 1000));
+      const text = `${live?.title} ${live?.body} ${live?.returns}`;
+      expect(text).not.toMatch(/[–—]/);
+      expect(text).not.toMatch(/\bbet(s|ting)?\b/i);
+    }
+  });
+
+  it('describes a season with and without a medal board', () => {
+    const plain = ARENAS.find((a) => !a.bounty);
+    const medals = ARENAS.find((a) => a.bounty);
+    if (plain) expect(arenaPrizeLine(plain)).toBe(`${plain.prizePool} across the top ${plain.prizes.length} teams`);
+    if (medals?.bounty) expect(arenaPrizeLine(medals)).toBe(`${medals.bounty.leaderboardPool} across the top ${medals.prizes.length} teams and ${medals.bounty.bounties.length} medals worth ${medals.bounty.bountyPool}`);
   });
 });

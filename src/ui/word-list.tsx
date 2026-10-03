@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { pct } from '@/lib/format';
+import { LiveNumber } from '@/ui/live-number';
 import { Pill } from '@/ui/pill';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 import type { SheetWord, Side } from '@/ui/trade-sheet';
@@ -59,13 +60,14 @@ export function WordList({ words, onPick, open, held, quote }: Props) {
                   style={({ pressed }) => [styles.side, side === 'YES' ? styles.sideYes : styles.sideNo, pressed && open && { opacity: 0.7 }]}
                 >
                   <Text style={[styles.sideLabel, { color: side === 'YES' ? colors.yes : colors.no }]}>{side === 'YES' ? 'Yes' : 'No'}</Text>
-                  <Text style={styles.sideQuote}>{quote(w, side)}</Text>
+                  {/* Flashes with this side's chance: green when it becomes more likely. */}
+                  <LiveNumber value={side === 'YES' ? w.yesPrice : 1 - w.yesPrice} text={quote(w, side)} style={styles.sideQuote} />
                 </Pressable>
               ))}
             </View>
           ) : (
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.pct}>{pct(w.yesPrice)}</Text>
+              <LiveNumber value={w.yesPrice} format={pct} style={styles.pct} />
               <Text style={styles.chance}>chance</Text>
             </View>
           )}

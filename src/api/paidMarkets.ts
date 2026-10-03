@@ -19,7 +19,9 @@ export const PaidMarketListEntry = z.object({
   title: z.string(),
   coverImageUrl: z.string().nullable(),
   status: z.number(),
-  slug: z.string(),
+  // Null when the market's metadata row has no slug yet (the column is
+  // nullable on the website). One such market used to fail the whole list.
+  slug: z.string().nullable(),
   wordCount: z.number(),
   words: z.array(PaidMarketListWord),
   locksAt: numStr,
@@ -37,7 +39,7 @@ export const PaidMarketMetadata = z.object({
   description: z.string().nullable(),
   cover_image_url: z.string().nullable(),
   stream_url: z.string().nullable(),
-  slug: z.string(),
+  slug: z.string().nullable(),
   event_start_time: z.string().nullable(),
   cluster: z.string(),
   hidden: z.boolean(),

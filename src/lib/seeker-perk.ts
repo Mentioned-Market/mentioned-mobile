@@ -120,6 +120,63 @@ export function seekerCard(status: SeekerStatus | undefined, justFunded = false)
   }
 }
 
+/** The Seeker offer as Home shows it: one compact row, led by the money. */
+export type SeekerHomeOffer = {
+  /** One line; `amount` inside it is drawn in gold. */
+  title: string;
+  amount: string;
+  subtitle: string;
+  action: SeekerAction;
+  /** Short: it sits on a small button beside the text. */
+  cta: string;
+  /** The moment the stake landed: drawn as a gold announcement. */
+  celebrate: boolean;
+};
+
+/**
+ * What Home offers a Seeker owner, or null for nothing. Home only carries the
+ * offer while there is money in it: a Seeker that cannot get the stake gets
+ * nothing on Home (Me still offers the link, to verify), and once the stake
+ * has landed the card shows once, as a celebration, then goes. The server
+ * decides whether the stake is available; this never promises one it has not.
+ */
+export function seekerHomeOffer(status: SeekerStatus | undefined, justFunded = false): SeekerHomeOffer | null {
+  if (!status) return null;
+  const { grant } = status;
+  const dollars = usdc(grant.usdcBaseUnits, { dp: 2 });
+  const sol = formatSol(BigInt(grant.lamports));
+  if (grant.status === 'funded') {
+    if (!justFunded) return null;
+    return {
+      title: `+${dollars} just landed`,
+      amount: `+${dollars}`,
+      subtitle: `Plus ${sol} SOL for fees. Your first pick is on us.`,
+      action: 'pick',
+      cta: 'Pick',
+      celebrate: true,
+    };
+  }
+  if (grant.status !== 'available') return null;
+  if (!status.linked) {
+    return {
+      title: `Got a Seeker? Get ${dollars} free`,
+      amount: dollars,
+      subtitle: `Your first pick is on us, plus ${sol} SOL for fees.`,
+      action: 'link',
+      cta: 'Link',
+      celebrate: false,
+    };
+  }
+  return {
+    title: `Your ${dollars} is waiting`,
+    amount: dollars,
+    subtitle: 'Verified. Collect it for your first pick.',
+    action: 'claim',
+    cta: 'Collect',
+    celebrate: false,
+  };
+}
+
 /**
  * What a failed link or claim says. The server's seeker routes send a sentence
  * written for the person with every refusal, so that wins over the generic

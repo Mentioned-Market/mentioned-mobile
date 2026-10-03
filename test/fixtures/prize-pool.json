@@ -1,10 +1,10 @@
 {
-  "weekStart": "2026-09-07T00:00:00.000Z",
-  "weekEnd": "2026-09-14T00:00:00.000Z",
-  "volumeUsd": 26,
-  "ammFeesUsd": 0.352417,
-  "poolUsd": 100.6962085,
-  "floorUsd": 100,
+  "weekStart": "2026-09-28T00:00:00.000Z",
+  "weekEnd": "2026-10-05T00:00:00.000Z",
+  "volumeUsd": 0,
+  "ammFeesUsd": 0,
+  "poolUsd": 0,
+  "floorUsd": 0,
   "split": [
     {
       "kind": "rank",
@@ -12,7 +12,7 @@
       "label": "1st",
       "medal": "🥇",
       "pct": 0.36,
-      "usd": 36.25063506
+      "usd": 0
     },
     {
       "kind": "rank",
@@ -20,7 +20,7 @@
       "label": "2nd",
       "medal": "🥈",
       "pct": 0.22,
-      "usd": 22.15316587
+      "usd": 0
     },
     {
       "kind": "rank",
@@ -28,7 +28,7 @@
       "label": "3rd",
       "medal": "🥉",
       "pct": 0.16,
-      "usd": 16.11139336
+      "usd": 0
     },
     {
       "kind": "rank",
@@ -36,7 +36,7 @@
       "label": "4th",
       "medal": null,
       "pct": 0.09,
-      "usd": 9.062658765
+      "usd": 0
     },
     {
       "kind": "rank",
@@ -44,7 +44,7 @@
       "label": "5th",
       "medal": null,
       "pct": 0.07,
-      "usd": 7.048734595000001
+      "usd": 0
     },
     {
       "kind": "raffle",
@@ -52,8 +52,14 @@
       "label": "Raffle",
       "medal": "🎟️",
       "pct": 0.1,
-      "usd": 10.06962085
+      "usd": 0
     }
   ],
+  "paused": {
+    "arena": "worlds-fair",
+    "name": "World’s Fair",
+    "displayRange": "Sep 28 – Oct 11, 2026",
+    "resumesAt": "2026-10-12T00:00:00.000Z"
+  },
   "isCurrent": true
 }

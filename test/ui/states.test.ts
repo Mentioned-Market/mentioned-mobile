@@ -18,6 +18,12 @@ describe('errorMessage', () => {
     expect(msg).not.toMatch(/api/);
   });
 
+  it('does not show a response it could not read', () => {
+    const msg = errorMessage(new ApiError('/api/paid-markets/list', 200, 'Unexpected response shape for /api/paid-markets/list: markets.3.slug Invalid input', 'BAD_SHAPE'));
+    expect(msg).toMatch(/having trouble/);
+    expect(msg).not.toMatch(/api|slug|shape/i);
+  });
+
   it('passes through a specific API message', () => {
     expect(errorMessage(new ApiError('/api/x', 400, 'Invalid week'))).toBe('Invalid week');
   });

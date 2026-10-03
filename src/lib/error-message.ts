@@ -1,12 +1,14 @@
 // What a failure says on screen. Users read these strings, so the mapping from
 // a raw failure to plain language is a rule, kept here where it is unit tested.
-import { ApiError } from '@/api/client';
+import { ApiError, BAD_SHAPE } from '@/api/client';
 
 export function errorMessage(e: unknown): string {
   if (e instanceof ApiError) {
     if (e.status === 404) return 'Not found.';
     if (e.status === 429) return 'Too many requests. Give it a moment.';
-    if (e.status >= 500) return 'Mentioned is having trouble. Try again shortly.';
+    // A response the app could not read is our fault, not the reader's, and
+    // its detail (a route and a field path) means nothing to them.
+    if (e.status >= 500 || e.code === BAD_SHAPE) return 'Mentioned is having trouble. Try again shortly.';
     return e.message;
   }
   if (e instanceof Error) {

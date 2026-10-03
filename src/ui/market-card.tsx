@@ -14,14 +14,17 @@ import { Link, useFocusEffect, useRouter, type Href } from 'expo-router';
 import { memo, useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { pct, tokens, usd } from '@/lib/format';
-import { closesIn } from '@/lib/time';
-import { isMajority, wordHref, type MarketSummary } from '@/markets/merge';
+import { pct } from '@/lib/format';
+import { useCountdown } from '@/lib/use-countdown';
+import { GAME_ICON, GAME_NAME, gameOf, poolLabel } from '@/markets/game';
+import { isMajority, sameMarket, wordHref, type MarketSummary } from '@/markets/merge';
 import { sideQuote } from '@/trade/amm-display';
+import { LiveNumber } from '@/ui/live-number';
 import { Pill } from '@/ui/pill';
+import { PressableScale } from '@/ui/pressable-scale';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
-type MarketCardProps = { market: MarketSummary; now: number };
+type MarketCardProps = { market: MarketSummary };
 
 /** The list route carries no fees, so a card's quote is before them, like the web's list. */
 const NO_FEES = { feeBps: 0, rakeBps: 0 };
@@ -29,7 +32,7 @@ const NO_FEES = { feeBps: 0, rakeBps: 0 };
 /** Words shown before "+N more" offers the rest. */
 const WORDS_SHOWN = 3;
 
-function MarketCardImpl({ market, now }: MarketCardProps) {
+function MarketCardImpl({ market }: MarketCardProps) {
   const [imgFailed, setImgFailed] = useState(false);
   const [expanded, setExpanded] = useState(false);
   // The word just tapped, while its market opens. Opening a market takes a
@@ -52,8 +55,10 @@ function MarketCardImpl({ market, now }: MarketCardProps) {
   };
   const finished = market.status === 'resolved' || market.status === 'cancelled';
   const majority = isMajority(market);
-  const closes = market.status === 'open' ? closesIn(market.lockAt, now) : null;
-  const pool = market.pool.kind === 'usdc' ? (market.pool.usd > 0 ? `${usd(market.pool.usd)} pool` : 'USDC') : `${tokens(market.pool.tokens)} tokens`;
+  // The card runs its own countdown, by the second in the last hour, so the
+  // list never re-renders for the clock.
+  const { text: closes } = useCountdown(market.status === 'open' ? market.lockAt : null);
+  const pool = poolLabel(market.pool);
   const meta = [market.status === 'pending' ? 'Locked' : market.status === 'cancelled' ? 'Cancelled' : market.status === 'resolved' ? 'Resolved' : null, pool]
     .filter(Boolean)
     .join(' · ');
@@ -62,7 +67,7 @@ function MarketCardImpl({ market, now }: MarketCardProps) {
 
   return (
     <Link href={market.href as Href} asChild>
-      <Pressable accessibilityRole="button" accessibilityLabel={market.title} style={StyleSheet.flatten([styles.card, finished && styles.finished])}>
+      <PressableScale accessibilityRole="button" accessibilityLabel={market.title} style={StyleSheet.flatten([styles.card, finished && styles.finished])}>
         <View style={styles.cover}>
           {market.cover && !imgFailed ? (
             <Image source={{ uri: market.cover }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} onError={() => setImgFailed(true)} />
@@ -84,8 +89,8 @@ function MarketCardImpl({ market, now }: MarketCardProps) {
           {/* Which game this is, at a glance: a majority board is won by the
               word said most, a YES/NO market by each word on its own. */}
           <View style={[styles.kind, majority && styles.kindMajority]}>
-            <Ionicons name={majority ? 'podium' : 'checkmark-done'} size={14} color={majority ? colors.gold : colors.textMuted} />
-            <Text style={[styles.kindText, majority && { color: colors.gold }]}>{majority ? 'Most said wins' : 'Yes or no on each word'}</Text>
+            <Ionicons name={GAME_ICON[gameOf(market.kind)]} size={14} color={majority ? colors.gold : colors.textMuted} />
+            <Text style={[styles.kindText, majority && { color: colors.gold }]}>{GAME_NAME[gameOf(market.kind)]}</Text>
           </View>
 
           {market.words.length > 0 ? (
@@ -116,11 +121,15 @@ function MarketCardImpl({ market, now }: MarketCardProps) {
                       tone={w.outcome === 'winner' || w.outcome === 'yes' ? 'green' : w.outcome === 'loser' ? 'neutral' : 'red'}
                     />
                   ) : (
-                    <Text style={[styles.wordPct, majority && { color: colors.text }]}>
-                      {/* A paid YES/NO market shows what Yes pays, as the web's list does
-                          (spot, before fees); everything else keeps its chance. */}
-                      {market.kind === 'paid-yesno' ? `Yes ${sideQuote(w.pct, 'YES', NO_FEES)}` : pct(w.pct)}
-                    </Text>
+                    // A paid YES/NO market shows what Yes pays, as the web's list does
+                    // (spot, before fees); everything else keeps its chance. Either
+                    // way it flashes with the chance, green for up.
+                    <LiveNumber
+                      value={w.pct}
+                      format={pct}
+                      text={market.kind === 'paid-yesno' ? `Yes ${sideQuote(w.pct, 'YES', NO_FEES)}` : undefined}
+                      style={StyleSheet.flatten([styles.wordPct, majority && { color: colors.text }])}
+                    />
                   )}
                 </Pressable>
               ))}
@@ -141,58 +150,17 @@ function MarketCardImpl({ market, now }: MarketCardProps) {
             </View>
           ) : null}
         </View>
-      </Pressable>
+      </PressableScale>
     </Link>
   );
 }
 
 /**
- * Does this market render identically to that one?
- *
- * Deliberately structural rather than by reference: `mergeMarkets` builds fresh
- * objects on every call and the lists call it on a 30s clock, so every card gets
- * a new `market` twice a minute even when nothing about it changed. Comparing by
- * reference here would make the memo a no-op.
+ * Memoised so a list re-rendering (a poll, the filter) only rebuilds the cards
+ * whose market changed. The countdown is the card's own (`useCountdown`), so
+ * no clock is passed in and none can force a re-render of every card.
  */
-export function sameMarket(a: MarketSummary, b: MarketSummary): boolean {
-  if (
-    a.id !== b.id ||
-    a.kind !== b.kind ||
-    a.href !== b.href ||
-    a.title !== b.title ||
-    a.cover !== b.cover ||
-    a.status !== b.status ||
-    a.lockAt !== b.lockAt ||
-    a.eventAt !== b.eventAt ||
-    a.traderCount !== b.traderCount ||
-    a.words.length !== b.words.length
-  ) {
-    return false;
-  }
-  if (a.pool.kind !== b.pool.kind) return false;
-  if (a.pool.kind === 'usdc' && b.pool.kind === 'usdc' && a.pool.usd !== b.pool.usd) return false;
-  if (a.pool.kind === 'tokens' && b.pool.kind === 'tokens' && a.pool.tokens !== b.pool.tokens) return false;
-  return a.words.every((w, i) => {
-    const o = b.words[i];
-    return w.label === o.label && w.pct === o.pct && w.outcome === o.outcome;
-  });
-}
-
-/**
- * Memoised because the lists that render it re-render on a ticking clock.
- *
- * `now` changes every 30s and every card takes it, but only the countdown
- * actually moves, and only for a market closing within the day. Without this a
- * list of thirty cards rebuilds its whole tree twice a minute, images included,
- * which is a large part of why switching tabs felt slow.
- */
-export const MarketCard = memo(MarketCardImpl, (a, b) => {
-  if (!sameMarket(a.market, b.market)) return false;
-  // The clock only matters while a countdown is on screen; once the market is
-  // locked or settled the rendered output is the same for any `now`.
-  if (a.market.status !== 'open') return true;
-  return closesIn(a.market.lockAt, a.now) === closesIn(b.market.lockAt, b.now);
-});
+export const MarketCard = memo(MarketCardImpl, (a, b) => sameMarket(a.market, b.market));
 MarketCard.displayName = 'MarketCard';
 
 const styles = StyleSheet.create({

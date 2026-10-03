@@ -6,12 +6,13 @@
 // come back shorter than the feed.
 import { Link, type Href } from 'expo-router';
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useIsScreenFocused, usePaidMajorityMetadata, useTrendingWords } from '@/api/queries';
 import { compact } from '@/lib/format';
 import { trendingLinks } from '@/lib/trending';
 import { Card, SectionTitle } from '@/ui/card';
+import { PressableScale } from '@/ui/pressable-scale';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
 const CARD_WIDTH = 190;
@@ -24,7 +25,7 @@ export function FeaturedWords({ title = 'Trending words' }: { title?: string }) 
   const meta = usePaidMajorityMetadata();
 
   const links = useMemo(() => {
-    const bySlug = new Map((meta.data ?? []).map((m) => [m.slug, m.market_id]));
+    const bySlug = new Map((meta.data ?? []).flatMap((m) => (m.slug ? [[m.slug, m.market_id] as const] : [])));
     return trendingLinks(words.data ?? [], bySlug);
   }, [words.data, meta.data]);
 
@@ -36,7 +37,7 @@ export function FeaturedWords({ title = 'Trending words' }: { title?: string }) 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bleed} contentContainerStyle={styles.rail} decelerationRate="fast" snapToInterval={CARD_WIDTH + spacing.sm} snapToAlignment="start">
         {links.map(({ word, href }) => (
           <Link key={word.id} href={href as Href} asChild>
-            <Pressable accessibilityRole="button" accessibilityLabel={`${word.word}, ${word.market_title}`} style={styles.card}>
+            <PressableScale accessibilityRole="button" accessibilityLabel={`${word.word}, ${word.market_title}`} style={styles.card}>
               <View style={styles.head}>
                 <Text style={styles.word} numberOfLines={1}>
                   {word.word}
@@ -50,7 +51,7 @@ export function FeaturedWords({ title = 'Trending words' }: { title?: string }) 
               <Text style={styles.meta}>
                 {compact(word.trade_count)} {word.trade_count === 1 ? 'trade' : 'trades'} · {compact(word.trader_count)} {word.trader_count === 1 ? 'trader' : 'traders'}
               </Text>
-            </Pressable>
+            </PressableScale>
           </Link>
         ))}
       </ScrollView>

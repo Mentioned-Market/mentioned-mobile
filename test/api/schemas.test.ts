@@ -70,6 +70,12 @@ describe('paid YES/NO schemas', () => {
   it('parses every list entry', () => {
     for (const m of ammList.markets) expectParses(PaidMarketListEntry, m);
   });
+  // The website sends a null slug when a market's metadata has none, and one
+  // such market used to fail the whole paid list on the Markets tab.
+  it('accepts a market without a slug', () => {
+    expectParses(PaidMarketListEntry, { ...ammList.markets[0], slug: null });
+    expectParses(PaidMajorityListEntry, { ...majList.markets[0], slug: null });
+  });
   it('parses the account route', () => expectParses(PaidMarketAccount, { account: ammAccount.account, vaultAmount: ammAccount.vaultAmount }));
   it('parses metadata', () => expectParses(PaidMarketMetadata, ammMetadata));
   it('parses the chart', () => expectParses(PaidMarketChart, ammChart));
@@ -105,6 +111,12 @@ describe('user schemas', () => {
   it('parses a public profile', () => expectParses(PublicProfile, publicProfile));
   it('parses the leaderboard', () => expectParses(Leaderboard, leaderboard));
   it('parses the prize pool', () => expectParses(PrizePool, prizePool));
+  it('reads the Arena pause on a week a season replaced, and its absence on any other', () => {
+    expect(PrizePool.parse(prizePool).paused?.arena).toBe('worlds-fair');
+    const { paused: _paused, ...normalWeek } = prizePool;
+    expect(PrizePool.parse(normalWeek).paused).toBeUndefined();
+    expect(PrizePool.parse({ ...prizePool, paused: null }).paused).toBeNull();
+  });
   it('parses a prize split with no place or medal', () => {
     // The raffle row carries a null place and medal; a strict schema broke here.
     expectParses(PrizePool, { ...prizePool, split: [{ kind: 'raffle', place: null, label: 'Raffle', medal: null, pct: 0.1, usd: 10 }] });

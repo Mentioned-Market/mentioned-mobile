@@ -3,13 +3,20 @@ import { useState } from 'react';
 // and a wallet you can trade from. The Seeker wallet is a separate, secondary
 // thing (a funding source and a way to look at a wallet's positions), so it
 // does not belong next to this.
-import { Link } from 'expo-router';
+//
+// Signed out, the card shows the ways in themselves rather than a button to a
+// screen that shows them: Google and X, then email as a link. Each opens the
+// sign-in screen with that login already started (its `start` param), so the
+// steps after it (the code, the wallet, a username) stay in one place.
+import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { useProviderLogout } from '@/auth/logout';
 import { shortAddress } from '@/lib/format';
 import { useSession } from '@/store/session';
 import { Button } from '@/ui/button';
+import { ProviderButton } from '@/ui/provider-button';
+import { TextLink } from '@/ui/text-link';
 import { colors, radius, spacing, type } from '@/ui/theme';
 import { unregisterForPush } from '@/notifications/push';
 
@@ -49,12 +56,14 @@ export function SignInCard({ compact = false }: { compact?: boolean }) {
       {!compact ? (
         <View style={{ gap: 4 }}>
           <Text style={type.heading}>Sign in to play</Text>
-          <Text style={type.muted}>Google, X or an email code. You get a wallet with no seed phrase to remember.</Text>
+          <Text style={type.muted}>You get a wallet with no seed phrase to remember.</Text>
         </View>
       ) : null}
-      <Link href="/sign-in" asChild>
-        <Button label="Sign in" />
-      </Link>
+      <View style={{ gap: spacing.sm }}>
+        <ProviderButton provider="google" onPress={() => router.push('/sign-in?start=google')} />
+        <ProviderButton provider="x" onPress={() => router.push('/sign-in?start=x')} />
+      </View>
+      <TextLink label="Continue with email instead" onPress={() => router.push('/sign-in?start=email')} />
     </View>
   );
 }

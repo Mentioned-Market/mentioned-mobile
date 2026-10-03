@@ -126,7 +126,7 @@ function PaidMajorityResult({ id }: { id: string }) {
                 <Text style={styles.word} numberOfLines={1}>
                   {w.word ?? 'Word not shown yet'}
                 </Text>
-                <Text style={type.muted}>{w.units} units</Text>
+                <Text style={type.muted}>{w.units} {Number(w.units) === 1 ? 'pick' : 'picks'}</Text>
                 {w.outcome === WordOutcome.Winner ? <Pill label="WON" tone="green" /> : resolved ? <Pill label="LOST" tone="neutral" /> : null}
               </View>
             ))}

@@ -9,10 +9,11 @@ import { Link, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { chatEventId } from '@/chat/rules';
 import { getFreeMarket, getFreeMarketIdBySlug, tradeFree } from '@/api/free';
 import { useFreeChart, useFreeMarket, useFreePositions, useIsScreenFocused } from '@/api/queries';
 import { sharesForTokens, virtualBuyCost, virtualSellReturn } from '@/free/lmsr';
-import { getDisplayStatus } from '@/free/marketUtils';
+import { VIRTUAL_MARKET_POINTS_CAP, VIRTUAL_MARKET_POINTS_MULTIPLIER, getDisplayStatus } from '@/free/marketUtils';
 import { pct, tokens } from '@/lib/format';
 import { toMs } from '@/lib/time';
 import { prepareSeries } from '@/lib/chart';
@@ -38,6 +39,12 @@ import { TradeProgress } from '@/ui/trade-progress';
 import { TradeSheet, TradeSheetHeader, type Preset, type SheetChip, type SheetWord, type Side, type TradeMode } from '@/ui/trade-sheet';
 import { WordList } from '@/ui/word-list';
 import { YourPositions, type HeldRow } from '@/ui/your-positions';
+import { showAchievements } from '@/ui/toast';
+import { ChatPreview } from '@/ui/chat-preview';
+
+// From the ported scoring constants rather than typed out: a hardcoded copy
+// still said 0.5x with no cap after the website moved to 0.2x capped at 100.
+const POINTS_NOTE = `Free markets pay out in play tokens. Profit converts to points at ${VIRTUAL_MARKET_POINTS_MULTIPLIER}x, up to ${VIRTUAL_MARKET_POINTS_CAP} points a market.`;
 
 const fmt = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 
@@ -262,6 +269,7 @@ function FreeYesNoScreen({ id, wordParam }: { id: number; wordParam?: string }) 
     const verb = mode === 'buy' ? 'bought' : 'sold';
     const money = mode === 'buy' ? `${word.word} for ${tokens(Math.abs(res.cost))} tokens` : `${tokens(Math.abs(res.cost))} tokens back`;
     const extras = achievementLines(res.newAchievements);
+    showAchievements(res.newAchievements);
     setResult({ title: `You ${verb} ${fmt(res.shares)} ${side}`, detail: extras ? `${money}\n${extras}` : money });
     void market.refetch();
     void positions.refetch();
@@ -271,7 +279,7 @@ function FreeYesNoScreen({ id, wordParam }: { id: number; wordParam?: string }) 
   return (
     <Screen back>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <MarketHeader title={m.title} cover={m.cover_image_url} status={status} lockAt={toMs(m.lock_time)} eventAt={toMs(m.event_start_time)} now={now} description={m.description} />
+        <MarketHeader title={m.title} cover={m.cover_image_url} status={status} lockAt={toMs(m.lock_time)} eventAt={toMs(m.event_start_time)} now={now} description={m.description} kind="free-yesno" />
         <YourPositions
           connected={!!viewed}
           rows={heldRows}
@@ -288,7 +296,8 @@ function FreeYesNoScreen({ id, wordParam }: { id: number; wordParam?: string }) 
         <Card>
           <LineChart series={series} selectedKey={pick ? String(pick.wordId) : null} format={pct} />
         </Card>
-        <Text style={[type.muted, { textAlign: 'center' }]}>Free markets pay out in play tokens. Profit converts to points at 0.5x.</Text>
+        <Text style={[type.muted, { textAlign: 'center' }]}>{POINTS_NOTE}</Text>
+        <ChatPreview eventId={chatEventId('free-yesno', id)} title={m.title} focused={focused} now={now} />
         <SimilarMarkets currentKey={`free-yesno:${id}`} />
         <FeaturedWords />
       </ScrollView>

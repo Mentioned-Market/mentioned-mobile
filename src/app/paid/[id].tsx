@@ -22,6 +22,7 @@ import {
   useSolBalance,
   useUsdcBalance,
 } from '@/api/queries';
+import { chatEventId } from '@/chat/rules';
 import { deserializeMarketAccount, estimateBuyCost, estimateSellReturn, impliedYesPrice, MarketStatus, sharesForUsdc } from '@/chain/amm';
 import { base64ToBytes } from '@/lib/bytes';
 import { shortAddress, usd, usdc } from '@/lib/format';
@@ -47,6 +48,7 @@ import {
   spendKey,
   useSessionSpend,
 } from '@/trade/spend';
+import { useAttestationGate } from '@/trade/use-attestation-gate';
 import { useTrade } from '@/trade/use-trade';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
@@ -66,6 +68,7 @@ import { TradeProgress } from '@/ui/trade-progress';
 import { TradeSheet, TradeSheetHeader, type Preset, type SheetChip, type SheetWord, type Side, type TradeMode } from '@/ui/trade-sheet';
 import { WordList } from '@/ui/word-list';
 import { YourPositions, type HeldRow } from '@/ui/your-positions';
+import { ChatPreview } from '@/ui/chat-preview';
 
 /** Dollars, rounded DOWN to the cent, so a preset can never land a cent over the cap. */
 const centsDown = (usd: number) => (Math.floor(usd * 100) / 100).toFixed(2);
@@ -106,6 +109,7 @@ export default function PaidYesNoScreen() {
   // deposit sheet on the asset that ran out.
   const [fund, setFund] = useState<'USDC' | 'SOL' | null>(null);
   const trade = useTrade();
+  const attestation = useAttestationGate();
   const sheetRef = useRef<BottomSheetHandle>(null);
   // The server can pause trading; claims elsewhere are never paused.
   const features = useFeatures();
@@ -262,6 +266,15 @@ export default function PaidYesNoScreen() {
       return;
     }
 
+    // The website will not broadcast a trade on a market this wallet has not
+    // confirmed the integrity rules for, so ask before building anything: a
+    // quote taken first would be stale by the time the checklist was read.
+    const gate = await attestation.requireTrade('amm', id);
+    if (!gate.ok) {
+      if (gate.error) setInputError(gate.error);
+      return;
+    }
+
     let instructions;
     let summary: { title: string; detail: string };
     let spendDelta: number;
@@ -391,6 +404,7 @@ export default function PaidYesNoScreen() {
           eventAt={meta.data?.event_start_time ? Date.parse(meta.data.event_start_time) : null}
           now={now}
           description={meta.data?.description}
+          kind="paid-yesno"
         />
         <YourPositions connected={!!viewed} rows={heldRows} loading={!!viewed && positions.isPending} />
         {status === 'resolved' ? (
@@ -424,6 +438,7 @@ export default function PaidYesNoScreen() {
             </Card>
           </>
         ) : null}
+        <ChatPreview eventId={chatEventId('paid-yesno', id)} title={title} focused={focused} now={now} />
         <SimilarMarkets currentKey={`paid-yesno:${id}`} />
         <FeaturedWords />
       </ScrollView>
@@ -513,6 +528,7 @@ export default function PaidYesNoScreen() {
         ) : null}
       </BottomSheet>
 
+      {attestation.sheet}
       {sessionWallet ? <DepositSheet key={fund ?? 'USDC'} visible={fund !== null} onClose={() => setFund(null)} wallet={sessionWallet} initialAsset={fund ?? 'USDC'} /> : null}
     </Screen>
   );

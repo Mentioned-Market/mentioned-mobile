@@ -10,6 +10,7 @@ import { Link, useLocalSearchParams, type Href } from 'expo-router';
 import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { chatEventId } from '@/chat/rules';
 import { enterFreeMajority } from '@/api/free';
 import { useFreeBoard, useIsScreenFocused } from '@/api/queries';
 import { potentialWin } from '@/chain/majorityWords';
@@ -37,6 +38,8 @@ import { SwipeButton } from '@/ui/swipe-button';
 import { colors, fonts, spacing, type } from '@/ui/theme';
 import { TradeProgress } from '@/ui/trade-progress';
 import { WordBoard, type BoardWord } from '@/ui/word-board';
+import { showAchievements } from '@/ui/toast';
+import { ChatPreview } from '@/ui/chat-preview';
 
 export default function FreeMajorityScreen() {
   // `word` names a word to pick, from a tap on a market card.
@@ -174,6 +177,7 @@ export default function FreeMajorityScreen() {
     if (!res) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const extras = achievementLines(res.newAchievements);
+    showAchievements(res.newAchievements);
     const detail = `${picks.map((p) => p.word).join(' and ')}, ${tokens(pickSize)} tokens each`;
     setResult({ title: 'You are in', detail: extras ? `${detail}\n${extras}` : detail });
     setPicks([]);
@@ -204,6 +208,7 @@ export default function FreeMajorityScreen() {
             eventAt={toMs(m.event_start_time)}
             now={now}
             description={m.description}
+            kind='free-majority'
           />
           <View style={styles.chips}>
             <Chip value={`${tokens(pool)} tokens`} caption="pool" />
@@ -277,6 +282,7 @@ export default function FreeMajorityScreen() {
               </Card>
             </>
           ) : null}
+        <ChatPreview eventId={chatEventId('free-majority', id)} title={m.title} focused={focused} now={now} />
         <SimilarMarkets currentKey={`free-majority:${id}`} />
         <FeaturedWords />
         </ScrollView>

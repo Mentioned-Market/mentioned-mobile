@@ -17,6 +17,7 @@ import { ConfirmationTimeoutError } from '@/chain/rpcSend';
 import { useSession } from '@/store/session';
 import { useWalletLink } from '@/store/wallet-link';
 import { friendlyTradeError } from '@/trade/amm';
+import { isAttestationRefusal, TRADE_REFUSED } from '@/trade/attestation';
 import { rawSignWithProvider, type SolanaSigningProvider } from '@/trade/openfort-signer';
 import { sendInstructions, SimulationError, type SendStep } from '@/trade/send';
 
@@ -130,7 +131,11 @@ export function useTrade() {
             return { confirmed, complete: false };
           }
           const raw = e instanceof SimulationError ? e.message : e instanceof Error ? e.message : String(e);
-          setState({ status: 'failed', message: `${explain(raw)}${partial(i)}`, indeterminate: false });
+          // The proxy refused to broadcast for want of an integrity
+          // confirmation. Screens ask for one first, so this is the backstop,
+          // and its raw form is a server code nobody should be shown.
+          const said = isAttestationRefusal(raw) ? TRADE_REFUSED : explain(raw);
+          setState({ status: 'failed', message: `${said}${partial(i)}`, indeterminate: false });
           return { confirmed, complete: false };
         }
       }

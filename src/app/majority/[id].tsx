@@ -12,6 +12,7 @@ import { Link, useLocalSearchParams, type Href } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { chatEventId } from '@/chat/rules';
 import { recordMajorityBuys } from '@/api/paidMajority';
 import { useIsScreenFocused, usePaidMajorityMarket, usePaidMajorityMetadata, usePaidMajorityPositions, useSolBalance, useUsdcBalance } from '@/api/queries';
 import { deserializeMajorityMarket, MajorityStatus, normalizeWord, WordOutcome } from '@/chain/majority';
@@ -24,6 +25,7 @@ import { useSession } from '@/store/session';
 import { TradeInputError } from '@/trade/amm';
 import { BUYS_PER_TX, checkCoinedWord, friendlyMajorityError, MIN_SOL_FOR_FEES, planMajorityBuy } from '@/trade/majority';
 import { fundsShortfall } from '@/trade/funds';
+import { useAttestationGate } from '@/trade/use-attestation-gate';
 import { useTrade } from '@/trade/use-trade';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
@@ -42,6 +44,7 @@ import { SwipeButton } from '@/ui/swipe-button';
 import { colors, fonts, spacing, type } from '@/ui/theme';
 import { TradeProgress } from '@/ui/trade-progress';
 import { WordBoard, type BoardWord } from '@/ui/word-board';
+import { ChatPreview } from '@/ui/chat-preview';
 
 /** Shown for a board word whose text the server does not know yet. */
 const UNNAMED = 'Word not shown yet';
@@ -59,6 +62,7 @@ export default function PaidMajorityScreen() {
   const usdcBalance = useUsdcBalance(viewed, focused);
   const sol = useSolBalance(viewed, focused);
   const trade = useTrade();
+  const attestation = useAttestationGate();
   const sheetRef = useRef<BottomSheetHandle>(null);
   // The server can pause trading; claims elsewhere are never paused.
   const features = useFeatures();
@@ -124,10 +128,11 @@ export default function PaidMajorityScreen() {
       key: w.wordHash,
       label: w.word ?? UNNAMED,
       share: w.oddsPct / 100,
+      // On chain a unit is one $1 pick, and "units" meant nothing to a reader.
       countLabel:
         w.outcome === WordOutcome.Refunding
           ? 'Removed, being refunded'
-          : `${w.units} ${Number(w.units) === 1 ? 'unit' : 'units'} · ${usd(Number(w.units) * unitUsd)}`,
+          : `${w.units} ${Number(w.units) === 1 ? 'pick' : 'picks'} · ${usd(Number(w.units) * unitUsd)}`,
       outcome: finished === 'resolved' ? (w.outcome === WordOutcome.Winner ? 'winner' : 'loser') : null,
       yours: ownedHashes.has(w.wordHash),
       winLabel: `Wins ${usd(winIfSaidMost(Number(w.units)))} if said most`,
@@ -213,6 +218,13 @@ export default function PaidMajorityScreen() {
       return;
     }
 
+    // Asked before the plan is built, for the reason given in paid/[id].tsx.
+    const gate = await attestation.requireTrade('majority', id);
+    if (!gate.ok) {
+      if (gate.error) setInputError(gate.error);
+      return;
+    }
+
     let plan;
     try {
       plan = await planMajorityBuy({ wallet: sessionWallet, marketId: BigInt(id), words: toBuy, unitPriceUsd: unitUsd });
@@ -291,6 +303,7 @@ export default function PaidMajorityScreen() {
             eventAt={info?.event_start_time ? Date.parse(info.event_start_time) : null}
             now={now}
             description={info?.description}
+            kind='paid-majority'
           />
           <View style={styles.chips}>
             <Chip value={usdc(market.data.vaultAmount)} caption="pool" />
@@ -351,6 +364,7 @@ export default function PaidMajorityScreen() {
               ) : null}
             </Card>
           ) : null}
+        <ChatPreview eventId={chatEventId('paid-majority', id)} title={info?.title ?? `Market ${id}`} focused={focused} now={now} />
         <SimilarMarkets currentKey={`paid-majority:${id}`} />
         <FeaturedWords />
         </ScrollView>
@@ -442,6 +456,7 @@ export default function PaidMajorityScreen() {
         )}
       </BottomSheet>
 
+      {attestation.sheet}
       {sessionWallet ? <DepositSheet key={fund ?? 'USDC'} visible={fund !== null} onClose={() => setFund(null)} wallet={sessionWallet} initialAsset={fund ?? 'USDC'} /> : null}
     </Screen>
   );

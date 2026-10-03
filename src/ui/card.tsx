@@ -2,6 +2,7 @@
 // outline. `Row` is a line inside it, with a hairline above every row but the
 // first. `Stat` is a caption over a figure, for a row of them across a card.
 import { Ionicons } from '@expo/vector-icons';
+import { Link, type Href } from 'expo-router';
 import type { PropsWithChildren, ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
@@ -66,6 +67,17 @@ export function SectionTitle({ title, right }: { title: string; right?: ReactNod
   );
 }
 
+/** The quiet link on the right of a `SectionTitle`. */
+export function SeeAll({ href, label = 'See all' }: { href: Href; label?: string }) {
+  return (
+    <Link href={href} asChild>
+      <Pressable accessibilityRole="button" hitSlop={10}>
+        <Text style={styles.seeAll}>{label}</Text>
+      </Pressable>
+    </Link>
+  );
+}
+
 const styles = StyleSheet.create({
   card: { borderRadius: radius.card, backgroundColor: colors.surface, overflow: 'hidden' },
   padded: { padding: spacing.md },
@@ -75,4 +87,5 @@ const styles = StyleSheet.create({
   statValue: { fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, color: colors.text, fontVariant: ['tabular-nums'] },
   sectionTitle: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingHorizontal: spacing.xs },
   sectionText: { fontFamily: fonts.semibold, fontSize: 17, lineHeight: 24, color: colors.text },
+  seeAll: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.textMuted },
 });

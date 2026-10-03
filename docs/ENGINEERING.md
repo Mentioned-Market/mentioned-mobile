@@ -303,6 +303,60 @@ simulation, twice on a 5xx, a 429 or a dropped connection. Both happen before
 anything is signed, so a retry cannot move money. A JSON-RPC error is an answer,
 not an outage, and is not retried.
 
+### A real-money trade needs the website's integrity confirmation first
+
+On Sep 25 2026 the website began refusing, at its RPC proxy, to broadcast a
+trade on a market the trader has not confirmed its integrity rules for, and
+refusing an Arena entry without the season's own confirmation. The app sent
+trades without asking, so every paid trade on an unconfirmed market failed with
+the raw code `ATTESTATION_REQUIRED`.
+
+The app now asks before it builds anything. `src/trade/use-attestation-gate.tsx`
+reads what is due from `/api/attestations`, shows the checklist, records it and
+only then lets the trade continue. The copy, its versions and the rule for
+which sheet is due are the website's file, ported byte for byte into
+`src/lib/attestation.ts`: a confirmation is a record of the exact words agreed
+to, so the two surfaces must not drift. The decisions (what a 401 says, what a
+variant mismatch does) are in `src/trade/attestation.ts`, unit tested.
+
+Three choices worth knowing:
+
+- The gate runs before the quote is planned, not between the plan and the
+  signature. A quote taken first would be stale by the time the checklist had
+  been read.
+- The sheet reports its outcome only after it has slid away, so the trade's
+  progress is never drawn underneath it, and it cannot be dismissed while the
+  confirmation is being saved, so a cancel cannot race a row into the audit
+  table.
+- Recording is a write to the website and is never retried. A 409
+  `VARIANT_MISMATCH` means nothing was recorded; the app re-reads what is due
+  and shows that sheet instead.
+
+The proxy's refusal is still mapped to a sentence in `useTrade`, as the
+backstop. The gate is the first thing on the paid trade path that needs a live
+session: the proxy itself is unauthenticated, so a wallet whose seven-day
+session has lapsed could trade before and now has to sign in again first.
+
+### The weekly leaderboard steps aside while a season is live
+
+While an Arena season runs, the website pays no weekly prizes and draws no
+raffle; the money goes to the Arena, and the points board is scored over the
+whole season. The app used to show the weekly prize card on Home regardless,
+which during a season read "Prize pool this week $0.00" above a podium nobody
+was being paid for.
+
+Home now leaves that card out while the season is live, and Ranks replaces the
+prize pool and the raffle with a notice: paused for which season, where the
+money is going, and the day the weekly board returns. Before kickoff nothing
+changes, as on the website. The rule and every word of the notice are in
+`weeklyPauseNotice` (`src/lib/arena-view.ts`). This week is decided from the
+ported season registry, so the notice is there on the first frame with no
+request; last week is decided by the `paused` field the prize pool route sends,
+because only the server knows which season a past week fell in.
+
+Home still fetches the points board during a season. Points keep accruing, and
+the "points since your last visit" toast is read from it.
+
 ### The UI is a small set of parts, and screens only arrange them
 
 `src/ui/` holds the whole visual vocabulary after v7: `Screen`, `Card` and
@@ -391,6 +445,84 @@ System, Token, Token-2022, ATA, Compute Budget or Memo. Excluding the trading
 programs instead was tried on a real devnet wallet and let through rent paid
 into old program versions and MagicBlock delegation. The SOL line on Me is
 there because fees are still paid in SOL; it goes when trading is gasless.
+
+### The tabs are a pager of our own
+
+A sideways swipe anywhere moves to the next or previous tab, with both pages
+following the finger (`src/ui/swipe-tabs.tsx`). Bottom tabs cannot be dragged,
+only animated after a tap. Material top tabs can, but need
+react-native-pager-view, a native pager that decides for itself which
+horizontal touches it takes, and its current release is built on Compose, so
+whether the Home rails still scroll inside it was an open question with a
+native rebuild behind each answer.
+
+So the navigator is React Navigation's `TabRouter` (back button, deep links
+and `router.navigate` unchanged) and the stock `BottomTabBar`, over pages
+positioned from shared values on the UI thread. Rails need no exceptions: a
+native horizontal ScrollView claims the touch at Android's 8dp slop, and
+gesture-handler cancels every gesture when a native view does that, so the
+pager waits for 16dp and a rail that can scroll always wins. `adb shell input
+swipe` faster than about 300ms jumps both thresholds in one event and the pager
+wins; a finger reports in far smaller steps. `freezeOnBlur` became a `Freeze`
+around every tab but the current one and its neighbours, which have to stay
+live to be seen mid-swipe.
+
+A frozen tab draws nothing, which makes the pager's position and the router's
+tab a pair that must never disagree: if the pager rests on a tab the router has
+left, that tab is frozen and the screen is black. It did disagree, on two quick
+taps. Tap Ranks from Home and then Home again before the slide lands: the pager
+compared the tab named with the tab at rest, found Home "already there", and
+let the slide to Ranks run on to a frozen page. The decision is now `reconcile`
+in `src/lib/swipe-nav.ts` (slide, come back, or stay), made on the UI thread in
+one step with the values it reads, so a slide cannot finish between the read
+and the write. Tabs on their way out are kept live as a list rather than one,
+because after two quick taps the page still on screen is from two tabs ago.
+
+### Moments are only ever for things the server confirmed
+
+The win screen, the points toasts and "▲4" on Home (`src/markets/moments.ts`
+for the rules, `src/store/moments.ts` for what the phone remembers) never show
+a number the app made up. A trade's ten points are awarded later by the
+website's webhook, so a trade toasts nothing; the gain turns up on the weekly
+board, and Home toasts it from there, compared against what this phone saw
+last time. A share claim toasts the `awarded` the route returned, and an
+unlock only when a route reports it.
+
+Two rules keep the win screen honest. The first time a wallet is seen on a
+phone, its existing wins are remembered without a moment, so an update does
+not replay a season of old wins. And a win is marked when its moment is
+dismissed, not when it is found, so one found as the app closes is not lost.
+Every win still in the positions list stays remembered however many there
+are; only keys the list no longer carries are trimmed.
+
+`mentioned://dev` has a Moments section: toast previews, a win screen with a
+sample market, and two buttons that rewind what the phone remembers (your
+latest win, your standing) so Home goes through the real path again.
+
+### Chat is the website's rooms, live over its SSE stream
+
+Global chat and one room per market (`paid_<id>`, `paidmaj_<id>`, `custom_<id>`,
+the website's own event ids; `chatEventId` in src/chat/rules.ts, pinned by the
+contract test). A room is live only while its screen is focused, the rule the
+website follows to keep connections down; a market screen shows a slow-polled
+card of the last few messages instead, since a composer and a keyboard have no
+place on a screen that pins a trade bar.
+
+React Native has no EventSource, but its XMLHttpRequest reports the response
+as it grows, so src/chat/sse.ts is a small reader rather than a dependency
+(the format parser is unit tested). The connection is recycled every five
+minutes because `responseText` only grows. If the stream fails, the room polls
+`?after=` every five seconds and retries the stream; every (re)connect fetches
+what it missed first, because the stream does not replay.
+
+A long press on a message offers Report (to the bug-report route, which lands
+in Discord) and Hide (this phone only). Stores ask any app that shows what
+strangers write for both.
+
+The app is edge to edge, so Android draws the keyboard over the screen rather
+than resizing it and `KeyboardAvoidingView` lifts nothing. The chat screen lifts
+itself by the keyboard's reported height plus the bottom inset, which that
+height leaves out.
 
 ## What is tested, and what is not
 

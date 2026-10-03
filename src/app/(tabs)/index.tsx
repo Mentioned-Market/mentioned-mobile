@@ -1,6 +1,11 @@
 // Home. The first screen after the intro, and the one people land on many times
-// a day, so it answers three questions in order and stops: who is winning this
-// week, what closes next, what just settled. An open Arena season leads.
+// a day. Signed out, it opens on what Mentioned is (HowItWorks). Then it
+// answers, in order: what you have riding (when signed in), what
+// closes next, who is winning this week, what just settled. An open Arena
+// season leads, and while it is live the week's prize pool and podium are not
+// shown at all: the weekly board is paused then, so its card would advertise a
+// $0.00 pool nobody can win. Below that, the latest picks across every market,
+// which is the part worth scrolling for.
 //
 // Each answer has its own shape (docs/DESIGN.md): the week is a podium on a
 // gold card, what closes next is a rail of cover images, what settled is a
@@ -17,22 +22,34 @@ import { useFreeList, useIsScreenFocused, useLeaderboard, usePaidMajorityList, u
 import type { LeaderboardEntry } from '@/api/user';
 import { CURRENT_ARENA, arenaStatus } from '@/arena/arenas';
 import { FLAVOR } from '@/config';
-import { shortAddress, tokens as fmtTokens, usd } from '@/lib/format';
-import { closesIn, countdown } from '@/lib/time';
-import { formatCountdown, leaderboardPool, seasonCountdown } from '@/lib/arena-view';
+import { shortAddress, usd } from '@/lib/format';
+import { countdown } from '@/lib/time';
+import { weeklyPaused } from '@/lib/arena-view';
 import { tickerItems } from '@/lib/ticker';
+import { useCountdown } from '@/lib/use-countdown';
 import { useNow } from '@/lib/use-now';
-import { mergeMarkets, type MarketKind, type MarketSummary } from '@/markets/merge';
+import { usePositionGroups } from '@/lib/use-position-groups';
+import { useStandingChange } from '@/lib/use-standing-change';
+import { poolLabel } from '@/markets/game';
+import { isPaid, mergeMarkets, type MarketKind, type MarketSummary } from '@/markets/merge';
 import { useActiveWallet } from '@/store/active-wallet';
-import { Card, SectionTitle } from '@/ui/card';
-import { NotificationBell } from '@/ui/notification-bell';
+import { useSession } from '@/store/session';
+import { ActivityFeed } from '@/ui/activity-feed';
+import { Card, SeeAll, SectionTitle } from '@/ui/card';
+import { HeaderActions } from '@/ui/header-actions';
+import { HowItWorks } from '@/ui/how-it-works';
 import { Pill } from '@/ui/pill';
 import { FeaturedWords } from '@/ui/featured-words';
-import { ErrorState, RowsSkeleton } from '@/ui/states';
+import { LiveNumber } from '@/ui/live-number';
+import { PressableScale } from '@/ui/pressable-scale';
+import { SeekerOffer } from '@/ui/seeker-offer';
 import { Ticker } from '@/ui/ticker';
+import { ErrorState, RowsSkeleton } from '@/ui/states';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 import { ArenaHero } from '@/ui/arena-hero';
 import { Wordmark } from '@/ui/wordmark';
+import { WinMoment } from '@/ui/win-moment';
+import { YourPicks } from '@/ui/your-picks';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -52,14 +69,29 @@ export default function HomeScreen() {
   const focused = useIsScreenFocused();
   const now = useNow(30_000);
   const wallet = useActiveWallet();
+  // Signed in, not just looking at a Seeker wallet: the newcomer card stays
+  // until there is an account to play from.
+  const signedIn = useSession((s) => s.wallet) !== null;
 
   const paidMajority = usePaidMajorityList(focused);
   const paidYesNo = usePaidMarketsList(focused);
   const free = useFreeList(focused);
-  const pool = usePrizePool(undefined, focused);
+  // A season in progress is what Home leads with. Before kickoff the week still
+  // runs, so its prize pool and podium sit below the ticker; once the season is
+  // live the weekly board is paused and Home does not show it. The pool is not
+  // fetched then; the board still is, because points keep accruing through a
+  // season and the "points since your last visit" toast is read from it.
+  const arenaOpen = arenaStatus(CURRENT_ARENA) !== 'ended';
+  const weeklyOff = weeklyPaused(CURRENT_ARENA);
+  const pool = usePrizePool(undefined, focused && !weeklyOff);
   const board = useLeaderboard('current', wallet, focused);
   const trades = useRecentTrades(focused);
-  const ticker = useMemo(() => tickerItems(trades.data ?? []).slice(0, 20), [trades.data]);
+  // One feed, two views: the ticker slides the latest twenty past, Activity
+  // steps through the latest ten as rows (src/ui/activity-feed.tsx).
+  const trade = useMemo(() => tickerItems(trades.data ?? []), [trades.data]);
+  const ticker = useMemo(() => trade.slice(0, 20), [trade]);
+  const positions = usePositionGroups(wallet, focused);
+  const { standing, change } = useStandingChange(wallet, board.data, focused);
   const [refreshing, setRefreshing] = useState(false);
 
   const markets = useMemo(
@@ -67,6 +99,8 @@ export default function HomeScreen() {
     [paidMajority.data, paidYesNo.data, free.data, now],
   );
   const closingSoon = useMemo(() => markets.filter((m) => m.status === 'open').slice(0, CLOSING_SHOWN), [markets]);
+  // Where "Try it free" goes: the free market closing soonest.
+  const tryHref = useMemo(() => markets.find((m) => m.status === 'open' && !isPaid(m))?.href ?? '/markets', [markets]);
   const justResolved = useMemo(() => markets.filter((m) => m.status === 'resolved').slice(0, RESOLVED_SHOWN), [markets]);
   const listsFailed = paidMajority.isError && paidYesNo.isError && free.isError;
   // A first load only; a poll that fails must not take the rows off the screen.
@@ -74,28 +108,27 @@ export default function HomeScreen() {
 
   const refetchAll = () => {
     setRefreshing(true);
-    Promise.all([paidMajority.refetch(), paidYesNo.refetch(), free.refetch(), pool.refetch(), board.refetch(), trades.refetch()]).finally(() => setRefreshing(false));
+    Promise.all([paidMajority.refetch(), paidYesNo.refetch(), free.refetch(), ...(weeklyOff ? [] : [pool.refetch()]), board.refetch(), trades.refetch(), positions.refetch()]).finally(() =>
+      setRefreshing(false),
+    );
   };
 
   const weekEnd = pool.data ? Date.parse(pool.data.weekEnd) : null;
-  // A season in progress is what Home leads with; the week's prize pool and
-  // podium move below the ticker until it ends.
-  const arenaOpen = arenaStatus(CURRENT_ARENA) !== 'ended';
   const top = (board.data?.data ?? []).slice(0, 3);
 
-  /** The week's prize pool and its podium; placed above or below by `arenaOpen`. */
-  const weeklyBoard =
+  /** The week's prize pool and its podium; placed above or below by `arenaOpen`, and absent while the week is paused. */
+  const weeklyBoard = weeklyOff ? null :
     board.isPending && !board.data && pool.isPending ? (
       <RowsSkeleton />
     ) : board.isError && !board.data ? (
       <ErrorState error={board.error} onRetry={() => board.refetch()} title="Could not load the leaderboard" />
     ) : (
       <Link href="/ranks" asChild>
-        <Pressable style={styles.poolCard} accessibilityRole="button" accessibilityLabel="Prize pool and leaderboard">
+        <PressableScale style={styles.poolCard} accessibilityRole="button" accessibilityLabel="Prize pool and leaderboard">
           <View style={styles.poolHead}>
             <View style={{ flex: 1 }}>
               <Text style={styles.poolLabel}>Prize pool this week</Text>
-              <Text style={styles.poolAmount}>{pool.data ? usd(pool.data.poolUsd) : '—'}</Text>
+              {pool.data ? <LiveNumber value={pool.data.poolUsd} format={usd} style={styles.poolAmount} /> : <Text style={styles.poolAmount}>—</Text>}
             </View>
             <View style={styles.poolEnds}>
               <Ionicons name="time-outline" size={14} color={colors.gold} />
@@ -107,7 +140,8 @@ export default function HomeScreen() {
           ) : (
             <Podium top={top} you={wallet} />
           )}
-        </Pressable>
+          {standing ? <YourWeek rank={standing.rank} points={standing.points} change={change} /> : null}
+        </PressableScale>
       </Link>
     );
 
@@ -122,13 +156,21 @@ export default function HomeScreen() {
           <Wordmark size={24} />
           {FLAVOR !== 'production' ? <Pill label={FLAVOR.toUpperCase()} tone="orange" /> : null}
           <View style={{ flex: 1 }} />
-          <NotificationBell focused={focused} />
+          <HeaderActions />
         </View>
+
+        {/* Before anything else, what this app is, for someone who does not know yet. */}
+        {!signedIn ? <HowItWorks tryHref={tryHref} /> : null}
 
         {arenaOpen ? <ArenaHero /> : weeklyBoard}
 
+        {/* A Seeker owner's first pick, paid for; only while the stake is on offer. */}
+        <SeekerOffer />
+
+        <YourPicks wallet={wallet} groups={positions} markets={markets} now={now} />
+
         <View style={styles.section}>
-          <SectionTitle title="Closing soon" right={<SeeAll href="/markets" />} />
+          <SectionTitle title="Markets closing soon" right={<SeeAll href="/markets" />} />
           {listsLoading ? (
             <RowsSkeleton />
           ) : listsFailed ? (
@@ -140,7 +182,7 @@ export default function HomeScreen() {
           ) : (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail} style={styles.railBleed} decelerationRate="fast" snapToInterval={RAIL_CARD + spacing.sm} snapToAlignment="start">
               {closingSoon.map((m) => (
-                <ClosingCard key={`${m.kind}:${m.id}`} market={m} now={now} />
+                <ClosingCard key={`${m.kind}:${m.id}`} market={m} />
               ))}
             </ScrollView>
           )}
@@ -157,8 +199,39 @@ export default function HomeScreen() {
           </View>
         ) : null}
         <FeaturedWords />
+
+        <ActivityFeed items={trade} now={now} focused={focused} />
+
+        <Link href="/markets" asChild>
+          <Pressable style={styles.browse} accessibilityRole="button">
+            <Text style={styles.browseText}>Browse all markets</Text>
+            <Ionicons name="arrow-forward" size={16} color={colors.gold} />
+          </Pressable>
+        </Link>
       </ScrollView>
+      <WinMoment wallet={wallet} groups={positions} focused={focused} />
     </SafeAreaView>
+  );
+}
+
+// ── Your week ───────────────────────────────────────────────────────────────
+
+/** The player's own line under the podium, with what moved since they last looked. */
+function YourWeek({ rank, points, change }: { rank: number | null; points: number; change: { points: number; places: number } | null }) {
+  const places = change?.places ?? 0;
+  return (
+    <View style={styles.week}>
+      <Text style={styles.weekText}>
+        {rank !== null ? `You're #${rank} this week` : 'Your week'} · {points.toLocaleString()} pts
+      </Text>
+      {places !== 0 ? (
+        <View style={[styles.move, places < 0 && styles.moveDown]}>
+          <Ionicons name={places > 0 ? 'caret-up' : 'caret-down'} size={12} color={places > 0 ? colors.yes : colors.no} />
+          <Text style={[styles.moveText, places < 0 && { color: colors.no }]}>{Math.abs(places)}</Text>
+        </View>
+      ) : null}
+      {change && change.points > 0 ? <Text style={styles.gained}>+{change.points.toLocaleString()}</Text> : null}
+    </View>
   );
 }
 
@@ -196,20 +269,21 @@ function Podium({ top, you }: { top: LeaderboardEntry[]; you: string | null }) {
 
 const RAIL_CARD = 236;
 
-function ClosingCard({ market, now }: { market: MarketSummary; now: number }) {
+function ClosingCard({ market }: { market: MarketSummary }) {
   const [failed, setFailed] = useState(false);
-  const closes = closesIn(market.lockAt, now);
-  const pool = market.pool.kind === 'usdc' ? (market.pool.usd > 0 ? `${usd(market.pool.usd)} pool` : 'USDC') : `${fmtTokens(market.pool.tokens)} tokens`;
+  // Ticks by the second, in gold, in the market's last hour.
+  const { text: closes, urgent } = useCountdown(market.lockAt);
+  const pool = poolLabel(market.pool);
   const hasCover = !!market.cover && !failed;
   return (
     <Link href={market.href as Href} asChild>
-      <Pressable style={styles.railCard} accessibilityRole="button" accessibilityLabel={market.title}>
+      <PressableScale style={styles.railCard} accessibilityRole="button" accessibilityLabel={market.title}>
         {hasCover ? <Image source={{ uri: market.cover as string }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} onError={() => setFailed(true)} /> : null}
         {/* Two overlays stand in for a gradient: a light wash over the whole
             image and a heavier one behind the text. */}
         {hasCover ? <View style={[StyleSheet.absoluteFill, styles.wash]} /> : null}
         <View style={styles.railTop}>
-          {closes ? <Pill label={closes} tone="dark" /> : null}
+          {closes ? <Pill label={closes} tone={urgent ? 'gold' : 'dark'} /> : null}
           <Pill label={pool} tone="dark" />
         </View>
         <View style={styles.railBottom}>
@@ -218,7 +292,7 @@ function ClosingCard({ market, now }: { market: MarketSummary; now: number }) {
           </Text>
         </View>
         {!hasCover ? <Text style={styles.railEmoji}>🎯</Text> : null}
-      </Pressable>
+      </PressableScale>
     </Link>
   );
 }
@@ -242,7 +316,7 @@ function ResolvedTile({ market, width }: { market: MarketSummary; width: number 
   const href = `/result/${RESULT_SEGMENT[market.kind]}/${market.id}` as Href;
   return (
     <Link href={href} asChild>
-      <Pressable style={StyleSheet.flatten([styles.tile, { width }])} accessibilityRole="button" accessibilityLabel={market.title}>
+      <PressableScale style={StyleSheet.flatten([styles.tile, { width }])} accessibilityRole="button" accessibilityLabel={market.title}>
         <View style={styles.tileThumb}>
           {market.cover && !failed ? (
             <Image source={{ uri: market.cover }} style={StyleSheet.absoluteFill} contentFit="cover" transition={120} onError={() => setFailed(true)} />
@@ -255,17 +329,7 @@ function ResolvedTile({ market, width }: { market: MarketSummary; width: number 
         </Text>
         <View style={{ flex: 1 }} />
         <Text style={styles.tileMeta}>See result</Text>
-      </Pressable>
-    </Link>
-  );
-}
-
-function SeeAll({ href }: { href: string }) {
-  return (
-    <Link href={href as Href} asChild>
-      <Pressable accessibilityRole="button" hitSlop={10}>
-        <Text style={styles.seeAll}>See all</Text>
-      </Pressable>
+      </PressableScale>
     </Link>
   );
 }
@@ -277,7 +341,8 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
   brand: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44 },
   section: { gap: spacing.sm },
-  seeAll: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.textMuted },
+  browse: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: spacing.md },
+  browseText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.gold },
   rowTitle: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: colors.text },
   countdown: { fontFamily: fonts.semibold, color: colors.gold, fontVariant: ['tabular-nums'] },
 
@@ -289,6 +354,12 @@ const styles = StyleSheet.create({
   poolEnds: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, height: 30, borderRadius: radius.control, backgroundColor: 'rgba(0,0,0,0.35)' },
   poolEndsText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.text, fontVariant: ['tabular-nums'] },
   podium: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
+  week: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(242,183,31,0.3)' },
+  weekText: { flex: 1, fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, color: colors.text, fontVariant: ['tabular-nums'] },
+  move: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 8, height: 24, borderRadius: radius.control, backgroundColor: colors.yesTint },
+  moveDown: { backgroundColor: colors.noTint },
+  moveText: { fontFamily: fonts.bold, fontSize: 13, color: colors.yes, fontVariant: ['tabular-nums'] },
+  gained: { fontFamily: fonts.bold, fontSize: 14, color: colors.gold, fontVariant: ['tabular-nums'] },
   podiumSlot: { flex: 1, alignItems: 'center', gap: 4 },
   podiumAvatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center' },
   podiumAvatarLead: { width: 72, height: 72, borderRadius: 36, marginBottom: 4 },
@@ -306,7 +377,8 @@ const styles = StyleSheet.create({
   rail: { paddingHorizontal: spacing.md, gap: spacing.sm },
   railCard: { width: RAIL_CARD, height: 180, borderRadius: radius.card, backgroundColor: colors.surface, overflow: 'hidden', padding: spacing.sm + 4, justifyContent: 'space-between' },
   wash: { backgroundColor: 'rgba(0,0,0,0.45)' },
-  railTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 6 },
+  // Wraps: the countdown and "Free · 300 play tokens" together are wider than a card.
+  railTop: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 6 },
   railBottom: { gap: 4 },
   railTitle: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 21, color: colors.text, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6 },
   railEmoji: { position: 'absolute', right: spacing.md, top: '38%', fontSize: 40, opacity: 0.35 },
