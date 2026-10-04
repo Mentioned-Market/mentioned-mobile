@@ -21,6 +21,11 @@ import {
   arenaPrizeLine,
   weeklyPaused,
   weeklyPauseNotice,
+  LIVE_POLL_MS,
+  SETTLING_MS,
+  SETTLING_POLL_MS,
+  seasonPhase,
+  standingsPollMs,
 } from '@/lib/arena-view';
 
 const season = (over: Partial<Arena> = {}): Arena => ({ ...CURRENT_ARENA, ...over });
@@ -214,6 +219,29 @@ describe('the weekly pause', () => {
     expect(past?.returns).toBeNull();
   });
 
+  it('cuts off by the clock alone: paused one millisecond before the end, a normal week at it', () => {
+    const lastMoment = new Date(season.end.getTime() - 1);
+    expect(weeklyPauseNotice('current', season, undefined, lastMoment)).not.toBeNull();
+    expect(weeklyPauseNotice('current', season, undefined, season.end)).toBeNull();
+    expect(weeklyPaused(season, lastMoment)).toBe(true);
+    expect(weeklyPaused(season, season.end)).toBe(false);
+  });
+
+  it('ignores a pause for this week that was fetched before the season closed', () => {
+    // The pool answer cached during the season still says paused; once its own
+    // resumesAt has passed, this week is a normal week whatever it says.
+    expect(weeklyPauseNotice('current', season, server, season.end)).toBeNull();
+    expect(weeklyPauseNotice('current', season, server, after)).toBeNull();
+    // Last week keeps its explanation: the season did run in place of it.
+    expect(weeklyPauseNotice('last', season, server, after)).not.toBeNull();
+  });
+
+  it('keeps this week paused on the server word when the phone clock runs ahead of a season it does not know', () => {
+    const unknown = { arena: 'not-in-this-build', name: 'Mystery', displayRange: 'Jan 1 – Jan 14, 2027', resumesAt: '2027-01-15T00:00:00.000Z' };
+    expect(weeklyPauseNotice('current', season, unknown, new Date('2027-01-10T00:00:00.000Z'))).not.toBeNull();
+    expect(weeklyPauseNotice('current', season, unknown, new Date('2027-01-15T00:00:00.000Z'))).toBeNull();
+  });
+
   it('still explains a season this build has never heard of', () => {
     const unknown = { arena: 'not-in-this-build', name: 'Mystery', displayRange: 'Jan 1 – Jan 14, 2027', resumesAt: '2027-01-15T00:00:00.000Z' };
     const notice = weeklyPauseNotice('last', season, unknown, new Date('2027-01-10T00:00:00.000Z'));
@@ -236,5 +264,37 @@ describe('the weekly pause', () => {
     const medals = ARENAS.find((a) => a.bounty);
     if (plain) expect(arenaPrizeLine(plain)).toBe(`${plain.prizePool} across the top ${plain.prizes.length} teams`);
     if (medals?.bounty) expect(arenaPrizeLine(medals)).toBe(`${medals.bounty.leaderboardPool} across the top ${medals.prizes.length} teams and ${medals.bounty.bounties.length} medals worth ${medals.bounty.bountyPool}`);
+  });
+});
+
+describe('refreshing the standings around the end of a season', () => {
+  const s = ARENAS.find((a) => a.slug === 'worlds-fair') ?? CURRENT_ARENA;
+  const at = (ms: number) => new Date(s.end.getTime() + ms);
+
+  it('is live through the window, settling for a week after it, and done either side', () => {
+    expect(seasonPhase(s, new Date(s.start.getTime() - 1))).toBe('done');
+    expect(seasonPhase(s, s.start)).toBe('live');
+    expect(seasonPhase(s, at(-1))).toBe('live');
+    expect(seasonPhase(s, at(0))).toBe('settling');
+    expect(seasonPhase(s, at(SETTLING_MS - 1))).toBe('settling');
+    expect(seasonPhase(s, at(SETTLING_MS))).toBe('done');
+  });
+
+  it('polls fast while live and not at all once done', () => {
+    expect(standingsPollMs('live')).toBe(LIVE_POLL_MS);
+    expect(standingsPollMs('live', 'live')).toBe(LIVE_POLL_MS);
+    expect(standingsPollMs('done')).toBeNull();
+    expect(standingsPollMs('done', 'final')).toBeNull();
+  });
+
+  it('keeps the fast poll past the end until the medal board says final, so the winners appear unasked', () => {
+    // The board in hand was fetched before the close, or not fetched at all.
+    expect(standingsPollMs('settling', 'live')).toBe(LIVE_POLL_MS);
+    expect(standingsPollMs('settling', null)).toBe(LIVE_POLL_MS);
+    expect(standingsPollMs('settling', 'final')).toBe(SETTLING_POLL_MS);
+  });
+
+  it('keeps the team standings on the slow poll while late results can still move them', () => {
+    expect(standingsPollMs('settling')).toBe(SETTLING_POLL_MS);
   });
 });

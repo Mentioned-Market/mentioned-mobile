@@ -48,6 +48,16 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
+/**
+ * This app's page in the Solana dApp Store, which is where an update comes
+ * from on a Seeker. Used when the server names no update link of its own, so
+ * "update to keep going" always has a button rather than only an instruction.
+ */
+export function storeListingUrl(applicationId: string | null | undefined): string | null {
+  const id = applicationId?.trim();
+  return id ? `solanadappstore://details?id=${encodeURIComponent(id)}` : null;
+}
+
 /** Only the flags this app knows, and only real booleans; everything else keeps its default. */
 function readFeatures(config: MobileConfig): Features {
   const out = { ...DEFAULT_FEATURES };

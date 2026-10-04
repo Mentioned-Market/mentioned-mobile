@@ -7,6 +7,7 @@ import { useCallback, useState } from 'react';
 import { deserializeMarketAccount } from '@/chain/amm';
 import { getSolBalance, getUsdcBalance } from '@/chain/balance';
 import { base64ToBytes } from '@/lib/bytes';
+import { standingsPollMs, type SeasonPhase } from '@/lib/arena-view';
 import { fetchAmmClaim } from '@/trade/claim';
 import * as achievements from './achievements';
 import * as arena from './arena';
@@ -85,6 +86,8 @@ export const keys = {
   achievements: (wallet: string) => ['achievements', wallet] as const,
   notificationSettings: ['notifications', 'settings'] as const,
   mobileConfig: ['mobile', 'config'] as const,
+  arenas: ['arena', 'seasons'] as const,
+  medalBoard: (arenaSlug: string) => ['arena', 'medals', arenaSlug] as const,
   teamLeaderboard: (arenaSlug: string) => ['arena', 'leaderboard', arenaSlug] as const,
   myTeam: (wallet: string, arenaSlug: string) => ['arena', 'my-team', wallet, arenaSlug] as const,
   team: (slug: string, wallet: string) => ['arena', 'team', slug, wallet] as const,
@@ -292,15 +295,50 @@ export const useMobileConfig = () =>
     refetchInterval: 10 * 60_000,
   });
 
-// Arena. A live season's standings move as markets resolve, so the board polls
-// while it is on screen; a finished season never changes, so it does not.
-export const useTeamLeaderboard = (arenaSlug: string, live: boolean, focused: boolean) =>
+// The Arena's seasons, from the website's registry. Fetched once in a while
+// rather than per screen: a season changes a few times in its life. It is
+// persisted with the rest of the cache, so a launch with no signal shows the
+// last seasons the server sent, not the older copy bundled in the build.
+export const useArenas = () =>
   useQuery({
+    queryKey: keys.arenas,
+    queryFn: arena.getArenas,
+    staleTime: 5 * 60_000,
+    refetchInterval: 10 * 60_000,
+  });
+
+// Who holds each medal. The server caches the finished board for a minute and
+// refreshes it when a trade or a result moves one, so half a minute is as live
+// as a poll can usefully be. The pace comes from `standingsPollMs`, which also
+// keeps asking past the end of a season until the board says it is final, and
+// slowly for a week after, while late results can still change a winner.
+export const useMedalBoard = (arenaSlug: string, hasMedals: boolean, phase: SeasonPhase, focused: boolean) =>
+  useQuery({
+    queryKey: keys.medalBoard(arenaSlug),
+    queryFn: () => arena.getMedalBoard(arenaSlug),
+    enabled: hasMedals,
+    staleTime: phase === 'done' ? 10 * 60_000 : 20_000,
+    // Reads the board it already holds: "final" is what slows the poll down.
+    refetchInterval: (query) => {
+      if (!focused || query.state.status === 'error') return false;
+      return standingsPollMs(phase, query.state.data?.state ?? null) ?? false;
+    },
+    refetchIntervalInBackground: false,
+  });
+
+// Arena. A live season's standings move as markets resolve, so the board polls
+// while it is on screen. It keeps polling, slowly, for a week after the end:
+// points are dated by when a market locked, so one that resolves late still
+// moves the final standings. A season long over never changes, and is not asked.
+export const useTeamLeaderboard = (arenaSlug: string, phase: SeasonPhase, focused: boolean) => {
+  const every = standingsPollMs(phase);
+  return useQuery({
     queryKey: keys.teamLeaderboard(arenaSlug),
     queryFn: () => arena.getTeamLeaderboard(arenaSlug),
-    staleTime: live ? 30_000 : 10 * 60_000,
-    ...poll(focused && live, LIST_POLL_MS * 2),
+    staleTime: phase === 'done' ? 10 * 60_000 : 30_000,
+    ...poll(focused && every !== null, every ?? LIST_POLL_MS),
   });
+};
 
 export const useMyTeam = (wallet: string | null, arenaSlug: string) =>
   useQuery({

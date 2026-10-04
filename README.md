@@ -51,6 +51,14 @@ committed.
 - `src/auth/` Openfort provider, Shield encryption session, session exchange.
 - `src/markets/`, `src/free/`, `src/arena/`, `src/lib/` pure logic: merging,
   maths, formatting, derivations. No React, so it is unit tested.
+
+What changes on the website's schedule is read from the website, not compiled
+in: markets, standings, Arena seasons and medals (`/api/teams/arenas`,
+`/api/teams/bounties`), point values, and whether this build may still run
+(`/api/mobile/config`). To make every phone update, set `MOBILE_MIN_VERSION` on
+the web service to the version that is live in the dApp Store, after it is
+live. `docs/REMOTE_CONFIG.md` is the how-to; `docs/ENGINEERING.md` has the
+reasoning.
 - `src/ui/` shared components and the theme. `docs/DESIGN.md` says how they
   fit together; start there before adding a screen.
 

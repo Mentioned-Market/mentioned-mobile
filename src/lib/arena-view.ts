@@ -2,7 +2,7 @@
 // countdowns, labels, input checks that match the server's, and the wording of
 // errors. Kept pure so it is tested, and so the screens stay about layout.
 import { ApiError } from '@/api/client';
-import { arenaStatus, getArenaBySlug, type Arena, type ArenaStatus } from '@/arena/arenas';
+import { seasonBySlug, seasonStatus, type Season, type SeasonStatus } from '@/arena/seasons';
 import { ARENA_REFUSED, isAttestationRefusal } from '@/trade/attestation';
 
 export const MEDALS = ['🥇', '🥈', '🥉'];
@@ -21,7 +21,7 @@ export function formatCountdown(ms: number): string {
 }
 
 /** What the countdown counts to, or null once the season is over. */
-export function seasonCountdown(arena: Arena, now: number): { label: string; ms: number } | null {
+export function seasonCountdown(arena: Season, now: number): { label: string; ms: number } | null {
   if (now < arena.start.getTime()) return { label: 'Starts in', ms: arena.start.getTime() - now };
   if (now < arena.end.getTime()) return { label: 'Ends in', ms: arena.end.getTime() - now };
   return null;
@@ -35,8 +35,8 @@ export function seasonCountdown(arena: Arena, now: number): { label: string; ms:
 // way here so the two surfaces do not disagree about where the money is.
 
 /** True only while the season is live: an upcoming one pauses nothing yet. */
-export function weeklyPaused(arena: Arena, now: Date = new Date()): boolean {
-  return arenaStatus(arena, now) === 'active';
+export function weeklyPaused(arena: Season, now: Date = new Date()): boolean {
+  return seasonStatus(arena, now) === 'active';
 }
 
 /** What the server says about a week an Arena replaced (`paused` on the prize pool route). */
@@ -57,7 +57,7 @@ const utcDay = (d: Date, weekday = false) =>
 const rangeText = (displayRange: string) => displayRange.replace(/\s*[\u2013\u2014-]\s*/, ' to ');
 
 /** Where the season's money goes: "$1,000 across the top 10 teams and 8 medals worth $500". */
-export function arenaPrizeLine(arena: Arena): string {
+export function arenaPrizeLine(arena: Season): string {
   const teams = `the top ${arena.prizes.length} teams`;
   const b = arena.bounty;
   return b ? `${b.leaderboardPool} across ${teams} and ${b.bounties.length} medals worth ${b.bountyPool}` : `${arena.prizePool} across ${teams}`;
@@ -67,18 +67,32 @@ export function arenaPrizeLine(arena: Arena): string {
  * The notice Ranks shows in place of the prize pool and the raffle, or null
  * for a week that runs as normal.
  *
- * This week is decided from the ported registry, so the notice is there on the
- * first frame. Any other week is decided by the server's `paused`, which knows
- * which season a past week fell in; a season this build has never heard of
- * still gets a notice, from the name and dates the server sent.
+ * This week is decided from the season list the app already holds, so the
+ * notice is there on the first frame. Any other week is decided by the
+ * server's `paused`, which knows which season a past week fell in; a season
+ * missing from `known` still gets a notice, from the name and dates the
+ * server sent.
+ *
+ * `now` is what makes the pause end on its own. Pass a clock that ticks: the
+ * moment it reaches the season's end, this week's notice is gone, with no
+ * request and no restart. A server answer that still says "paused" for this
+ * week after its own `resumesAt` is one fetched before the season closed, so
+ * it is ignored rather than shown as "ran in place of this week".
  */
-export function weeklyPauseNotice(week: 'current' | 'last', current: Arena, server: ServerPause | null | undefined, now: Date = new Date()): WeeklyPauseNotice | null {
+export function weeklyPauseNotice(
+  week: 'current' | 'last',
+  current: Season,
+  server: ServerPause | null | undefined,
+  now: Date = new Date(),
+  seasons: Season[] = [current],
+): WeeklyPauseNotice | null {
   if (week === 'current' && weeklyPaused(current, now)) return liveNotice(current);
   if (!server) return null;
-  const known = getArenaBySlug(server.arena);
+  const known = seasonBySlug(seasons, server.arena);
   if (known && weeklyPaused(known, now)) return liveNotice(known);
   const resumes = new Date(server.resumesAt);
   const over = !(now < resumes);
+  if (week === 'current' && over) return null;
   return {
     emoji: known?.emoji ?? '⚔️',
     title: over ? `The ${server.name} Arena ran in place of this week` : `Weekly leaderboard paused for the ${server.name} Arena`,
@@ -87,7 +101,7 @@ export function weeklyPauseNotice(week: 'current' | 'last', current: Arena, serv
   };
 }
 
-function liveNotice(arena: Arena): WeeklyPauseNotice {
+function liveNotice(arena: Season): WeeklyPauseNotice {
   return {
     emoji: arena.emoji,
     title: `Weekly leaderboard paused for the ${arena.name} Arena`,
@@ -97,8 +111,51 @@ function liveNotice(arena: Arena): WeeklyPauseNotice {
   };
 }
 
+// ── How often the standings are worth asking for ────────────────────────────
+// A season does not stop moving at its end time. Points and medals are dated
+// by when a market LOCKED, so a market that locked on the last day and resolves
+// two days later still changes who won. The server calls the medal board
+// "final" from the end time on, but works it out on every read, so "final" can
+// still change until the last of those markets has resolved.
+
+/** How long after the end the standings can still move, generously. */
+export const SETTLING_MS = 7 * 86_400_000;
+
+/**
+ * `live` while the season runs; `settling` for a week after it ends, while
+ * late results can still change the winners; `done` after that, and before
+ * kickoff, when nothing changes.
+ */
+export type SeasonPhase = 'live' | 'settling' | 'done';
+
+export function seasonPhase(arena: Season, now: Date = new Date()): SeasonPhase {
+  const status = seasonStatus(arena, now);
+  if (status === 'active') return 'live';
+  if (status === 'ended' && now.getTime() - arena.end.getTime() < SETTLING_MS) return 'settling';
+  return 'done';
+}
+
+export const LIVE_POLL_MS = 30_000;
+export const SETTLING_POLL_MS = 5 * 60_000;
+
+/**
+ * How often to refetch a season's standings while they are on screen, or null
+ * for never.
+ *
+ * `boardState` is the medal board's own state, for the medal query. Until the
+ * server has answered "final" the fast poll carries on past the end time: the
+ * last answer fetched before the close still says "Held by", and the server
+ * caches its board for a minute, so without this the winners would not appear
+ * until someone pulled to refresh.
+ */
+export function standingsPollMs(phase: SeasonPhase, boardState?: string | null): number | null {
+  if (phase === 'live') return LIVE_POLL_MS;
+  if (phase === 'done') return null;
+  return boardState !== undefined && boardState !== 'final' ? LIVE_POLL_MS : SETTLING_POLL_MS;
+}
+
 /** The pill on a season's hero. */
-export function statusLabel(status: ArenaStatus, isCurrent: boolean): string {
+export function statusLabel(status: SeasonStatus, isCurrent: boolean): string {
   if (status === 'active') return 'Live';
   if (status === 'upcoming') return isCurrent ? 'Starting soon' : 'Preview';
   return 'Final standings';
@@ -115,28 +172,29 @@ export function placeLabel(place: number): string {
 /**
  * What the leaderboard's top places share. A season with a medal board keeps
  * part of its pool for the medals, so "top 10 share $1,500" would overstate
- * it; the registry says which part is the leaderboard's.
+ * it; the season says which part is the leaderboard's.
  */
-export function leaderboardPool(arena: Arena): string {
+export function leaderboardPool(arena: Season): string {
   return arena.bounty?.leaderboardPool ?? arena.prizePool;
 }
 
 /**
  * The web's medal copy says "betting"; the app never does (AGENTS.md). The
- * registry is ported byte for byte, so the word is swapped as it is shown.
+ * seasons are the website's own words, from its route or from the byte for
+ * byte port, so the word is swapped as it is shown.
  */
 export function appCopy(text: string): string {
   return text.replace(/\bbetting\b/gi, 'predicting').replace(/\bbettors\b/gi, 'players').replace(/\bbets\b/gi, 'picks').replace(/\bbet\b/gi, 'pick');
 }
 
-export function teamSizeCopy(arena: Arena): string {
+export function teamSizeCopy(arena: Season): string {
   return arena.maxMembers === 2
     ? 'Teams are 1 or 2 players. Go solo if you are confident, but a partner means more points.'
     : `Teams can be 1 to ${arena.maxMembers} members. Go solo if you are confident, but more traders means more points.`;
 }
 
 /** Create and join are open only in the current season, and not after it ends. */
-export function canEnter(arena: Arena, current: Arena, now: Date): boolean {
+export function canEnter(arena: Season, current: Season, now: Date): boolean {
   return arena.id === current.id && now < arena.end;
 }
 

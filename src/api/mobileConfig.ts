@@ -28,6 +28,13 @@ export const MobileConfig = z.object({
       onramp: z.boolean().optional(),
     })
     .optional(),
+  /**
+   * The scorers' numbers, for the "How to earn points" sheet. Read loosely and
+   * allowed to be anything: `src/lib/points-rules.ts` takes the numbers it
+   * knows and ignores the rest. A malformed block must not fail this parse,
+   * because the kill switch and the minimum version ride in the same response.
+   */
+  points: z.record(z.string(), z.unknown()).nullable().optional().catch(undefined),
 });
 export type MobileConfig = z.infer<typeof MobileConfig>;
 

@@ -98,6 +98,9 @@ async function main() {
       write('team-my-team', { team: mine.team ? { ...mine.team, pfp_data: null } : null });
     }
   }
+  // The medal board is captured from the season that has one. Three contenders
+  // a medal is all the route sends, so nothing needs trimming.
+  write('teams-bounties', await get('/api/teams/bounties?arena=worlds-fair'));
   write('referral', trim(await get(`/api/referral?wallet=${WALLET}`), 'referredUsers', 5));
   const publicProfile = await get<Record<string, unknown>>(`/api/profile/${USERNAME}`);
   const { pointHistory, freeMarket, ...restProfile } = publicProfile as Record<string, unknown> & { freeMarket: Record<string, unknown> };

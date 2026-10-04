@@ -8,12 +8,13 @@
 // instruction, never on a missing one.
 import * as Application from 'expo-application';
 import * as Linking from 'expo-linking';
-import type { ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useMobileConfig } from '@/api/queries';
-import { evaluateMobileConfig, type Features } from '@/lib/mobile-config';
+import { evaluateMobileConfig, storeListingUrl, type Features } from '@/lib/mobile-config';
+import { readPoints, type PointsRules } from '@/lib/points-rules';
 import { Button } from '@/ui/button';
 import { colors, fonts, spacing, type } from '@/ui/theme';
 
@@ -26,15 +27,26 @@ export function useFeatures(): Features {
   return evaluateMobileConfig(config.data, APP_VERSION).features;
 }
 
+/** How points are earned right now: the server's numbers, over the ones this build shipped with. */
+export function usePointsRules(): PointsRules {
+  const points = useMobileConfig().data?.points;
+  return useMemo(() => readPoints(points), [points]);
+}
+
 /** The note a disabled trade button shows when its feature is switched off. */
 export const PAUSED_NOTE = 'Trading is paused right now';
 
 export function ConfigGate({ children }: { children: ReactNode }) {
   const config = useMobileConfig();
   const { gate } = evaluateMobileConfig(config.data, APP_VERSION);
+  // Set when the update link would not open: a build installed some other way
+  // than through the dApp Store has no store app to hand the link to.
+  const [linkFailed, setLinkFailed] = useState(false);
   if (gate.kind === 'ok') return <>{children}</>;
 
   const retry = () => void config.refetch();
+  // The server's link when it names one, this app's own store page otherwise.
+  const updateUrl = gate.kind === 'update' ? (gate.updateUrl ?? storeListingUrl(Application.applicationId)) : null;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -55,8 +67,8 @@ export function ConfigGate({ children }: { children: ReactNode }) {
               {gate.message ??
                 `This version${APP_VERSION ? ` (${APP_VERSION})` : ''} is no longer supported. Version ${gate.minVersion} or later is needed.`}
             </Text>
-            {gate.updateUrl ? (
-              <Button label="Update" onPress={() => Linking.openURL(gate.updateUrl as string)} style={styles.button} />
+            {updateUrl && !linkFailed ? (
+              <Button label="Update" onPress={() => Linking.openURL(updateUrl).catch(() => setLinkFailed(true))} style={styles.button} />
             ) : (
               <Text style={styles.text}>Update Mentioned from the Solana dApp Store.</Text>
             )}

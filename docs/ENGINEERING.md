@@ -151,9 +151,54 @@ hands cannot be patched quickly. The failure path distinguishes a real shape
 change from the job falling over before the test ran, because the fix is
 completely different.
 
-`src/arena/arenas.ts` is ported data rather than code, and the same test covers
-it: the web starts a new Arena season by appending to its registry, and the
-contract test fails when the web's current season and the ported copy differ.
+`src/arena/arenas.ts` is ported data rather than code, and since Oct 3 2026 it
+is only a fallback (see "What the server decides, and what the build does").
+The contract test checks that the seasons route parses and agrees with the
+leaderboard about which season is current, and reports how the bundled copy
+differs from it. That report is a warning and not a failure, because the app
+shows the server's seasons either way.
+
+### What the server decides, and what the build does
+
+A build on someone's phone cannot be patched quickly: a release goes through
+the dApp Store. So anything the website changes on its own schedule has to be
+read from the website, not compiled in.
+
+The Arena is what forced the rule. Its seasons were a byte for byte port of the
+web's `lib/arenas.ts`. On Sep 27 2026 the web replaced one medal with another,
+moved $10 between two more and rewrote five rules, mid-season. The app went on
+showing a medal that no longer existed, and the daily contract test said
+nothing, because it compared only the season's slug.
+
+Now:
+
+- **Seasons** come from `GET /api/teams/arenas`. `src/arena/seasons.ts` turns
+  the response into the `Season` the screens use, and `useSeasons()` is the one
+  way a screen gets them. Once the server has answered, its list replaces the
+  bundled one whole: merging would keep a season the web has withdrawn. The
+  ported registry is used before the first answer and against a server without
+  the route. The response sits in the persisted query cache as the JSON it
+  arrived as, because a `Date` does not survive being written to disk.
+- **Medal holders** come from `GET /api/teams/bounties`, which the website
+  already had. `src/lib/medal-board.ts` joins them to the season's medals and
+  owns the wording of each state. The board is polled every 30 seconds while
+  the tab is focused and the season is live. The website's SSE stream was
+  rejected: it would need an EventSource dependency, and the server only
+  recomputes the board once a minute or when a write moves a medal.
+- **Point values** in the "How to earn points" sheet come from the `points`
+  block of the mobile config (`src/lib/points-rules.ts`). The sheet had been
+  quoting rates the website had already changed.
+- **Whether this build may run** comes from the mobile config: `minVersion`
+  set to the version live in the store is what makes everyone update. With no
+  `updateUrl` from the server, the Update button opens the app's own dApp
+  Store page (`storeListingUrl`).
+
+Three things hold for all of it. Old builds must keep parsing new responses, so
+medal ids and states are plain strings and unknown fields are dropped; adding
+is free, renaming is a breaking change. A missing or malformed answer falls
+back to what is bundled and never blanks a screen or closes the gate. And none
+of it reaches money: program ids, mints and transaction building stay in the
+build, and a flag can only switch a feature off.
 
 ### Cold launch shows something immediately
 
@@ -350,8 +395,8 @@ prize pool and the raffle with a notice: paused for which season, where the
 money is going, and the day the weekly board returns. Before kickoff nothing
 changes, as on the website. The rule and every word of the notice are in
 `weeklyPauseNotice` (`src/lib/arena-view.ts`). This week is decided from the
-ported season registry, so the notice is there on the first frame with no
-request; last week is decided by the `paused` field the prize pool route sends,
+seasons the app already holds (cached from the server, or bundled), so the
+notice is there on the first frame with no request; last week is decided by the `paused` field the prize pool route sends,
 because only the server knows which season a past week fell in.
 
 Home still fetches the points board during a season. Points keep accruing, and
@@ -477,6 +522,30 @@ in `src/lib/swipe-nav.ts` (slide, come back, or stay), made on the UI thread in
 one step with the values it reads, so a slide cannot finish between the read
 and the write. Tabs on their way out are kept live as a list rather than one,
 because after two quick taps the page still on screen is from two tabs ago.
+
+### Reanimated must not hand settled values back to React
+
+`package.json` turns off Reanimated's `FORCE_REACT_RENDER_FOR_SETTLED_ANIMATIONS`
+static flag. It is a build-time flag, so changing it needs a native rebuild.
+
+With the flag on (the 4.5 default), a value an animation has settled on is
+held natively for two seconds. A JavaScript timer, every half second, copies
+anything older than one second back into React state, and anything older than
+two seconds is dropped. That only works while the timer runs. Android stops
+JavaScript timers while the activity is paused, and the wallet is another
+activity: open it within a second of an animation finishing and stay there
+longer than two, and the value is dropped without ever reaching React. The view
+then falls back to the style it was first rendered with.
+
+For the tab pager that style is "parked off screen" for any tab first opened by
+a tap. So: open the app, tap Me, tap "Link my Seeker" straight away, approve,
+and the app came back to a black page under the tab bar until another tab was
+tapped. It looked like a Seeker bug and had nothing to do with the Seeker; the
+same would have happened to a bottom sheet followed quickly by a deposit.
+
+With the flag off, the native registry keeps a view's animated values until
+the view unmounts, which is how Reanimated behaved before the flag existed.
+Nothing in the pager changed.
 
 ### Moments are only ever for things the server confirmed
 

@@ -88,5 +88,10 @@
     "apk:staging": "scripts/release-apk.sh staging",
     "store:publish": "dapp-store"
   },
+  "reanimated": {
+    "staticFeatureFlags": {
+      "FORCE_REACT_RENDER_FOR_SETTLED_ANIMATIONS": false
+    }
+  },
   "private": true
 }

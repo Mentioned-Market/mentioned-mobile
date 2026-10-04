@@ -1,6 +1,17 @@
 // Mobile config decides whether the app runs at all, so the failure that
 // matters most is a bad config locking every user out. These pin that it can't.
-import { compareVersions, DEFAULT_FEATURES, evaluateMobileConfig } from '@/lib/mobile-config';
+import { compareVersions, DEFAULT_FEATURES, evaluateMobileConfig, storeListingUrl } from '@/lib/mobile-config';
+
+describe('storeListingUrl', () => {
+  it('links to this app in the dApp Store, so a required update always has somewhere to go', () => {
+    expect(storeListingUrl('market.mentioned.app')).toBe('solanadappstore://details?id=market.mentioned.app');
+  });
+
+  it('is absent when the build cannot say what it is', () => {
+    expect(storeListingUrl(null)).toBeNull();
+    expect(storeListingUrl('  ')).toBeNull();
+  });
+});
 
 describe('compareVersions', () => {
   it('orders plain versions segment by segment', () => {

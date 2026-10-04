@@ -1,10 +1,11 @@
 // The Arena: Mentioned's team competition, as mentioned.market/arena shows it.
 //
-// One season at a time is open for entry (the highest-id one in the ported
-// registry); earlier seasons stay viewable as final standings. The season's
-// shape (dates, prizes, team size) is local data, ported from the website, so
-// the hero renders instantly; only the standings and the viewer's team are
-// fetched.
+// One season at a time is open for entry (the highest-id one); earlier seasons
+// stay viewable as final standings. The seasons, their prizes and their medals
+// are the website's, fetched from it and kept in the persisted cache, with the
+// registry bundled in the build as the fallback, so the hero still renders on
+// the first frame. The standings, the medal holders and the viewer's team are
+// fetched live.
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, type Href } from 'expo-router';
@@ -12,8 +13,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { createTeam, joinTeam, type MyTeam, type TeamLeaderboardEntry } from '@/api/arena';
-import { keys, useIsScreenFocused, useMyTeam, useTeamLeaderboard } from '@/api/queries';
-import { ARENAS, CURRENT_ARENA, arenaStatus, type Arena } from '@/arena/arenas';
+import { keys, useIsScreenFocused, useMedalBoard, useMyTeam, useTeamLeaderboard } from '@/api/queries';
+import { seasonBySlug, seasonStatus, type Season } from '@/arena/seasons';
+import { useSeasons } from '@/arena/use-seasons';
 import {
   MEDALS,
   canEnter,
@@ -22,28 +24,28 @@ import {
   joinCodeError,
   placeLabel,
   seasonCountdown,
+  seasonPhase,
   teamNameError,
   teamSizeCopy,
   leaderboardPool,
   appCopy,
 } from '@/lib/arena-view';
 import { ARENA_EXISTING_MEMBER_COPY } from '@/lib/attestation';
+import { medalTable, medalViews, standingDetail, winningsLabel, type MedalTableRow, type MedalView } from '@/lib/medal-board';
+import { chatRule, earnSections } from '@/lib/points-rules';
 import { useNow } from '@/lib/use-now';
 import { useSession } from '@/store/session';
 import { useAttestationGate } from '@/trade/use-attestation-gate';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
 import { Card, SectionTitle, Stat, rowStyle } from '@/ui/card';
+import { usePointsRules } from '@/ui/config-gate';
 import { Medallion } from '@/ui/medallion';
 import { Pill } from '@/ui/pill';
 import { Screen } from '@/ui/screen';
 import { Segmented } from '@/ui/segmented';
 import { EmptyState, ErrorState, RowsSkeleton } from '@/ui/states';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
-
-/** Newest season first, as the website's switcher lists them. */
-const SEASONS = [...ARENAS].sort((a, b) => b.id - a.id);
-const SEASON_OPTIONS = SEASONS.map((a) => ({ key: a.slug, label: `${a.emoji} ${a.name}` }));
 
 const PLACES = ['1st', '2nd', '3rd'];
 
@@ -53,12 +55,23 @@ export default function ArenaScreen() {
   const focused = useIsScreenFocused();
   const queryClient = useQueryClient();
   const wallet = useSession((s) => s.wallet);
-  const [selected, setSelected] = useState<Arena>(CURRENT_ARENA);
+  const { seasons, current } = useSeasons();
+  // The chosen season is kept by slug, not by value: when the server's seasons
+  // replace the bundled ones the screen follows, and until a season is chosen
+  // it shows whichever is current.
+  const [chosen, setChosen] = useState<string | null>(null);
+  const selected = seasonBySlug(seasons, chosen) ?? current;
+  /** Newest season first, as the website's switcher lists them. */
+  const seasonOptions = useMemo(() => [...seasons].sort((a, b) => b.id - a.id).map((a) => ({ key: a.slug, label: `${a.emoji} ${a.name}` })), [seasons]);
   // A minute is fine for deciding status; the ticking countdown has its own clock.
   const now = new Date(useNow(60_000));
-  const status = arenaStatus(selected, now);
-  const entryOpen = canEnter(selected, CURRENT_ARENA, now);
-  const board = useTeamLeaderboard(selected.slug, status === 'active', focused);
+  const status = seasonStatus(selected, now);
+  const entryOpen = canEnter(selected, current, now);
+  // How hard to keep asking: fast while live, and still asking after the end,
+  // so the winners arrive on their own and late results still reach them.
+  const phase = seasonPhase(selected, now);
+  const board = useTeamLeaderboard(selected.slug, phase, focused);
+  const medalBoard = useMedalBoard(selected.slug, !!selected.bounty, phase, focused);
   const mine = useMyTeam(wallet, selected.slug);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -77,7 +90,9 @@ export default function ArenaScreen() {
     setMedal(id);
     openSheet('medal');
   };
-  const medalInfo = selected.bounty?.bounties.find((b) => b.id === medal) ?? null;
+  const medals = useMemo(() => medalViews(selected, medalBoard.data), [selected, medalBoard.data]);
+  const medalInfo = medals.find((m) => m.medal.id === medal) ?? null;
+  const table = useMemo(() => medalTable(medals), [medals]);
 
   const openSheet = (kind: SheetKind) => {
     setInput('');
@@ -88,7 +103,7 @@ export default function ArenaScreen() {
 
   const refresh = () => {
     setRefreshing(true);
-    Promise.all([board.refetch(), wallet ? mine.refetch() : Promise.resolve()]).finally(() => setRefreshing(false));
+    Promise.all([board.refetch(), selected.bounty ? medalBoard.refetch() : Promise.resolve(), wallet ? mine.refetch() : Promise.resolve()]).finally(() => setRefreshing(false));
   };
 
   /** First tap checks the input and asks for confirmation; the second one commits. */
@@ -141,14 +156,11 @@ export default function ArenaScreen() {
   }, [focused, wallet, myTeam, entryOpen, requireArena]);
 
   const switcher =
-    SEASONS.length > 1 ? (
+    seasonOptions.length > 1 ? (
       <Segmented
-        options={SEASON_OPTIONS}
+        options={seasonOptions}
         value={selected.slug}
-        onChange={(slug) => {
-          const next = SEASONS.find((a) => a.slug === slug);
-          if (next) setSelected(next);
-        }}
+        onChange={setChosen}
         stretch={false}
         size="sm"
       />
@@ -161,7 +173,7 @@ export default function ArenaScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.gold} />}
       >
-        {SEASONS.length > 3 ? (
+        {seasonOptions.length > 3 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {switcher}
           </ScrollView>
@@ -195,20 +207,46 @@ export default function ArenaScreen() {
           <View style={{ gap: spacing.sm }}>
             <SectionTitle title="Medals" right={<Text style={type.muted}>{selected.bounty.bountyPool} in medals</Text>} />
             <Card padded={false} style={{ paddingHorizontal: spacing.md }}>
-              {selected.bounty.bounties.map((b, i) => (
-                <Pressable key={b.id} onPress={() => openMedal(b.id)} accessibilityRole="button" accessibilityLabel={`${b.name}, ${b.amount}`} style={rowStyle(i === 0)}>
+              {medals.map(({ medal: b, status: standing, held }, i) => (
+                <Pressable
+                  key={b.id}
+                  onPress={() => openMedal(b.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${b.name}, ${b.amount}${standing ? `, ${standing}` : ''}`}
+                  style={rowStyle(i === 0)}
+                >
                   <Medallion id={b.id} amount={b.amount} />
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text style={[type.body, { fontFamily: fonts.semibold }]}>{b.name}</Text>
                     <Text style={type.muted} numberOfLines={2}>
                       {appCopy(b.blurb)}
                     </Text>
+                    {standing ? (
+                      <Text style={[styles.standing, held ? { color: colors.text } : null]} numberOfLines={1}>
+                        {standing}
+                      </Text>
+                    ) : null}
                   </View>
                   <Text style={[type.money, { color: colors.gold }]}>{b.amount}</Text>
                 </Pressable>
               ))}
             </Card>
-            <Text style={[type.muted, { paddingHorizontal: spacing.xs }]}>Awarded once at the close, whatever a team&apos;s rank. Tap a medal for its rule.</Text>
+            <Text style={[type.muted, { paddingHorizontal: spacing.xs }]}>
+              {medalBoard.data?.preview ? 'Sample standings, for preview. ' : ''}
+              Awarded once at the close, whatever a team&apos;s rank. Tap a medal for its rule{medalBoard.data ? ' and who is in the running' : ''}.
+            </Text>
+          </View>
+        ) : null}
+
+        {table.length > 0 ? (
+          <View style={{ gap: spacing.sm }}>
+            <SectionTitle title="Medal table" right={<Text style={type.muted}>{medalBoard.data?.state === 'final' ? 'Final' : 'If it ended now'}</Text>} />
+            <Card padded={false} style={styles.listCard}>
+              {table.map((row, i) => (
+                <MedalTableLine key={row.team.id} row={row} rank={i} mine={myTeam?.slug === row.team.slug} first={i === 0} />
+              ))}
+            </Card>
+            <Text style={[type.muted, { paddingHorizontal: spacing.xs }]}>Teams ranked by the medal money they hold. A shared medal is split between the teams on it.</Text>
           </View>
         ) : null}
 
@@ -279,7 +317,7 @@ export default function ArenaScreen() {
           sheet === 'prizes'
             ? `${selected.emoji} ${selected.name} prizes`
             : sheet === 'medal'
-              ? (medalInfo?.name ?? 'Medal')
+              ? (medalInfo?.medal.name ?? 'Medal')
               : sheet === 'earn'
               ? '⭐ How to earn points'
               : sheet === 'create'
@@ -325,13 +363,7 @@ export default function ArenaScreen() {
             ))}
           </Card>
         ) : sheet === 'medal' && medalInfo ? (
-          <View style={{ gap: spacing.sm, alignItems: 'flex-start' }}>
-            <Medallion id={medalInfo.id} amount={medalInfo.amount} size={72} />
-            <Text style={[type.body, { fontFamily: fonts.semibold }]}>
-              {medalInfo.amount} · {appCopy(medalInfo.blurb)}
-            </Text>
-            <Text style={type.muted}>{appCopy(medalInfo.rules)}</Text>
-          </View>
+          <MedalDetail view={medalInfo} />
         ) : sheet === 'earn' ? (
           <EarnRules />
         ) : sheet === 'create' || sheet === 'join' ? (
@@ -382,8 +414,65 @@ export default function ArenaScreen() {
   );
 }
 
+/** A medal's rule, then who holds it and who is closest behind. */
+function MedalDetail({ view }: { view: MedalView }) {
+  const { medal } = view;
+  return (
+    <View style={{ gap: spacing.md }}>
+      <View style={{ gap: spacing.sm, alignItems: 'flex-start' }}>
+        <Medallion id={medal.id} amount={medal.amount} size={72} />
+        <Text style={[type.body, { fontFamily: fonts.semibold }]}>
+          {medal.amount} · {appCopy(medal.blurb)}
+        </Text>
+        <Text style={type.muted}>{appCopy(medal.rules)}</Text>
+      </View>
+      {view.status ? (
+        <View style={{ gap: spacing.xs }}>
+          <Text style={type.label}>{view.heldLabel ?? view.status}</Text>
+          {view.holders.length > 0 ? (
+            <Card padded={false} style={styles.listCard}>
+              {view.holders.map((s, i) => (
+                <StandingRow key={s.team.id} name={s.team.name} value={s.display} detail={standingDetail(s)} first={i === 0} lead />
+              ))}
+            </Card>
+          ) : null}
+        </View>
+      ) : null}
+      {view.contenders.length > 0 ? (
+        <View style={{ gap: spacing.xs }}>
+          <Text style={type.label}>{view.contendersLabel}</Text>
+          <Card padded={false} style={styles.listCard}>
+            {view.contenders.map((s, i) => (
+              <StandingRow key={s.team.id} name={s.team.name} value={s.display} detail={standingDetail(s)} first={i === 0} />
+            ))}
+          </Card>
+        </View>
+      ) : null}
+      {view.note ? <Text style={type.muted}>{view.note}</Text> : null}
+    </View>
+  );
+}
+
+function StandingRow({ name, value, detail, first, lead = false }: { name: string; value: string; detail: string | null; first: boolean; lead?: boolean }) {
+  return (
+    <View style={rowStyle(first)}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={styles.rowTitle} numberOfLines={1}>
+          {name}
+        </Text>
+        {detail ? (
+          <Text style={type.muted} numberOfLines={2}>
+            {detail}
+          </Text>
+        ) : null}
+      </View>
+      <Text style={[type.money, lead ? { color: colors.gold } : null]}>{value}</Text>
+    </View>
+  );
+}
+
 /** Its own clock, so the seconds ticking over re-render one line, not the standings. */
-function Countdown({ arena }: { arena: Arena }) {
+function Countdown({ arena }: { arena: Season }) {
   const now = useNow(1000);
   const c = seasonCountdown(arena, now);
   if (!c) return null;
@@ -451,6 +540,34 @@ function TeamRow({ row, rank, mine, first }: { row: TeamLeaderboardEntry; rank: 
   );
 }
 
+/** A team in the medal table: its place, the medals it holds and what they are worth. */
+function MedalTableLine({ row, rank, mine, first }: { row: MedalTableRow; rank: number; mine: boolean; first: boolean }) {
+  const count = row.medals.length;
+  return (
+    <Link href={`/arena/${row.team.slug}` as Href} asChild>
+      <Pressable
+        style={rowStyle(first)}
+        accessibilityRole="link"
+        accessibilityLabel={`${row.team.name}, ${count} ${count === 1 ? 'medal' : 'medals'}, ${winningsLabel(row.winnings)}`}
+      >
+        <Text style={styles.rank}>{rank + 1}</Text>
+        <View style={{ flex: 1, gap: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.rowTitle} numberOfLines={1}>
+              {row.team.name}
+            </Text>
+            {mine ? <Pill label="YOU" tone="gold" /> : null}
+          </View>
+          <Text style={type.muted} numberOfLines={1}>
+            {row.medals.map((m) => m.emoji).join(' ')} · {count} {count === 1 ? 'medal' : 'medals'}
+          </Text>
+        </View>
+        <Text style={[type.money, { color: colors.gold }]}>{winningsLabel(row.winnings)}</Text>
+      </Pressable>
+    </Link>
+  );
+}
+
 /** One scoring rule: the claim in bold, the detail after it. */
 function Rule({ title, body }: { title: string; body: string }) {
   return (
@@ -460,24 +577,22 @@ function Rule({ title, body }: { title: string; body: string }) {
   );
 }
 
-/** The website's scoring rules, in the app's words. */
+/** The website's scoring rules, in the app's words and with the server's numbers. */
 function EarnRules() {
+  const points = usePointsRules();
+  const chat = chatRule(points);
   return (
     <View style={{ gap: spacing.md }}>
       <Text style={type.muted}>Your points add to your team&apos;s score. Every point counts the same, but paid markets pay out far more than free play.</Text>
-      <Card style={{ gap: spacing.sm }}>
-        <Text style={type.heading}>💰 Paid markets · main event</Text>
-        <Rule title="+100 just for playing." body="Hold at least $1 to the close and you bank it, win or lose. Once per market." />
-        <Rule title="+150 per $1 of profit." body="The more you win, the more you earn." />
-        <Rule title="Trades cap at 2 USDC." body="It rewards being right, not staking big, so small traders compete on an even field." />
-      </Card>
-      <Card style={{ gap: spacing.sm }}>
-        <Text style={type.heading}>🎮 Free markets · warm up</Text>
-        <Rule title="Start with 300 play tokens." body="No real money, just predict and trade." />
-        <Rule title="Earn half your token profit as points." body="Turn a profit and half of it converts to points." />
-        <Rule title="Capped at 200 points per market." body="Free play is the on-ramp; paid markets are where it adds up." />
-      </Card>
-      <Text style={type.muted}>Points land when a market resolves, so hold your position to the close.</Text>
+      {earnSections(points).map((section) => (
+        <Card key={section.heading} style={{ gap: spacing.sm }}>
+          <Text style={type.heading}>{section.heading}</Text>
+          {section.rules.map((rule) => (
+            <Rule key={rule.title} title={rule.title} body={rule.body} />
+          ))}
+        </Card>
+      ))}
+      <Text style={type.muted}>Points land when a market resolves, so hold your position to the close.{chat ? ` ${chat}` : ''}</Text>
     </View>
   );
 }
@@ -486,6 +601,7 @@ const styles = StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing.xl },
   heroHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   countdown: { ...type.body, fontVariant: ['tabular-nums'] },
+  standing: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 18, color: colors.textMuted },
   statRow: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.xs },
   textButton: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.textMuted },
   warnNote: { color: colors.gold },

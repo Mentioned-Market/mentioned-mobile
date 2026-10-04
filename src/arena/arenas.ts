@@ -1,8 +1,8 @@
-// PORTED_FROM mentioned/lib/arenas.ts @ 392a892
-// Keep byte-identical to the web copy below this header. The web starts a new
-// season by appending to ARENAS, so re-port when it does: the daily contract
-// test compares the web's current season with CURRENT_ARENA here and fails
-// when they differ. Mobile edits: none.
+// PORTED_FROM mentioned/lib/arenas.ts @ ff17db4
+// Keep byte-identical to the web copy below this header. This is the FALLBACK
+// registry: the app reads its seasons from GET /api/teams/arenas and uses this
+// copy only until that answers (src/arena/seasons.ts). Re-port when the web
+// starts a season, so a fresh install with no signal still opens on it. Mobile edits: none.
 // ── Arena (team competition) registry ─────────────────────────────────────
 //
 // Single source of truth for every Arena season. Each season is a fixed time
@@ -30,7 +30,7 @@ export type BountyId =
   | 'last_stand'
   | 'maverick'
   | 'wanted'
-  | 'quick_draw'
+  | 'hot_streak'
 
 // A fixed one-off prize for a standout achievement, awarded once at season
 // close independent of leaderboard rank. Computed live by lib/arenaBounties.ts.
@@ -47,7 +47,6 @@ export interface ArenaBountyConfig {
   bounties: ArenaBounty[]
   bountyPool: string        // display total, e.g. '$320'
   leaderboardPool: string   // display total, e.g. '$680'
-  quickDrawPoints: number   // Quick Draw: first team to this many season points
   sharpshooterMinMarkets: number // Sharpshooter: min distinct resolved markets called
   lastStandDays: number     // Last Stand: final N days of the window
   // Wanted bounty target. wallet null = not configured yet (bounty stays open).
@@ -75,7 +74,30 @@ export interface Arena {
   prizePool: string   // display string, e.g. '$1,000'
   prizes: ArenaPrize[] // ordered by place, length = number of paid places
   heroImage: string   // public path to the hero illustration
+  /** 1200x630 raster crop of the hero for share cards (next/og inlines it on
+   *  every render, so it is pre-sized). Seasons without one get no themed card. */
+  cardImage?: string
   bounty?: ArenaBountyConfig // present only for seasons with a bounty board
+  /**
+   * Markets kept out of this season's medals and achievements, as `amm:<id>`,
+   * `maj:<id>` or `free:<id>`. The market still trades, shows positions and pays
+   * out as normal; only season scoring ignores it. Read via
+   * `isArenaExcludedMarket` / `arenaExcludedMarketIds`, never directly.
+   */
+  excludedMarkets?: readonly string[]
+}
+
+export type ArenaMarketKind = 'amm' | 'maj' | 'free'
+
+/** True when `kind:id` is excluded from `arena`'s medals and achievements. */
+export function isArenaExcludedMarket(arena: Arena, kind: ArenaMarketKind, id: string | number | bigint): boolean {
+  return arena.excludedMarkets?.includes(`${kind}:${id}`) ?? false
+}
+
+/** The excluded market ids of one kind, for SQL `<> ALL($n::text[])` filters. */
+export function arenaExcludedMarketIds(arena: Arena, kind: ArenaMarketKind): string[] {
+  const prefix = `${kind}:`
+  return (arena.excludedMarkets ?? []).filter(k => k.startsWith(prefix)).map(k => k.slice(prefix.length))
 }
 
 export const ARENAS: Arena[] = [
@@ -154,17 +176,26 @@ export const ARENAS: Arena[] = [
       { place: 10, amount: '$25' },
     ],
     heroImage: '/src/img/grand_exhibition_hero.jpg', // painted backdrop for the stage; the page falls back to black if missing
+    cardImage: '/src/img/grand_exhibition_card.jpg',
+    // MagicBlock pitch day Q&A: its points were withdrawn on 2026-09-28, so it
+    // counts toward no medal or achievement this season.
+    excludedMarkets: ['amm:1790570274490'],
     bounty: {
       bountyPool: '$500',
       leaderboardPool: '$1,000',
-      quickDrawPoints: 500,
       sharpshooterMinMarkets: 5,
       lastStandDays: 3,
-      wanted: { name: 'ZeroXirem', wallet: null },
+      wanted: { name: 'ZeroXirem', wallet: '9164nUKQVa2N8v6PBTtreGQbXmKFw8JvwZNuP1dQ9JT9' },
       teamPfpPoints: 50,
       // The Fair's medals: jury awards in the manner of the historic
       // world's fairs, given once at the close, whatever a team's rank.
-      // Ordered by amount (sums to $500). Rebalance if a category is added.
+      // Ordered by amount (sums to $500). Every medal except The Grand Tour
+      // and The Hot Streak is decided on PAID markets only (AMM or majority):
+      // free markets have no money or account gate, so a throwaway wallet could
+      // otherwise farm them. The Grand Tour rewards breadth of play, and The Hot
+      // Streak counts a profitable free market (+points) as well as a paid one
+      // (+$), so both count every market type. The Hot Streak replaced Opening
+      // Day on Sep 27 so the last medal can't be settled on day one.
       bounties: [
         {
           id: 'trigger_happy',
@@ -172,7 +203,7 @@ export const ARENAS: Arena[] = [
           emoji: '🎟️',
           amount: '$80',
           blurb: 'Played the most markets.',
-          rules: 'Each member’s distinct markets entered during the season (any buy on a free, paid or majority market), summed for the team. Ties split the medal.',
+          rules: 'Distinct markets the team played during the season: a free, paid or majority market any member bought into during the season, or bought into earlier and still running when it began. A market counts once, however many teammates played it. Ties split the medal.',
         },
         {
           id: 'big_game_hunter',
@@ -188,7 +219,7 @@ export const ARENAS: Arena[] = [
           emoji: '🎯',
           amount: '$70',
           blurb: 'Highest share of correct calls.',
-          rules: 'Correct calls ÷ total calls across resolved markets. A call is a side held to close on a word, or a majority pick. Teams need calls in at least 5 markets to qualify.',
+          rules: 'Correct calls ÷ total calls across resolved paid markets (YES/NO or majority). A call is a side held to close on a word, or a majority pick. Teams need calls in at least 5 paid markets to qualify.',
         },
         {
           id: 'longshot',
@@ -196,15 +227,15 @@ export const ARENAS: Arena[] = [
           emoji: '⚡',
           amount: '$65',
           blurb: 'Won at the longest odds.',
-          rules: 'Lowest entry probability on a correct call held to close. Price paid for YES/NO buys; share of the pool for majority picks. Tiny buys don’t count.',
+          rules: 'Lowest entry probability on a correct call held to close on a paid market. Price paid for YES/NO buys; share of the pool for majority picks. Buys under $0.50 don’t count.',
         },
         {
           id: 'last_stand',
           name: 'Closing Ceremony',
           emoji: '🎆',
           amount: '$60',
-          blurb: 'Most points in the final 3 days.',
-          rules: 'Most team points earned in the last 3 days of the Fair (Oct 9 – 11).',
+          blurb: 'Most paid-market points in the final 3 days.',
+          rules: 'Most team points from paid market results (YES/NO and majority winnings, participation included) awarded in the last 3 days of the Fair (Oct 9 – 11). Free markets and chat don’t count.',
         },
         {
           id: 'maverick',
@@ -212,23 +243,23 @@ export const ARENAS: Arena[] = [
           emoji: '💡',
           amount: '$55',
           blurb: 'Most correct calls against the crowd.',
-          rules: 'Most correct calls where fewer than half of that word’s bettors were on your side. On majority markets: a winning word fewer than half the market’s bettors picked.',
+          rules: 'Most correct calls on paid markets where fewer than half of that word’s bettors were on your side. On majority markets: a winning word fewer than half the market’s bettors picked.',
+        },
+        {
+          id: 'hot_streak',
+          name: 'The Hot Streak',
+          emoji: '🔥',
+          amount: '$55',
+          blurb: 'Most profitable markets in a row.',
+          rules: 'The longest run of markets in a row the team finished up on, in the order the markets locked. The team’s combined result decides each market: up in USDC on a paid market, or up in tokens on a free market. A market the team finished down on ends the run; one that nets exactly zero (such as a refund) neither extends nor ends it. Ties go to the team that reached the run first.',
         },
         {
           id: 'wanted',
           name: 'Beat the Strongman',
           emoji: '🔔',
-          amount: '$55',
+          amount: '$45',
           blurb: 'Biggest win betting against ZeroXirem.',
           rules: 'Largest USDC win on a paid market word where you took the opposite side to ZeroXirem (or picked a winning word when all of his lost). His teammate can’t claim it. If nobody beats him, the medal is his.',
-        },
-        {
-          id: 'quick_draw',
-          name: 'Opening Day',
-          emoji: '🎀',
-          amount: '$45',
-          blurb: 'First team to reach 500 points.',
-          rules: 'The first team whose season points reach 500. Points are timed by when their market locked.',
         },
       ],
     },
