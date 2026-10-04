@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { countdown, eventDate } from '@/lib/time';
-import { GAME_ICON, GAME_NAME, HOW_TO_PLAY, gameOf } from '@/markets/game';
+import { GAME_ICON, gameName, gameOf, howToPlay } from '@/markets/game';
 import type { MarketKind, MarketStatus } from '@/markets/merge';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
@@ -39,9 +39,11 @@ type Props = {
   description?: string | null;
   /** The market's game, for the how-to-play line. Result screens leave it out. */
   kind?: MarketKind;
+  /** How many finishing places a majority market pays, when it is more than the one. */
+  paidPlaces?: number;
 };
 
-export function MarketHeader({ title, cover, status, lockAt, eventAt, now, description, kind }: Props) {
+export function MarketHeader({ title, cover, status, lockAt, eventAt, now, description, kind, paidPlaces }: Props) {
   const [imgFailed, setImgFailed] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const line = statusLine(status, lockAt, eventAt, now);
@@ -69,8 +71,8 @@ export function MarketHeader({ title, cover, status, lockAt, eventAt, now, descr
         <View style={styles.game}>
           <Ionicons name={GAME_ICON[game]} size={15} color={game === 'majority' ? colors.gold : colors.textMuted} style={styles.gameIcon} />
           <Text style={styles.gameText}>
-            <Text style={[styles.gameName, game === 'majority' && { color: colors.gold }]}>{GAME_NAME[game]}. </Text>
-            {HOW_TO_PLAY[game]}
+            <Text style={[styles.gameName, game === 'majority' && { color: colors.gold }]}>{gameName(game, paidPlaces)}. </Text>
+            {howToPlay(game, paidPlaces)}
           </Text>
         </View>
       ) : null}

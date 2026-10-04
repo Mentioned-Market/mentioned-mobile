@@ -438,7 +438,7 @@ function MomentsSection() {
         return offer ? <SeekerOfferCard key={sample.name} offer={offer} busy={false} progress={null} error={null} onPress={() => {}} onDismiss={() => {}} /> : null;
       })}
       <Text style={type.muted}>{"Home's first card when signed out (its buttons work):"}</Text>
-      <HowItWorks tryHref="/markets" />
+      <HowItWorks />
     </Card>
   );
 }

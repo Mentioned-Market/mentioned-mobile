@@ -1,0 +1,133 @@
+{
+  "markets": [
+    {
+      "marketId": "1791107464228",
+      "title": "Test new MM",
+      "coverImageUrl": null,
+      "featuredImageUrl": null,
+      "status": 0,
+      "slug": "TEST-1dc131",
+      "wordCount": 6,
+      "words": [
+        {
+          "word": "china",
+          "wordHash": "29f225525f3c514a1f2f474e595020cc8d21facb36b2c04c997c66e56caf3514",
+          "oddsPct": 25,
+          "outcome": 0
+        },
+        {
+          "word": "test",
+          "wordHash": "4878ca0425c739fa427f7eda20fe845f6b2e46ba5fe2a14df5b1e32f50603215",
+          "oddsPct": 25,
+          "outcome": 0
+        },
+        {
+          "word": "bad",
+          "wordHash": "485216adbab98d719346a0c6755e88ff5f84bdae31063cd986ce730544374bcf",
+          "oddsPct": 12.5,
+          "outcome": 0
+        },
+        {
+          "word": "word",
+          "wordHash": "99a5bc94901320538e81f67b40fdf06b05ec50a4898873e7c8e904722339d2a8",
+          "oddsPct": 12.5,
+          "outcome": 0
+        },
+        {
+          "word": "big",
+          "wordHash": "f7d2f8b46dc004c5d91119332e3141ce07813b0473a778332b60d2eb26f26812",
+          "oddsPct": 12.5,
+          "outcome": 0
+        },
+        {
+          "word": "economy",
+          "wordHash": "7b04305882d8383b5519a9cf850d8f41115efe2285b6bee85adfc6707a91afff",
+          "oddsPct": 12.5,
+          "outcome": 0
+        }
+      ],
+      "poolUsdc": "8000000",
+      "unitPrice": "1000000",
+      "lockTs": "1791111000",
+      "eventStartTime": "2026-10-04T10:50:00.000Z",
+      "traderCount": 2,
+      "isFeatured": false
+    },
+    {
+      "podium": [
+        {
+          "place": 1,
+          "words": [
+            "america"
+          ],
+          "multiple": 2.2866665
+        },
+        {
+          "place": 2,
+          "words": [
+            "china"
+          ],
+          "multiple": 1.524444
+        },
+        {
+          "place": 3,
+          "words": [
+            "wolf"
+          ],
+          "multiple": 0.762222
+        }
+      ],
+      "marketId": "1791107887379",
+      "title": "test new mm",
+      "coverImageUrl": null,
+      "featuredImageUrl": null,
+      "status": 1,
+      "slug": "TEST-ee704f",
+      "wordCount": 6,
+      "words": [
+        {
+          "word": "america",
+          "wordHash": "fb0f026918d4ddff50b4f3ad86e5b384f8be222167728a6b6b08cd0d6d2ef46b",
+          "oddsPct": 28.57142857142857,
+          "outcome": 1
+        },
+        {
+          "word": "bad",
+          "wordHash": "485216adbab98d719346a0c6755e88ff5f84bdae31063cd986ce730544374bcf",
+          "oddsPct": 14.285714285714285,
+          "outcome": 0
+        },
+        {
+          "word": "big",
+          "wordHash": "f7d2f8b46dc004c5d91119332e3141ce07813b0473a778332b60d2eb26f26812",
+          "oddsPct": 14.285714285714285,
+          "outcome": 0
+        },
+        {
+          "word": "china",
+          "wordHash": "29f225525f3c514a1f2f474e595020cc8d21facb36b2c04c997c66e56caf3514",
+          "oddsPct": 14.285714285714285,
+          "outcome": 1
+        },
+        {
+          "word": "word",
+          "wordHash": "99a5bc94901320538e81f67b40fdf06b05ec50a4898873e7c8e904722339d2a8",
+          "oddsPct": 14.285714285714285,
+          "outcome": 0
+        },
+        {
+          "word": "wolf",
+          "wordHash": "a3215d7b475673b77cc9171a351933bc6783aea218f36ff84d0efe3e4e69e421",
+          "oddsPct": 14.285714285714285,
+          "outcome": 1
+        }
+      ],
+      "poolUsdc": "7000000",
+      "unitPrice": "1000000",
+      "lockTs": "1791108120",
+      "eventStartTime": "2026-10-04T10:02:00.000Z",
+      "traderCount": 2,
+      "isFeatured": false
+    }
+  ]
+}

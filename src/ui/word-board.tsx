@@ -16,6 +16,11 @@ export type BoardWord = {
   share: number;
   countLabel: string;
   outcome: 'winner' | 'loser' | null;
+  /**
+   * The word's finishing place on a market that pays several, e.g. "1st". Shown
+   * in place of WON, which on such a market would be true of three words.
+   */
+  place?: string;
   yours: boolean;
   /** Shown in place of countLabel while selected, e.g. "Wins $2.40 if said most". */
   winLabel?: string;
@@ -51,7 +56,7 @@ export function WordBoard({ words, selected, onToggle, selectable }: Props) {
                   {w.label}
                 </Text>
                 {w.yours ? <Pill label="YOURS" tone="gold" /> : null}
-                {w.outcome === 'winner' ? <Pill label="WON" tone="green" /> : null}
+                {w.outcome === 'winner' ? <Pill label={w.place ? w.place.toUpperCase() : 'WON'} tone="green" /> : null}
               </View>
               <Text style={[type.muted, { fontSize: 13, lineHeight: 18 }, isSelected && w.winLabel ? { color: colors.yes } : null]} numberOfLines={1}>
                 {isSelected && w.winLabel ? w.winLabel : w.countLabel}

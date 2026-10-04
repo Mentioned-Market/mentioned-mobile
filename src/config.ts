@@ -87,3 +87,6 @@ export const PRIVY = {
 } as const;
 
 export const isPrivyConfigured = Boolean(PRIVY.appId && PRIVY.clientId);
+
+/** The public docs, opened from the header's book button in an in-app browser. */
+export const DOCS_URL = 'https://docs.mentioned.market/what-is-mentioned/';

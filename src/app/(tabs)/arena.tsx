@@ -32,14 +32,13 @@ import {
 } from '@/lib/arena-view';
 import { ARENA_EXISTING_MEMBER_COPY } from '@/lib/attestation';
 import { medalTable, medalViews, standingDetail, winningsLabel, type MedalTableRow, type MedalView } from '@/lib/medal-board';
-import { chatRule, earnSections } from '@/lib/points-rules';
 import { useNow } from '@/lib/use-now';
 import { useSession } from '@/store/session';
 import { useAttestationGate } from '@/trade/use-attestation-gate';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
 import { Card, SectionTitle, Stat, rowStyle } from '@/ui/card';
-import { usePointsRules } from '@/ui/config-gate';
+import { EarnRules } from '@/ui/earn-rules';
 import { Medallion } from '@/ui/medallion';
 import { Pill } from '@/ui/pill';
 import { Screen } from '@/ui/screen';
@@ -365,7 +364,7 @@ export default function ArenaScreen() {
         ) : sheet === 'medal' && medalInfo ? (
           <MedalDetail view={medalInfo} />
         ) : sheet === 'earn' ? (
-          <EarnRules />
+          <EarnRules intro="Your points add to your team's score." />
         ) : sheet === 'create' || sheet === 'join' ? (
           confirming ? (
             <View style={{ gap: spacing.sm }}>
@@ -565,35 +564,6 @@ function MedalTableLine({ row, rank, mine, first }: { row: MedalTableRow; rank: 
         <Text style={[type.money, { color: colors.gold }]}>{winningsLabel(row.winnings)}</Text>
       </Pressable>
     </Link>
-  );
-}
-
-/** One scoring rule: the claim in bold, the detail after it. */
-function Rule({ title, body }: { title: string; body: string }) {
-  return (
-    <Text style={type.body}>
-      <Text style={{ fontFamily: fonts.semibold }}>{title}</Text> <Text style={{ color: colors.textMuted }}>{body}</Text>
-    </Text>
-  );
-}
-
-/** The website's scoring rules, in the app's words and with the server's numbers. */
-function EarnRules() {
-  const points = usePointsRules();
-  const chat = chatRule(points);
-  return (
-    <View style={{ gap: spacing.md }}>
-      <Text style={type.muted}>Your points add to your team&apos;s score. Every point counts the same, but paid markets pay out far more than free play.</Text>
-      {earnSections(points).map((section) => (
-        <Card key={section.heading} style={{ gap: spacing.sm }}>
-          <Text style={type.heading}>{section.heading}</Text>
-          {section.rules.map((rule) => (
-            <Rule key={rule.title} title={rule.title} body={rule.body} />
-          ))}
-        </Card>
-      ))}
-      <Text style={type.muted}>Points land when a market resolves, so hold your position to the close.{chat ? ` ${chat}` : ''}</Text>
-    </View>
   );
 }
 

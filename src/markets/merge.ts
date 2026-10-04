@@ -6,6 +6,7 @@ import type { PaidMajorityListEntry } from '@/api/paidMajority';
 import type { PaidMarketListEntry } from '@/api/paidMarkets';
 import { getDisplayStatus } from '@/free/marketUtils';
 import { toMs } from '@/lib/time';
+import { freePodium, freeWeights, listPodium, paysPlaces, type PodiumTier } from '@/markets/top3';
 
 export type MarketKind = 'paid-majority' | 'paid-yesno' | 'free-yesno' | 'free-majority';
 export type MarketStatus = 'open' | 'pending' | 'resolved' | 'cancelled';
@@ -25,6 +26,12 @@ export type MarketSummary = {
   pool: { kind: 'usdc'; usd: number } | { kind: 'tokens'; tokens: number };
   traderCount: number;
   isFeatured: boolean;
+  /**
+   * The result of a resolved majority market that pays several places, drawn
+   * on the card in place of the word rows. Absent for every other market,
+   * which keeps its rows exactly as they were.
+   */
+  podium?: PodiumTier[];
 };
 
 /** The label for a majority word the server has not named yet. */
@@ -62,8 +69,13 @@ export function fromPaidMajority(m: PaidMajorityListEntry, now = Date.now()): Ma
     pool: { kind: 'usdc', usd: Number(m.poolUsdc) / 1e6 },
     traderCount: m.traderCount,
     isFeatured: m.isFeatured,
+    // The server prices the podium from the on-chain pots and only sends it
+    // for a resolved market that pays places.
+    ...withPodium(status === 'resolved' ? listPodium(m.podium) : null),
   };
 }
+
+const withPodium = (podium: PodiumTier[] | null): { podium?: PodiumTier[] } => (podium ? { podium } : {});
 
 export function fromPaidYesNo(m: PaidMarketListEntry, now = Date.now()): MarketSummary {
   const lockAt = toMs(m.locksAt);
@@ -110,7 +122,24 @@ export function fromFree(m: FreeListEntry): MarketSummary {
     pool: { kind: 'tokens', tokens: m.play_tokens },
     traderCount: m.trader_count,
     isFeatured: m.is_featured,
+    ...withPodium(majority && status === 'resolved' ? freeListPodium(m) : null),
   };
+}
+
+/**
+ * A free market's podium from the list route. Every word is used, not the
+ * five the card shows: the multiples divide the whole pool, and the list
+ * gives each word's share of it, which is all the division needs.
+ */
+function freeListPodium(m: FreeListEntry): PodiumTier[] | null {
+  const weights = freeWeights(m.payout_weights);
+  if (!paysPlaces(weights)) return null;
+  return freePodium(
+    m.words_prices.map((w) => ({ key: String(w.word_id), word: w.word, place: w.place, staked: w.yes_price })),
+    weights,
+    Number(m.takeout_pct) || 0,
+    Number(m.floor_multiple) || 0,
+  );
 }
 
 const STATUS_RANK: Record<MarketStatus, number> = { open: 0, pending: 1, resolved: 2, cancelled: 3 };
@@ -210,6 +239,7 @@ export function sameMarket(a: MarketSummary, b: MarketSummary): boolean {
   ) {
     return false;
   }
+  if (JSON.stringify(a.podium ?? null) !== JSON.stringify(b.podium ?? null)) return false;
   if (a.pool.kind !== b.pool.kind) return false;
   if (a.pool.kind === 'usdc' && b.pool.kind === 'usdc' && a.pool.usd !== b.pool.usd) return false;
   if (a.pool.kind === 'tokens' && b.pool.kind === 'tokens' && a.pool.tokens !== b.pool.tokens) return false;

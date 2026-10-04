@@ -1,0 +1,260 @@
+[
+  {
+    "id": 75,
+    "title": "Test new MM",
+    "description": "a test",
+    "cover_image_url": null,
+    "stream_url": null,
+    "status": "resolved",
+    "lock_time": "2026-10-04T19:12:00.000Z",
+    "created_at": "2026-10-03T19:12:51.719Z",
+    "updated_at": "2026-10-03T19:17:56.193Z",
+    "b_parameter": "500.00",
+    "play_tokens": 300,
+    "slug": "TEST-d5182f",
+    "is_featured": false,
+    "market_type": "majority",
+    "event_start_time": "2026-10-04T19:12:00.000Z",
+    "resolved_at": "2026-10-03T19:17:56.193Z",
+    "takeout_pct": "0.000",
+    "floor_multiple": "1.50",
+    "bets_per_user": 2,
+    "seed_per_word": "150.000000",
+    "banned_words": [
+      "ball",
+      "goal",
+      "ref"
+    ],
+    "page_image_url": null,
+    "featured_image_url": null,
+    "embed_image_slot": "card",
+    "payout_weights": [
+      3,
+      2,
+      1
+    ],
+    "word_count": 10,
+    "trader_count": 10,
+    "words_prices": [
+      {
+        "word_id": 376,
+        "market_id": 75,
+        "word": "football",
+        "yes_price": 0.2,
+        "no_price": 0.8,
+        "resolved_outcome": true,
+        "place": 1
+      },
+      {
+        "word_id": 377,
+        "market_id": 75,
+        "word": "sport",
+        "yes_price": 0.16666666666666666,
+        "no_price": 0.8333333333333334,
+        "resolved_outcome": true,
+        "place": 2
+      },
+      {
+        "word_id": 378,
+        "market_id": 75,
+        "word": "corner",
+        "yes_price": 0.13333333333333333,
+        "no_price": 0.8666666666666667,
+        "resolved_outcome": true,
+        "place": 3
+      },
+      {
+        "word_id": 379,
+        "market_id": 75,
+        "word": "penalty",
+        "yes_price": 0.13333333333333333,
+        "no_price": 0.8666666666666667,
+        "resolved_outcome": false,
+        "place": null
+      },
+      {
+        "word_id": 380,
+        "market_id": 75,
+        "word": "offside",
+        "yes_price": 0.1,
+        "no_price": 0.9,
+        "resolved_outcome": false,
+        "place": null
+      },
+      {
+        "word_id": 381,
+        "market_id": 75,
+        "word": "header",
+        "yes_price": 0.06666666666666667,
+        "no_price": 0.9333333333333333,
+        "resolved_outcome": false,
+        "place": null
+      },
+      {
+        "word_id": 382,
+        "market_id": 75,
+        "word": "tackle",
+        "yes_price": 0.06666666666666667,
+        "no_price": 0.9333333333333333,
+        "resolved_outcome": false,
+        "place": null
+      },
+      {
+        "word_id": 383,
+        "market_id": 75,
+        "word": "keeper",
+        "yes_price": 0.06666666666666667,
+        "no_price": 0.9333333333333333,
+        "resolved_outcome": false,
+        "place": null
+      },
+      {
+        "word_id": 384,
+        "market_id": 75,
+        "word": "striker",
+        "yes_price": 0.03333333333333333,
+        "no_price": 0.9666666666666667,
+        "resolved_outcome": false,
+        "place": null
+      },
+      {
+        "word_id": 385,
+        "market_id": 75,
+        "word": "derby",
+        "yes_price": 0.03333333333333333,
+        "no_price": 0.9666666666666667,
+        "resolved_outcome": false,
+        "place": null
+      }
+    ]
+  },
+  {
+    "id": 76,
+    "title": "Test new MM (draw)",
+    "description": null,
+    "cover_image_url": null,
+    "stream_url": null,
+    "status": "resolved",
+    "lock_time": "2026-10-04T19:25:26.206Z",
+    "created_at": "2026-10-03T19:25:27.038Z",
+    "updated_at": "2026-10-03T19:31:29.796Z",
+    "b_parameter": "500.00",
+    "play_tokens": 300,
+    "slug": "TEST-fd8316",
+    "is_featured": false,
+    "market_type": "majority",
+    "event_start_time": "2026-10-04T19:25:26.206Z",
+    "resolved_at": "2026-10-03T19:31:29.796Z",
+    "takeout_pct": "0.000",
+    "floor_multiple": "1.50",
+    "bets_per_user": 2,
+    "seed_per_word": "150.000000",
+    "banned_words": [
+      "ball",
+      "goal",
+      "ref"
+    ],
+    "page_image_url": null,
+    "featured_image_url": null,
+    "embed_image_slot": "card",
+    "payout_weights": [
+      3,
+      2,
+      1
+    ],
+    "word_count": 10,
+    "trader_count": 10,
+    "words_prices": [
+      {
+        "word_id": 386,
+        "market_id": 76,
+        "word": "football",
+        "yes_price": 0.2,
+        "no_price": 0.8,
+        "resolved_outcome": true,
+        "place": 1
+      },
+      {
+        "word_id": 387,
+        "market_id": 76,
+        "word": "sport",
+        "yes_price": 0.16666666666666666,
+        "no_price": 0.8333333333333334,
+        "resolved_outcome": false,
+        "place": null
+      },
+      {
+        "word_id": 388,
+        "market_id": 76,
+        "word": "corner",
+        "yes_price": 0.13333333333333333,
+        "no_price": 0.8666666666666667,
+        "resolved_outcome": false,
+        "place": null
+      },
+      {
+        "word_id": 389,
+        "market_id": 76,
+        "word": "penalty",
+        "yes_price": 0.13333333333333333,
+        "no_price": 0.8666666666666667,
+        "resolved_outcome": true,
+        "place": 1
+      },
+      {
+        "word_id": 390,
+        "market_id": 76,
+        "word": "offside",
+        "yes_price": 0.1,
+        "no_price": 0.9,
+        "resolved_outcome": false,
+        "place": null
+      },
+      {
+        "word_id": 391,
+        "market_id": 76,
+        "word": "header",
+        "yes_price": 0.06666666666666667,
+        "no_price": 0.9333333333333333,
+        "resolved_outcome": false,
+        "place": null
+      },
+      {
+        "word_id": 392,
+        "market_id": 76,
+        "word": "tackle",
+        "yes_price": 0.06666666666666667,
+        "no_price": 0.9333333333333333,
+        "resolved_outcome": false,
+        "place": null
+      },
+      {
+        "word_id": 393,
+        "market_id": 76,
+        "word": "keeper",
+        "yes_price": 0.06666666666666667,
+        "no_price": 0.9333333333333333,
+        "resolved_outcome": true,
+        "place": 3
+      },
+      {
+        "word_id": 394,
+        "market_id": 76,
+        "word": "striker",
+        "yes_price": 0.03333333333333333,
+        "no_price": 0.9666666666666667,
+        "resolved_outcome": false,
+        "place": null
+      },
+      {
+        "word_id": 395,
+        "market_id": 76,
+        "word": "derby",
+        "yes_price": 0.03333333333333333,
+        "no_price": 0.9666666666666667,
+        "resolved_outcome": false,
+        "place": null
+      }
+    ]
+  }
+]

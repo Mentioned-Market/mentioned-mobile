@@ -23,6 +23,7 @@ import { useNow } from '@/lib/use-now';
 import { Button } from '@/ui/button';
 import { BottomSheet } from '@/ui/bottom-sheet';
 import { Card, SectionTitle, Stat } from '@/ui/card';
+import { EarnRules } from '@/ui/earn-rules';
 import { Pill } from '@/ui/pill';
 import { Screen } from '@/ui/screen';
 import { Segmented } from '@/ui/segmented';
@@ -56,6 +57,7 @@ export default function RanksScreen() {
   const viewed = useActiveWallet();
   const [week, setWeek] = useState<LeaderboardWeek>('current');
   const [raffleInfo, setRaffleInfo] = useState(false);
+  const [earnInfo, setEarnInfo] = useState(false);
   const board = useLeaderboard(week, viewed, focused);
   const key = weekKey(board.data?.weekStart, week);
   const pool = usePrizePool(key, focused);
@@ -112,6 +114,16 @@ export default function RanksScreen() {
         ListHeaderComponent={
           <View>
             <View style={styles.header}>
+              {/* First thing on the screen: a board of points is no use to
+                  someone who does not know how to get any. */}
+              <Pressable onPress={() => setEarnInfo(true)} accessibilityRole="button" accessibilityLabel="How to earn points" style={({ pressed }) => [styles.earn, pressed && { opacity: 0.7 }]}>
+                <Text style={styles.earnEmoji}>⭐</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.earnTitle}>How to earn points</Text>
+                  <Text style={type.muted}>What each market pays, and the caps.</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.gold} />
+              </Pressable>
               <View style={styles.weekRow}>
                 {/* While a season runs the server scores the board over the season, not the week. */}
                 <Segmented
@@ -213,6 +225,9 @@ export default function RanksScreen() {
           boardReady && rows.length === 0 ? <EmptyState title={`No points yet ${span}`} body="Make a pick to get on the board." /> : null
         }
       />
+      <BottomSheet visible={earnInfo} onClose={() => setEarnInfo(false)} title="⭐ How to earn points">
+        <EarnRules intro="Points decide your place on this board." />
+      </BottomSheet>
       <BottomSheet visible={raffleInfo} onClose={() => setRaffleInfo(false)} title="How the raffle works">
         <View style={styles.rules}>
           {raffleRules(raffleShare(pool.data?.split), pool.data?.isCurrent ?? true).map((r) => (
@@ -259,6 +274,18 @@ const styles = StyleSheet.create({
   rule: { flexDirection: 'row', gap: spacing.sm + 4, alignItems: 'flex-start' },
   ruleEmoji: { fontSize: 20, lineHeight: 24 },
   header: { gap: spacing.md, paddingBottom: spacing.sm },
+  earn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm + 4,
+    padding: spacing.md,
+    borderRadius: radius.card,
+    backgroundColor: colors.goldTint,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.gold,
+  },
+  earnEmoji: { fontSize: 22, lineHeight: 28 },
+  earnTitle: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: colors.text },
   weekRow: { alignItems: 'center', gap: spacing.sm },
   poolAmount: { fontFamily: fonts.bold, fontSize: 40, lineHeight: 48, color: colors.text, fontVariant: ['tabular-nums'], letterSpacing: -0.5 },
   statRow: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.sm },

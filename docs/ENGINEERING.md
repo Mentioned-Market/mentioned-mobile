@@ -523,6 +523,40 @@ one step with the values it reads, so a slide cannot finish between the read
 and the write. Tabs on their way out are kept live as a list rather than one,
 because after two quick taps the page still on screen is from two tabs ago.
 
+### A majority market can pay the top three
+
+`docs/MM_V2_SPEC.md` is the brief. A majority market used to pay only the
+most-said word; a market can now pay the three most-said words from one pool,
+weighted 3 / 2 / 1. It is a per-market setting and most markets still pay one
+winner, so the build is organised around one question, `paysPlaces`, and a
+market that answers no keeps every code path and every word it had. Tests pin
+that: the old estimate formulas are asserted equal to the new entry points.
+
+- **The maths is ported, not rewritten.** `src/chain/majority.ts` and
+  `src/chain/majorityWords.ts` were re-ported from the web. `src/markets/top3.ts`
+  is the app's side: which formula a market gets, the wording, and the shape
+  the podium draws from. The spec's test vectors and four markets captured from
+  staging are in `test/markets/top3.test.ts`.
+- **The app does not price a claim.** Every claimable amount it shows comes
+  from `/api/paid-majority/user-positions`, which is already place-aware, so
+  the one figure the spec warns can go wrong is not computed here. The only
+  payout the app works out itself is the per-pick net on the podium, through
+  the ported `winnerPayoutBaseUnits`, which chooses the formula from the
+  word's place exactly as the program's `claim` does.
+- **While open**, a top 3 market shows the least a pick pays if its word
+  finishes 1st, assuming the most-backed rivals take the other places. The
+  real payout is that or more, and a test replays a resolved staging market to
+  check the estimate never exceeded what was paid.
+- **Once resolved**, the market screen shows the podium (`src/ui/podium.tsx`)
+  and the page behind it is about money: claims, the share card, the payouts
+  table, and the three places in one line. Drawing the podium on both made
+  them the same screen, so it is on one.
+- **The steps are revealed, not scaled.** Each block is uncovered by a curtain
+  that lifts off it, so the numeral never stretches as the step rises.
+- **Not yet known from a list:** the paid list route does not say whether an
+  open market pays places, so an open paid market's card still reads "Most
+  said wins". The market screen, which decodes the account, is right.
+
 ### Reanimated must not hand settled values back to React
 
 `package.json` turns off Reanimated's `FORCE_REACT_RENDER_FOR_SETTLED_ANIMATIONS`

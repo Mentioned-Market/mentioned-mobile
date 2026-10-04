@@ -1,4 +1,4 @@
-// PORTED_FROM mentioned/lib/majorityMarket.ts @ ae8c82e
+// PORTED_FROM mentioned/lib/majorityMarket.ts @ ce01ac3
 // Keep byte-identical to the web copy. If the program changes, change both.
 // Mobile edits: none.
 
@@ -8,6 +8,10 @@
 // of equal bets (default 2 × 150 tokens) on distinct words, one word wins, and its
 // backers split the pool pro-rata with a guaranteed-minimum floor. Because every bet
 // is the same size, a word's pool share is just its bet count.
+//
+// A market can instead pay several places from the same pool (`payout_weights`,
+// e.g. [3, 2, 1] for a top three): see "Placed payouts" below. The default [1] is
+// the original single-winner market, and reproduces its numbers exactly.
 //
 // No DB dependencies here, this is the single source of truth for the odds/payout
 // math, unit-tested by scripts/test-majority-market.ts. See
@@ -99,6 +103,160 @@ export function computePayouts(
   const mult = payoutMultiple(pool, winnerStaked, takeout, floor)
   if (mult === 0) return []
   return winners.map(w => ({ wallet: w.wallet, staked: w.staked, payout: w.staked * mult }))
+}
+
+// ── Placed payouts (top N share one pool) ────────────────────────────────────
+// One pool, weighted by finishing place. A stake on a word that finished in place
+// r counts `weights[r]` times when the pool is divided:
+//
+//   multiple(r) = weights[r] * D / Σ over placed words (weights[place] * staked)
+//
+// So 1st always pays more per token than 2nd, and 2nd more than 3rd, however the
+// picks were spread. A fixed split per place (60/25/15) cannot promise that: a
+// crowded winner can pay less than a thinly held third. Only the ratio between
+// weights matters, and [1] is the original winner-takes-all market.
+
+/** The original market: one winning word takes the pool. */
+export const WINNER_TAKES_ALL_WEIGHTS: readonly number[] = [1]
+/** Top three share the pool, 1st counting 3x, 2nd 2x, 3rd 1x. */
+export const TOP_THREE_WEIGHTS: readonly number[] = [3, 2, 1]
+export const MAX_PAID_PLACES = 5
+const MAX_PLACE_WEIGHT = 100
+
+/**
+ * Validate a per-market weight list: 1 to MAX_PAID_PLACES positive whole numbers,
+ * never increasing (a lower place can't out-weigh a higher one). Returns null when
+ * the input is not a usable list, so a route can reject it out loud.
+ */
+export function parsePayoutWeights(input: unknown): number[] | null {
+  if (!Array.isArray(input) || input.length < 1 || input.length > MAX_PAID_PLACES) return null
+  const out: number[] = []
+  for (const raw of input) {
+    const n = typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : raw
+    if (typeof n !== 'number' || !Number.isInteger(n) || n < 1 || n > MAX_PLACE_WEIGHT) return null
+    if (out.length > 0 && n > out[out.length - 1]) return null
+    out.push(n)
+  }
+  return out
+}
+
+/** A market row's weights, falling back to winner-takes-all (rows that predate the column). */
+export function payoutWeightsOf(input: unknown): number[] {
+  return parsePayoutWeights(input) ?? [...WINNER_TAKES_ALL_WEIGHTS]
+}
+
+/** How many finishing places a market pays. */
+export function paidPlaces(weights: readonly number[]): number {
+  return Math.max(1, weights.length)
+}
+
+/**
+ * The place each tier starts at (1-based), given how many words are in each tier.
+ * Tied words share a place and use up the ones below it, as on a podium: two words
+ * tied for 1st are both 1st and the next word is 3rd.
+ */
+export function tierPlaces(tierSizes: readonly number[]): number[] {
+  const out: number[] = []
+  let place = 1
+  for (const size of tierSizes) {
+    out.push(place)
+    place += Math.max(0, size)
+  }
+  return out
+}
+
+/**
+ * The weight each tier's words carry. Tied words split the places they cover, so
+ * two words tied for 1st under [3, 2, 1] carry 2.5 each. A place past the end of
+ * `weights` carries nothing.
+ */
+export function tierWeights(tierSizes: readonly number[], weights: readonly number[]): number[] {
+  const places = tierPlaces(tierSizes)
+  return tierSizes.map((size, i) => {
+    if (size <= 0) return 0
+    let sum = 0
+    for (let k = 0; k < size; k++) sum += weights[places[i] - 1 + k] ?? 0
+    return sum / size
+  })
+}
+
+export interface PlacedTier {
+  /** Words in this tier (more than one means a tie). */
+  words: number
+  /** Everything staked on those words, house seed included. */
+  staked: number
+}
+
+/**
+ * Payout multiple for each tier, best place first. A tier nobody backed gets 0 and
+ * its share goes to the tiers that were backed; all zeros means nobody is paid and
+ * the house keeps the pool. The guaranteed floor applies to 1st place only, which
+ * keeps the places in order and leaves a single-winner market exactly as it was.
+ */
+export function tieredMultiples(
+  pool: number,
+  tiers: readonly PlacedTier[],
+  takeout: number,
+  floor: number,
+  weights: readonly number[],
+): number[] {
+  const raw = tierWeights(tiers.map(t => t.words), weights)
+  // Scale so 1st carries exactly 1: a single tier then divides D by its own stake
+  // with no rounding detour, identical to payoutMultiple().
+  const top = raw[0] > 0 ? raw[0] : 1
+  const rel = raw.map(w => w / top)
+  const denom = tiers.reduce((sum, t, i) => sum + rel[i] * Math.max(0, t.staked), 0)
+  if (denom <= 0) return tiers.map(() => 0)
+  const d = distributable(pool, takeout)
+  return tiers.map((t, i) => {
+    if (t.staked <= 0 || rel[i] <= 0) return 0
+    const natural = (rel[i] * d) / denom
+    return i === 0 ? Math.max(natural, floor) : natural
+  })
+}
+
+/**
+ * The least a word can pay per token if it finishes 1st. The rest of the podium is
+ * not known until the event ends, so this assumes the most-backed rivals take the
+ * other paid places, which is the outcome that shares the pool the most ways. The
+ * real payout is this or higher. With one paid place it is payoutMultiple().
+ */
+export function firstPlaceMultiple(
+  pool: number,
+  wordStaked: number,
+  rivalStakes: readonly number[],
+  takeout: number,
+  floor: number,
+  weights: readonly number[],
+): number {
+  const rivals = [...rivalStakes].sort((a, b) => b - a).slice(0, Math.max(0, weights.length - 1))
+  const tiers: PlacedTier[] = [{ words: 1, staked: wordStaked }, ...rivals.map(staked => ({ words: 1, staked }))]
+  return tieredMultiples(pool, tiers, takeout, floor, weights)[0]
+}
+
+/**
+ * Gross payout for a fresh `betSize` bet on a word if it finishes 1st (see
+ * firstPlaceMultiple for the assumption about the other places). The bet joins the
+ * pool and the word's stake, like potentialWin().
+ */
+export function potentialWinPlaced(
+  wordStaked: number,
+  rivalStakes: readonly number[],
+  pool: number,
+  betSize: number,
+  takeout: number,
+  floor: number,
+  weights: readonly number[],
+): number {
+  return betSize * firstPlaceMultiple(pool + betSize, wordStaked + betSize, rivalStakes, takeout, floor, weights)
+}
+
+/** "1st", "2nd", "3rd", "4th". */
+export function placeLabel(place: number): string {
+  const mod100 = place % 100
+  if (mod100 >= 11 && mod100 <= 13) return `${place}th`
+  const suffix = ['th', 'st', 'nd', 'rd'][place % 10] ?? 'th'
+  return `${place}${suffix}`
 }
 
 // ── Word normalization + spam filter ──────────────────────────────────────────

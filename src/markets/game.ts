@@ -27,6 +27,22 @@ export const HOW_TO_PLAY: Record<Game, string> = {
 };
 
 /**
+ * The name and the how-to-play line for one market. A majority market that
+ * pays several places (docs/MM_V2_SPEC.md) is a different promise from one
+ * that pays the single most-said word, so it says so; every other market gets
+ * the lines above. `paidPlaces` is 1 unless the market says otherwise.
+ */
+export function gameName(game: Game, paidPlaces = 1): string {
+  return game === 'majority' && paidPlaces > 1 ? `Top ${paidPlaces} said win` : GAME_NAME[game];
+}
+
+export function howToPlay(game: Game, paidPlaces = 1): string {
+  return game === 'majority' && paidPlaces > 1
+    ? `The ${paidPlaces} most-mentioned words all pay from one pool. 1st pays the most per pick, then each place below it. Rare picks pay big and popular picks pay small.`
+    : HOW_TO_PLAY[game];
+}
+
+/**
  * The money line on a card. A free market says it is free and that its tokens
  * are for play: "300 tokens" alone read as a price. A paid YES/NO market has
  * no pool figure in the list, so it names its currency instead.

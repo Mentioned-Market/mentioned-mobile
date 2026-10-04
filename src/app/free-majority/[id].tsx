@@ -13,12 +13,13 @@ import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInpu
 import { chatEventId } from '@/chat/rules';
 import { enterFreeMajority } from '@/api/free';
 import { useFreeBoard, useIsScreenFocused } from '@/api/queries';
-import { potentialWin } from '@/chain/majorityWords';
+import { placeLabel } from '@/chain/majorityWords';
 import { getDisplayStatus } from '@/free/marketUtils';
 import { tokens } from '@/lib/format';
 import { toMs } from '@/lib/time';
 import { useNow } from '@/lib/use-now';
 import { findWordParam } from '@/markets/merge';
+import { freeResult, freeWeights, freshPickWin, heldPickWin, paysPlaces, ticketNote, winLine, type PoolState } from '@/markets/top3';
 import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
 import { achievementLines, checkFreeCoinedWord, useApiTrade, type FreePick } from '@/trade/free';
@@ -29,6 +30,7 @@ import { Chip } from '@/ui/chip';
 import { useFeatures } from '@/ui/config-gate';
 import { MarketHeader } from '@/ui/market-header';
 import { Pill } from '@/ui/pill';
+import { Podium } from '@/ui/podium';
 import { PINNED_BAR_HEIGHT, PinnedBar } from '@/ui/pinned-bar';
 import { FeaturedWords } from '@/ui/featured-words';
 import { Screen } from '@/ui/screen';
@@ -92,8 +94,17 @@ export default function FreeMajorityScreen() {
   // Same preview the website shows: your pick joins the pool and the word's stake.
   const takeout = Number(m.takeout_pct) || 0;
   const floor = Number(m.floor_multiple) || 1.5;
-  const winFor = (staked: number) => potentialWin(staked, pool, pickSize, takeout, floor);
-  const stakedFor = (pick: FreePick) => (pick.kind === 'word' ? (d.board.find((b) => b.word_id === pick.wordId)?.staked ?? 0) : 0);
+  // Most markets pay the one word said the most; a market can instead pay the
+  // top three from one pool (docs/MM_V2_SPEC.md). `freshPickWin` gives a
+  // market with one winner the figure it always had.
+  const weights = freeWeights(m.payout_weights);
+  const places = paysPlaces(weights);
+  const state: PoolState = { weights, pool, stakes: d.board.map((w) => w.staked), fee: takeout, floor };
+  const indexOfWord = new Map(d.board.map((w, i) => [w.word_id, i]));
+  /** Tokens a fresh pick on the word at `index` pays (-1 for a word not on the board yet). */
+  const winAt = (index: number) => freshPickWin(state, index, pickSize);
+  const indexFor = (pick: FreePick) => (pick.kind === 'word' ? (indexOfWord.get(pick.wordId) ?? -1) : -1);
+  const winText = (index: number) => winLine(places, `${tokens(winAt(index))} tokens`);
   const mine = new Set((d.userEntry ?? []).map((e) => e.word_id));
   const entered = !!(d.hasEntered && viewed);
   const canEnter = open && !entered;
@@ -108,10 +119,15 @@ export default function FreeMajorityScreen() {
         ? 'Being checked'
         : `${w.bet_count} ${w.bet_count === 1 ? 'pick' : 'picks'} · ${tokens(w.staked)} tokens`,
       outcome: status === 'resolved' ? (w.resolved_outcome ? 'winner' : 'loser') : null,
+      // Every placed word is a winner on a top 3 market, so each says which place.
+      place: places && w.place != null && w.place >= 1 ? placeLabel(w.place) : undefined,
       yours: mine.has(w.word_id),
-      winLabel: `Wins ${tokens(winFor(w.staked))} tokens if said most`,
+      winLabel: winText(indexOfWord.get(w.word_id) ?? -1),
       locked: w.resolved_outcome !== null || w.pending_resolution,
     }));
+
+  // Once resolved, a top 3 market shows its podium and how the viewer's picks finished.
+  const { podium, picks: myResults } = freeResult(d, status === 'resolved');
 
   const selectedKeys = new Set(picks.filter((p): p is Extract<FreePick, { kind: 'word' }> => p.kind === 'word').map((p) => String(p.wordId)));
   const full = picks.length >= required;
@@ -187,7 +203,7 @@ export default function FreeMajorityScreen() {
   const barSubtitle =
     picks.length === 0
       ? `${tokens(pickSize)} tokens on each`
-      : picks.map((p) => `${p.word} wins ${tokens(winFor(stakedFor(p)))}`).join(' · ');
+      : picks.map((p) => (places ? `${p.word} if 1st ${tokens(winAt(indexFor(p)))}` : `${p.word} wins ${tokens(winAt(indexFor(p)))}`)).join(' · ');
   const newPicks = picks.filter((p) => p.kind === 'new');
   const recent = d.recentBets.slice(0, 6);
 
@@ -209,21 +225,40 @@ export default function FreeMajorityScreen() {
             now={now}
             description={m.description}
             kind='free-majority'
+            paidPlaces={weights.length}
           />
           <View style={styles.chips}>
             <Chip value={`${tokens(pool)} tokens`} caption="pool" />
             <Chip value={`${tokens(pickSize)} tokens`} caption="per pick" />
           </View>
-          {status === 'resolved' || status === 'cancelled' ? (
+          {/* See the paid majority screen: with a podium up, the button moves under it. */}
+          {(status === 'resolved' || status === 'cancelled') && !podium ? (
             <Link href={`/result/free-majority/${id}` as Href} asChild>
               <Button label="See results" tone="neutral" />
             </Link>
           ) : null}
 
+          {podium ? (
+            <>
+              <Podium tiers={podium} paidPlaces={weights.length} picks={viewed ? myResults : []} unit="tokens" />
+              <Link href={`/result/free-majority/${id}` as Href} asChild>
+                <Button label="Leaderboard" tone="neutral" />
+              </Link>
+            </>
+          ) : null}
+
           <SectionTitle title={canEnter ? `Pick ${required} words` : 'Board'} />
           {d.board.length === 0 && canEnter ? <Text style={type.muted}>No words yet. Add the first below.</Text> : null}
           <WordBoard words={words} selected={selectedKeys} onToggle={toggle} selectable={canEnter} />
-          {entered ? <Text style={type.muted}>You are in with {(d.userEntry ?? []).map((e) => e.word).join(' and ')}.</Text> : null}
+          {/* The podium says how each pick finished; before that, which words the viewer is in with. */}
+          {entered && !podium ? <Text style={type.muted}>You are in with {(d.userEntry ?? []).map((e) => e.word).join(' and ')}.</Text> : null}
+          {entered && places && open
+            ? (d.userEntry ?? []).map((e) => (
+                <Text key={e.word_id} style={type.muted}>
+                  {e.word} · if 1st ~{tokens(heldPickWin(state, indexOfWord.get(e.word_id) ?? -1, e.tokens))} tokens
+                </Text>
+              ))
+            : null}
 
           {canEnter ? (
             <Card style={{ gap: spacing.sm }}>
@@ -339,12 +374,13 @@ export default function FreeMajorityScreen() {
                       <Text style={styles.pickWord}>{p.word}</Text>
                       {p.kind === 'new' ? <Pill label="NEW" tone="gold" /> : null}
                     </View>
-                    <Text style={[type.muted, { color: colors.yes }]}>Wins {tokens(winFor(stakedFor(p)))} tokens if said most</Text>
+                    <Text style={[type.muted, { color: colors.yes }]}>{winText(indexFor(p))}</Text>
                   </View>
                   <Text style={type.money}>{tokens(pickSize)}</Text>
                 </Row>
               ))}
             </Card>
+            {places ? <Text style={type.muted}>{ticketNote(weights.length)}</Text> : null}
             <Text style={type.muted}>One entry per market. Once you are in, these picks are locked.</Text>
           </View>
         )}

@@ -32,7 +32,7 @@ import { useNow } from '@/lib/use-now';
 import { usePositionGroups } from '@/lib/use-position-groups';
 import { useStandingChange } from '@/lib/use-standing-change';
 import { poolLabel } from '@/markets/game';
-import { isPaid, mergeMarkets, type MarketKind, type MarketSummary } from '@/markets/merge';
+import { mergeMarkets, type MarketKind, type MarketSummary } from '@/markets/merge';
 import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
 import { ActivityFeed } from '@/ui/activity-feed';
@@ -111,8 +111,6 @@ export default function HomeScreen() {
     [paidMajority.data, paidYesNo.data, free.data, now],
   );
   const closingSoon = useMemo(() => markets.filter((m) => m.status === 'open').slice(0, CLOSING_SHOWN), [markets]);
-  // Where "Try it free" goes: the free market closing soonest.
-  const tryHref = useMemo(() => markets.find((m) => m.status === 'open' && !isPaid(m))?.href ?? '/markets', [markets]);
   const justResolved = useMemo(() => markets.filter((m) => m.status === 'resolved').slice(0, RESOLVED_SHOWN), [markets]);
   const listsFailed = paidMajority.isError && paidYesNo.isError && free.isError;
   // A first load only; a poll that fails must not take the rows off the screen.
@@ -172,7 +170,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Before anything else, what this app is, for someone who does not know yet. */}
-        {!signedIn ? <HowItWorks tryHref={tryHref} /> : null}
+        {!signedIn ? <HowItWorks /> : null}
 
         {arenaOpen ? <ArenaHero /> : weeklyBoard}
 
