@@ -155,7 +155,7 @@ export default function YouScreen() {
               <Text style={styles.total}>{usd(total, { dp: 2 })}</Text>
             )}
             <View style={styles.stats}>
-              <Stat label="Cash" value={balance.isError ? '—' : usd(cash ?? 0, { dp: 2 })} />
+              <Stat label="Cash" value={balance.isError ? '–' : usd(cash ?? 0, { dp: 2 })} />
               <Stat label="At stake" value={usd(positions.stakedUsd)} align={positions.claimableUsd > 0 ? 'center' : 'right'} />
               {positions.claimableUsd > 0 ? <Stat label="To claim" value={usd(positions.claimableUsd)} tone="up" align="right" /> : null}
             </View>

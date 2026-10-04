@@ -22,6 +22,7 @@ fixtures and assets.
 | v5 engagement | Sep 12 to 14 | 2.5k | Notification feed and bell, push registration, deep links, emoji picker, sharing, bug reports, the staging flavour |
 | v6 Arena | Sep 14 | 1.8k | Arena team competition, team profiles, referrals |
 | v9 more to scroll | Sep 18 | | Trending words from the website's sidebar feed on Home and every market screen, "More markets" at the foot of each one |
+| release pass | Oct 4 | | Submitted to the dApp Store. Unused camera, microphone and overlay permissions removed from the release build; the dev screen opens only for admin wallets in production. Market cards carry a Paid or Free badge and a game badge; the Yes and No controls are rounded tiles; a resolved paid YES/NO market has the website's leaderboard (`/api/paid-markets/market/[id]/results`, rules in `src/markets/paid-results.ts`), each row opening to that trader's words |
 | v8 production, v9 prep | Sep 15 to 16 | | Production build on a Seeker with the first mainnet trade; sign-out, wallet recovery and cold-start reconnect fixes; balances at confirmed commitment; release signing from a gitignored `keystore.properties`, App Links for the website's five paths with redirect routes and slug resolution, referral capture at sign-in, the flavour-safe release script, the portal-based store submission (`dapp-store/README.md`) |
 | v7 UI pass | Sep 14 to 15 | see `git diff --stat` | Every screen re-laid out to one system (`docs/DESIGN.md`): five tabs, one card shape, one chance figure per word, the trade sheet as a full screen with a swipe to confirm; deposit over MWA and withdraw from the app wallet (`src/trade/transfer.ts`, `src/ui/fund-sheet.tsx`) |
 
@@ -440,6 +441,32 @@ listing lives in this repo.
   `[flavour]` launch line cannot verify one. The pill on Home (any flavour but
   production shows it) and a grep of the Hermes bundle for the API host are
   the checks.
+
+### What the store build asks for, and who can open the dev screen
+
+Oct 4 2026, the last pass before submission.
+
+The release APK asked for the camera, the microphone and drawing over other
+apps. None of them is used: a team picture comes from the photo library, the
+other two came from `expo-image-picker`'s manifest and the Expo template. A
+markets app that wants the microphone is a question a reviewer is right to
+ask, so `CAMERA` and `RECORD_AUDIO` are removed in the main manifest
+(`tools:node="remove"`, mirrored in `app.json` so a prebuild does not bring
+them back) and `SYSTEM_ALERT_WINDOW` now lives only in the debug manifest,
+where the dev overlay needs it. Check with `aapt dump badging` on the APK.
+
+`mentioned://dev` was open to anyone with the link in every build. It was left
+that way on purpose, because a release build sends no console output to logcat
+and the screen is how a wallet problem gets diagnosed on a real phone. But it
+can view the app as any address and drive wallet recovery by hand. A
+production build now opens it only when the signed-in wallet is one the
+website calls an admin (`/api/auth/admin`, its `ADMIN_WALLETS`); everyone else
+is sent Home. The rule is `src/lib/dev-access.ts`. The list stays on the
+server rather than in the build, where it could not change without a release.
+The answer is never cached, since the query cache is written to disk, and a
+check that fails is a no. Dev builds and the staging and devnet flavours are
+unchanged. The gate only hides a screen: nothing on it has powers the server
+does not check again.
 
 ### A notification has to become an app route
 

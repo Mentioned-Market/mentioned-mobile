@@ -98,6 +98,14 @@ export const getPublicProfile = (username: string) => get(`/api/profile/${encode
 export const search = (query: string) => get(`/api/search${q({ q: query })}`, SearchResults);
 
 export const getProfile = (wallet: string) => get(`/api/profile${q({ wallet })}`, Profile);
+
+/**
+ * Whether the website counts this wallet as an admin (its `ADMIN_WALLETS`).
+ * The answer only decides what the app shows; every admin action is checked
+ * again by the server against a verified session.
+ */
+export const AdminCheck = z.object({ admin: z.boolean() });
+export const getIsAdmin = async (wallet: string) => (await get(`/api/auth/admin${q({ wallet })}`, AdminCheck)).admin;
 const RafflePerson = z.object({ wallet: z.string(), username: z.string().nullable(), pfpEmoji: z.string().nullable() });
 
 export const Raffle = z.object({

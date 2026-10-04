@@ -11,6 +11,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Chip } from '@/ui/chip';
 import { NumberPad } from '@/ui/number-pad';
 import { Segmented } from '@/ui/segmented';
+import { SidePicker } from '@/ui/side-picker';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
 export type SheetWord = {
@@ -58,14 +59,7 @@ export function TradeSheet(p: Props) {
   return (
     <View style={styles.wrap}>
       <View style={styles.group}>
-        <Segmented
-          options={[
-            { key: 'YES', label: `${verb} Yes`, tone: 'yes' },
-            { key: 'NO', label: `${verb} No`, tone: 'no' },
-          ]}
-          value={p.side}
-          onChange={p.onSide}
-        />
+        <SidePicker value={p.side} onChange={p.onSide} verb={verb} />
 
         {p.open !== false && p.canSell ? (
           <Segmented

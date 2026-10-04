@@ -427,10 +427,18 @@ export default function PaidYesNoScreen() {
               {recent.map((t, i) => (
                 <Link key={t.signature} href={(t.username ? `/u/${encodeURIComponent(t.username)}` : `/positions?wallet=${t.trader}`) as Href} asChild>
                   <Pressable style={rowStyle(i === 0)} accessibilityRole="button">
-                    <Text style={[type.body, { flex: 1 }]} numberOfLines={1}>
-                      <Text style={{ fontFamily: fonts.semibold }}>{t.username ?? shortAddress(t.trader)}</Text> {t.isBuy ? 'bought' : 'sold'}{' '}
-                      <Text style={{ color: t.direction === 'YES' ? colors.yes : colors.no, fontFamily: fonts.semibold }}>{t.direction}</Text> {acct.words[t.wordIndex]?.label ?? ''}
-                    </Text>
+                    {/* Who on one line, what they did on the next: as one
+                        sentence the name, side and word ran together. */}
+                    <View style={styles.tradeText}>
+                      <Text style={styles.tradeName} numberOfLines={1}>
+                        {t.username ?? shortAddress(t.trader)}
+                      </Text>
+                      <Text style={type.muted} numberOfLines={1}>
+                        {t.isBuy ? 'Bought' : 'Sold'}{' '}
+                        <Text style={{ color: t.direction === 'YES' ? colors.yes : colors.no, fontFamily: fonts.semibold }}>{t.direction === 'YES' ? 'Yes' : 'No'}</Text>
+                        {acct.words[t.wordIndex]?.label ? ` · ${acct.words[t.wordIndex]?.label}` : ''}
+                      </Text>
+                    </View>
                     <Text style={type.money}>{usdc(t.cost)}</Text>
                   </Pressable>
                 </Link>
@@ -536,4 +544,6 @@ export default function PaidYesNoScreen() {
 
 const styles = StyleSheet.create({
   content: { gap: spacing.md, paddingBottom: spacing.xl },
+  tradeText: { flex: 1, gap: 2 },
+  tradeName: { ...type.body, fontFamily: fonts.semibold },
 });

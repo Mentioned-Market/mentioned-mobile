@@ -71,9 +71,11 @@ export const keys = {
   freeChart: (id: number) => ['free', 'chart', id] as const,
   freeUserActivity: (wallet: string) => ['free', 'user-activity', wallet] as const,
   profile: (wallet: string) => ['profile', wallet] as const,
+  isAdmin: (wallet: string) => ['auth', 'admin', wallet] as const,
   publicProfile: (username: string) => ['profile', 'u', username] as const,
   search: (q: string) => ['search', q] as const,
   paidMajorityResults: (id: string) => ['paid-majority', 'results', id] as const,
+  paidMarketResults: (id: string) => ['paid-markets', 'results', id] as const,
   freeResults: (id: number) => ['free', 'results', id] as const,
   leaderboard: (week: user.LeaderboardWeek, wallet?: string) => ['leaderboard', week, wallet ?? ''] as const,
   prizePool: (week?: string) => ['prize-pool', week ?? 'current'] as const,
@@ -186,6 +188,10 @@ export const useFreeUserActivity = (wallet: string | null, focused: boolean) =>
 // User
 export const useProfile = (wallet: string | null) =>
   useQuery({ queryKey: keys.profile(wallet ?? ''), queryFn: () => user.getProfile(wallet as string), enabled: !!wallet, staleTime: 30_000 });
+// Asked fresh every time and never kept: the query cache is written to disk,
+// and a remembered yes would outlive a wallet's removal from the admin list.
+export const useIsAdmin = (wallet: string | null, enabled = true) =>
+  useQuery({ queryKey: keys.isAdmin(wallet ?? ''), queryFn: () => user.getIsAdmin(wallet as string), enabled: enabled && !!wallet, staleTime: 0, gcTime: 0, retry: 1 });
 export const useLeaderboard = (week: user.LeaderboardWeek, wallet: string | null, focused: boolean) =>
   useQuery({ queryKey: keys.leaderboard(week, wallet ?? undefined), queryFn: () => user.getLeaderboard(week, wallet ?? undefined), ...poll(focused, 30_000) });
 export const usePrizePool = (week: string | undefined, focused: boolean) =>
@@ -196,6 +202,10 @@ export const useRaffle = (wallet: string | null, week: string | undefined, focus
 // Results, public profiles, search
 export const usePaidMajorityResults = (id: string) =>
   useQuery({ queryKey: keys.paidMajorityResults(id), queryFn: () => results.getPaidMajorityResults(id), staleTime: 60_000 });
+// Asked only once the market has resolved: before that the route answers
+// with an empty list, and a resolved market's leaderboard does not change.
+export const usePaidMarketResults = (id: string, resolved: boolean) =>
+  useQuery({ queryKey: keys.paidMarketResults(id), queryFn: () => results.getPaidMarketResults(id), enabled: resolved, staleTime: 60_000 });
 export const useFreeResults = (id: number) =>
   useQuery({ queryKey: keys.freeResults(id), queryFn: () => results.getFreeResults(id), staleTime: 60_000 });
 export const usePublicProfile = (username: string) =>

@@ -1,7 +1,7 @@
 // Result screen for every market family (SPEC v1 step 2). `type` is one of
 // majority | paid | free | free-majority. Public routes only.
 import { Link, useLocalSearchParams, type Href } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -17,11 +17,14 @@ import {
   usePaidMarket,
   usePaidMarketChart,
   usePaidMarketMetadata,
+  usePaidMarketResults,
   usePaidMarketTrades,
 } from '@/api/queries';
+import type { PaidMarketResultRow } from '@/api/results';
 import { deserializeMarketAccount, impliedYesPrice } from '@/chain/amm';
 import { deserializeMajorityMarket, WordOutcome } from '@/chain/majority';
 import { placeLabel } from '@/chain/majorityWords';
+import { foldedRows, pnlTone, resultsSummary, returnPct, RESULTS_SHOWN, signedUsd, traderLine } from '@/markets/paid-results';
 import { freeResult, freeWeights, paidResult, paidWeights, placesLine } from '@/markets/top3';
 import { base64ToBytes } from '@/lib/bytes';
 import { sideQuote } from '@/trade/amm-display';
@@ -204,7 +207,11 @@ function PaidYesNoResult({ id }: { id: string }) {
   const trades = usePaidMarketTrades(id, focused);
   const acct = useMemo(() => (market.data ? deserializeMarketAccount(base64ToBytes(market.data.account)) : null), [market.data]);
   const wallet = useSession((s) => s.wallet);
+  const viewed = useActiveWallet();
   const claimFlow = useClaimFlow(wallet);
+  // Every word has an outcome: the same test the results route applies.
+  const settled = !!acct && acct.words.length > 0 && acct.words.every((w) => w.outcome !== null);
+  const results = usePaidMarketResults(id, settled);
   if (market.isPending) return <Loading />;
   if (market.isError || !acct) {
     return (
@@ -249,9 +256,102 @@ function PaidYesNoResult({ id }: { id: string }) {
           </Card>
           <Text style={type.muted}>YES shares on a word said pay $1 each, and NO shares on a word not said.</Text>
         </View>
+        {settled ? (
+          <View style={styles.section}>
+            <SectionTitle title="Leaderboard" />
+            {results.isError ? (
+              <ErrorState error={results.error} onRetry={() => results.refetch()} title="Could not load the leaderboard" />
+            ) : results.isPending ? (
+              <CardSkeleton />
+            ) : results.data.leaderboard.length > 0 ? (
+              <PaidLeaderboard rows={results.data.leaderboard} viewed={viewed} />
+            ) : (
+              <EmptyState title="Nobody traded this market" body="The leaderboard lists everyone who held a position when it resolved." />
+            )}
+          </View>
+        ) : null}
       </ScrollView>
       {claimFlow.sheet}
     </Screen>
+  );
+}
+
+const TONE_COLOR = { up: colors.yes, down: colors.no, flat: colors.textMuted } as const;
+
+/**
+ * Everyone who traded a resolved paid YES/NO market, by profit. A row opens
+ * to that trader's words, since a single profit figure hides which calls were
+ * right. Ten rows to start with, the viewer's own kept in sight below them.
+ */
+function PaidLeaderboard({ rows, viewed }: { rows: PaidMarketResultRow[]; viewed: string | null }) {
+  const [open, setOpen] = useState<string | null>(null);
+  const [all, setAll] = useState(false);
+  const shown = foldedRows(rows, viewed, all);
+  return (
+    <>
+      <Card padded={false} style={styles.listCard}>
+        {shown.map(({ row: r, rank }, i) => {
+          const isOpen = open === r.wallet;
+          const back = returnPct(r.profitUsdc, r.stakeUsdc);
+          return (
+            <View key={r.wallet} style={i > 0 && styles.divider}>
+              <Pressable
+                style={({ pressed }) => [styles.traderRow, pressed && { opacity: 0.7 }]}
+                onPress={() => setOpen(isOpen ? null : r.wallet)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: isOpen }}
+              >
+                <Text style={styles.rank}>{rank}</Text>
+                <Text style={{ fontSize: 18 }}>{r.pfpEmoji ?? '🙂'}</Text>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.nameLine}>
+                    <Text style={styles.name} numberOfLines={1}>
+                      {r.username ?? shortAddress(r.wallet)}
+                    </Text>
+                    {viewed === r.wallet ? <Pill label="YOU" tone="gold" /> : null}
+                  </View>
+                  <Text style={type.muted} numberOfLines={1}>
+                    {traderLine(r)}
+                  </Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={[type.money, { color: TONE_COLOR[pnlTone(r.profitUsdc)] }]}>{signedUsd(r.profitUsdc)}</Text>
+                  {back ? <Text style={styles.returnPct}>{back}</Text> : null}
+                </View>
+              </Pressable>
+              {isOpen ? (
+                <View style={styles.breakdown}>
+                  {r.words.map((w) => (
+                    <View key={w.wordIndex} style={styles.breakdownRow}>
+                      <Pill label={w.side} tone={w.side === 'YES' ? 'green' : 'red'} />
+                      <Text style={styles.breakdownWord} numberOfLines={1}>
+                        {w.label}
+                      </Text>
+                      <Text style={type.muted}>{usd(Math.max(0, w.costUsdc), { dp: 2 })} in</Text>
+                      <Text style={[styles.breakdownPnl, { color: TONE_COLOR[pnlTone(w.pnlUsdc)] }]}>{signedUsd(w.pnlUsdc)}</Text>
+                    </View>
+                  ))}
+                  <View style={styles.breakdownFoot}>
+                    <Text style={type.muted}>{usd(r.payoutUsdc, { dp: 2 })} back</Text>
+                    <Link href={profileHref(r.username, r.wallet)} asChild>
+                      <Pressable accessibilityRole="link" hitSlop={8}>
+                        <Text style={styles.profileLink}>View profile</Text>
+                      </Pressable>
+                    </Link>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+        {rows.length > RESULTS_SHOWN ? (
+          <Pressable style={[styles.showAll, styles.divider]} onPress={() => setAll((v) => !v)} accessibilityRole="button" accessibilityState={{ expanded: all }}>
+            <Text style={styles.profileLink}>{all ? 'Show fewer' : `Show all ${rows.length}`}</Text>
+          </Pressable>
+        ) : null}
+      </Card>
+      <Text style={type.muted}>{resultsSummary(rows)}</Text>
+    </>
   );
 }
 
@@ -379,4 +479,15 @@ const styles = StyleSheet.create({
   word: { flex: 1, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 22, color: colors.text },
   nameLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   rank: { width: 24, fontFamily: fonts.bold, fontSize: 14, color: colors.textMuted, fontVariant: ['tabular-nums'] },
+  // The paid YES/NO leaderboard: a row that opens rather than links.
+  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  traderRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 4, paddingVertical: spacing.sm + 4, minHeight: 56 },
+  returnPct: { ...type.muted, fontSize: 12, lineHeight: 16, fontVariant: ['tabular-nums'] },
+  breakdown: { gap: spacing.sm, paddingBottom: spacing.md, paddingLeft: 24 + spacing.sm + 4 },
+  breakdownRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  breakdownWord: { flex: 1, fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.text },
+  breakdownPnl: { width: 64, textAlign: 'right', fontFamily: fonts.semibold, fontSize: 14, fontVariant: ['tabular-nums'] },
+  breakdownFoot: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: spacing.xs },
+  profileLink: { fontFamily: fonts.semibold, fontSize: 14, color: colors.gold },
+  showAll: { alignItems: 'center', justifyContent: 'center', height: 48 },
 });

@@ -50,6 +50,12 @@ async function main() {
   write('paid-market-chart', { ...chart, words: chart.words.map((w) => trim(w as Record<string, unknown>, 'history', 5)) });
   const trades = await get<{ trades: unknown[] }>(`/api/paid-markets/trades?id=${amm.marketId}`);
   write('paid-market-trades', { trades: trades.trades.slice(0, 5) });
+  // A market is resolved once every word has an outcome; the list carries them.
+  const resolvedAmm = ammList.markets.find((m) => { const ws = m.words as { outcome: boolean | null }[]; return ws.length > 0 && ws.every((w) => w.outcome !== null); });
+  if (resolvedAmm) {
+    const ammResults = await get<{ resolved: boolean; leaderboard: unknown[] }>(`/api/paid-markets/market/${resolvedAmm.marketId}/results`);
+    write('paid-market-results', { ...ammResults, leaderboard: ammResults.leaderboard.slice(0, 5) });
+  }
 
   // ── Paid majority ─────────────────────────────────────────────────
   const majList = await get<{ markets: ListEntry[] }>('/api/paid-majority/list');

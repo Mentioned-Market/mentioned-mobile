@@ -43,7 +43,7 @@ export function SimilarMarkets({ currentKey }: { currentKey: string }) {
 function Row({ market, first }: { market: MarketSummary; first: boolean }) {
   const [failed, setFailed] = useState(false);
   const { text: closes } = useCountdown(market.lockAt);
-  const pool = poolLabel(market.pool);
+  const pool = poolLabel(market);
   return (
     <Link href={market.href as Href} asChild>
       <Pressable style={rowStyle(first)} accessibilityRole="button" accessibilityLabel={market.title}>
