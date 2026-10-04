@@ -1,8 +1,8 @@
 // What a newcomer needs told about a market before the board makes sense: which
 // of the two games it is, how that game is won, and what the money on the card
 // is. Pure, so the wording is pinned by tests and every screen says the same.
-import { tokens, usd } from '@/lib/format';
-import { isMajority, type MarketKind, type MarketSummary } from '@/markets/merge';
+import { usd } from '@/lib/format';
+import { isMajority, isPaid, type MarketKind, type MarketSummary } from '@/markets/merge';
 
 export type Game = 'majority' | 'yesno';
 
@@ -13,6 +13,22 @@ export const GAME_NAME: Record<Game, string> = {
   majority: 'Most said wins',
   yesno: 'Yes or no on each word',
 };
+
+/**
+ * The game on a market card's badge. Shorter than the name, because the badge
+ * sits beside the stake badge and the market screen has the room to explain.
+ */
+export const GAME_BADGE: Record<Game, string> = {
+  majority: 'Most said wins',
+  yesno: 'Yes or no',
+};
+
+export type Stake = 'paid' | 'free';
+
+export const stakeOf = (kind: MarketKind): Stake => (isPaid({ kind }) ? 'paid' : 'free');
+
+/** Whether a market is played with USDC or with play tokens, as its card's badge says it. */
+export const STAKE_NAME: Record<Stake, string> = { paid: 'Paid', free: 'Free' };
 
 /** The Ionicons glyph beside the name. */
 export const GAME_ICON: Record<Game, 'podium' | 'checkmark-done'> = {
@@ -42,12 +58,29 @@ export function howToPlay(game: Game, paidPlaces = 1): string {
     : HOW_TO_PLAY[game];
 }
 
+type Money = Pick<MarketSummary, 'pool' | 'traderCount'>;
+
 /**
- * The money line on a card. A free market says it is free and that its tokens
- * are for play: "300 tokens" alone read as a price. A paid YES/NO market has
- * no pool figure in the list, so it names its currency instead.
+ * The figure on a market card, beside its badges: the pool on a paid majority
+ * market, the number of traders on a paid YES/NO market, nothing on a free
+ * one. The list carries no pool or volume for a YES/NO market, and traders is
+ * the one figure it does have. A free market says nothing here, since the
+ * badge already says Free and every free market starts with the same tokens.
  */
-export function poolLabel(pool: MarketSummary['pool']): string {
-  if (pool.kind === 'tokens') return `Free · ${tokens(pool.tokens)} play tokens`;
-  return pool.usd > 0 ? `${usd(pool.usd)} pool` : 'USDC market';
+export function moneyLine({ pool, traderCount }: Money): string | null {
+  if (pool.kind === 'tokens') return null;
+  if (pool.usd > 0) return `${usd(pool.usd)} pool`;
+  if (traderCount > 0) return `${traderCount} ${traderCount === 1 ? 'trader' : 'traders'}`;
+  return null;
+}
+
+/**
+ * The same, for a row or tile with no badges, which therefore has to say Free
+ * or Paid itself. A pool in dollars already says paid.
+ */
+export function poolLabel(market: Money): string {
+  const line = moneyLine(market);
+  if (market.pool.kind === 'tokens') return 'Free';
+  if (!line) return 'Paid';
+  return market.pool.usd > 0 ? line : `Paid · ${line}`;
 }

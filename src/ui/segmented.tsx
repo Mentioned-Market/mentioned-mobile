@@ -1,6 +1,6 @@
-// A pill with two to four choices in it. The selected one is raised and, when
-// it carries a tone, outlined in that colour: "Predict Yes" in green, "Predict
-// No" in red, everything else in gold.
+// A pill with two to four choices in it. The selected one is raised and
+// outlined in its tone, gold unless told otherwise. The Yes or No choice on a
+// trade sheet is not one of these: see src/ui/side-picker.tsx.
 import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 

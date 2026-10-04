@@ -127,6 +127,11 @@ async function main() {
   add('custom/[id]/chart', async () => `${(await free.getFreeChart(freeSheet.id)).words.length} series`);
   add('custom/user-activity', async () => `${(await free.getFreeUserActivity(WALLET)).positions.length} positions`);
   add('profile', async () => `username ${(await user.getProfile(WALLET)).username}`);
+  // The dev screen's gate in a store build. A random wallet must never be an admin.
+  add('auth/admin', async () => {
+    if (await user.getIsAdmin(WALLET)) throw new Error('the QA wallet reads as an admin');
+    return 'answers, QA wallet is not an admin';
+  });
   add('leaderboard', async () => `${(await user.getLeaderboard()).data.length} entries`);
   add('leaderboard (last week, wallet)', async () => { const r = await user.getLeaderboard('last', WALLET); return `${r.data.length} entries, userEntry ${r.userEntry ? 'set' : 'null'}`; });
   add('raffle/tickets', async () => { const r = await user.getRaffle(WALLET); return `${r.totalTickets} tickets, me ${r.me?.tickets ?? 'n/a'}`; });
@@ -134,6 +139,13 @@ async function main() {
   const resolvedMaj = majList.find((m) => m.status === 1) ?? maj;
   const resolvedFree = freeList.find((m) => m.status === 'resolved') ?? freeList[0];
   add('paid-majority/[id]/results', async () => `${(await results.getPaidMajorityResults(resolvedMaj.marketId)).leaderboard.length} rows`);
+  add('paid-markets/market/[id]/results', async () => {
+    const resolvedAmm = ammList.find((m) => m.words.length > 0 && m.words.every((w) => w.outcome !== null));
+    if (!resolvedAmm) return 'no resolved market in the list, nothing to check';
+    const r = await results.getPaidMarketResults(resolvedAmm.marketId);
+    if (!r.resolved) throw new Error(`market ${resolvedAmm.marketId} has every outcome but the route says unresolved`);
+    return `${r.leaderboard.length} rows`;
+  });
   add('custom/[id]/results', async () => `${(await results.getFreeResults(resolvedFree.id)).leaderboard.length} rows`);
   add('profile/[username]', async () => `${(await user.getPublicProfile('Michael_Donnn')).stats.allTimePoints} points`);
   add('search', async () => { const r = await user.search('mich'); return `${r.results.length} players, ${r.markets.length} markets`; });

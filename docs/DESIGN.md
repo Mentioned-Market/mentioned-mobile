@@ -18,12 +18,20 @@ checklist for keeping the app that way. Tokens and components live in
    first. Green and red tints (`colors.yesTint`, `colors.noTint`) are for a
    whole block whose meaning is a side or an outcome (a claim card), nothing
    else.
-3. **Paid and free are told apart by the money line**, not by a PAID or FREE
-   badge: "$12.00 pool" against "Free · 300 play tokens" (`poolLabel` in
-   `src/markets/game.ts`; "300 tokens" alone read as a price). The kind of
-   game is the one badge a card carries: "Most said wins" in gold for a majority board (whose words are
-   numbered), "Yes or no on each word" for a YES/NO market. `Pill` is for a status word only: WON, LOST,
-   YOU, CAPTAIN, NEW. A card with two pills is a card carrying too much.
+3. **A market card carries two badges: what it is played with, then which
+   game.** "Paid" or "Free", then "Most said wins" or "Yes or no" (`STAKE_NAME`
+   and `GAME_BADGE` in `src/markets/game.ts`), so any of the four markets can
+   be told from any other at a glance. The two are one shape with white text
+   on the raised grey; only Paid is filled, gold with black text like a gold
+   button. Until Oct 4 2026 the card had one badge, gold on a gold tint for a
+   majority board and grey on grey for a YES/NO market, and paid against free
+   was left to the money line. Testers read the two colours as a mistake and
+   could not tell free from paid. The money line now only carries a figure:
+   the pool on a paid majority market, the trader count on a paid YES/NO
+   market (the list route has no pool or volume for one), and nothing on a
+   free market, since every free market starts with the same 300 tokens. A
+   row or tile with no badges (`poolLabel`) says "Free" or "Paid" itself.
+   `Pill` is for a status word only: WON, LOST, YOU, CAPTAIN, NEW.
 4. **Headers are a title, the way back, and the three ways out.** `Screen`
    draws them. A pushed screen gets a chevron, a modal one an X. On the right,
    every screen carries search, chat and notifications (`HeaderActions`), so

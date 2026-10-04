@@ -85,9 +85,11 @@ const styles = StyleSheet.create({
   pct: { fontFamily: fonts.bold, fontSize: 22, lineHeight: 26, color: colors.yes, fontVariant: ['tabular-nums'] },
   chance: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 16, color: colors.textMuted },
   sides: { flexDirection: 'row', gap: spacing.sm },
-  side: { minWidth: 72, paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.control, borderWidth: 1, alignItems: 'center' },
-  sideYes: { borderColor: colors.yes, backgroundColor: 'rgba(61,220,132,0.08)' },
-  sideNo: { borderColor: colors.no, backgroundColor: 'rgba(255,92,92,0.08)' },
-  sideLabel: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 16 },
-  sideQuote: { fontFamily: fonts.bold, fontSize: 16, lineHeight: 20, color: colors.text, fontVariant: ['tabular-nums'] },
+  // A rounded rectangle filled with the side's tint, and no outline: as a full
+  // pill with a 1px coloured border, two tall lines of text made it an oval.
+  side: { minWidth: 78, minHeight: 52, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 1 },
+  sideYes: { backgroundColor: colors.yesTint },
+  sideNo: { backgroundColor: colors.noTint },
+  sideLabel: { fontFamily: fonts.semibold, fontSize: 12, lineHeight: 15, letterSpacing: 0.2 },
+  sideQuote: { fontFamily: fonts.bold, fontSize: 17, lineHeight: 21, color: colors.text, fontVariant: ['tabular-nums'] },
 });

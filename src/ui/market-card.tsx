@@ -16,7 +16,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { pct } from '@/lib/format';
 import { useCountdown } from '@/lib/use-countdown';
-import { GAME_ICON, GAME_NAME, gameOf, poolLabel } from '@/markets/game';
+import { GAME_BADGE, GAME_ICON, STAKE_NAME, gameOf, moneyLine, stakeOf } from '@/markets/game';
 import { isMajority, sameMarket, wordHref, type MarketSummary } from '@/markets/merge';
 import { sideQuote } from '@/trade/amm-display';
 import { LiveNumber } from '@/ui/live-number';
@@ -59,8 +59,8 @@ function MarketCardImpl({ market }: MarketCardProps) {
   // The card runs its own countdown, by the second in the last hour, so the
   // list never re-renders for the clock.
   const { text: closes } = useCountdown(market.status === 'open' ? market.lockAt : null);
-  const pool = poolLabel(market.pool);
-  const meta = [market.status === 'pending' ? 'Locked' : market.status === 'cancelled' ? 'Cancelled' : market.status === 'resolved' ? 'Resolved' : null, pool]
+  const paid = stakeOf(market.kind) === 'paid';
+  const meta = [market.status === 'pending' ? 'Locked' : market.status === 'cancelled' ? 'Cancelled' : market.status === 'resolved' ? 'Resolved' : null, moneyLine(market)]
     .filter(Boolean)
     .join(' · ');
   const hidden = market.words.length - WORDS_SHOWN;
@@ -81,17 +81,26 @@ function MarketCardImpl({ market }: MarketCardProps) {
           <Text style={styles.title} numberOfLines={2}>
             {market.title}
           </Text>
-          <Text style={type.muted} numberOfLines={1}>
-            {closes ? <Text style={styles.closes}>{closes}</Text> : null}
-            {closes ? ' · ' : ''}
-            {meta}
-          </Text>
+          {closes || meta ? (
+            <Text style={type.muted} numberOfLines={1}>
+              {closes ? <Text style={styles.closes}>{closes}</Text> : null}
+              {closes && meta ? ' · ' : ''}
+              {meta}
+            </Text>
+          ) : null}
 
-          {/* Which game this is, at a glance: a majority board is won by the
-              word said most, a YES/NO market by each word on its own. */}
-          <View style={[styles.kind, majority && styles.kindMajority]}>
-            <Ionicons name={GAME_ICON[gameOf(market.kind)]} size={14} color={majority ? colors.gold : colors.textMuted} />
-            <Text style={[styles.kindText, majority && { color: colors.gold }]}>{GAME_NAME[gameOf(market.kind)]}</Text>
+          {/* Which of the four markets this is, at a glance: what it is played
+              with, then which game. The two badges are one shape and one text
+              colour; only Paid is filled, in the brand gold, since money is
+              the difference that matters most before tapping. */}
+          <View style={styles.badges}>
+            <View style={[styles.badge, paid && styles.badgePaid]}>
+              <Text style={[styles.badgeText, paid && styles.badgePaidText]}>{STAKE_NAME[stakeOf(market.kind)]}</Text>
+            </View>
+            <View style={styles.badge}>
+              <Ionicons name={GAME_ICON[gameOf(market.kind)]} size={14} color={colors.text} />
+              <Text style={styles.badgeText}>{GAME_BADGE[gameOf(market.kind)]}</Text>
+            </View>
           </View>
 
           {market.podium ? (
@@ -175,18 +184,20 @@ const styles = StyleSheet.create({
   body: { padding: spacing.md, gap: spacing.sm },
   title: { fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, color: colors.text },
   closes: { fontFamily: fonts.semibold, color: colors.gold, fontVariant: ['tabular-nums'] },
-  kind: {
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  badge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    alignSelf: 'flex-start',
     paddingHorizontal: 10,
     height: 26,
     borderRadius: radius.control,
     backgroundColor: colors.surfaceRaised,
   },
-  kindMajority: { backgroundColor: colors.goldTint },
-  kindText: { fontFamily: fonts.semibold, fontSize: 12, lineHeight: 16, color: colors.textMuted },
+  badgePaid: { backgroundColor: colors.gold },
+  badgeText: { fontFamily: fonts.semibold, fontSize: 12, lineHeight: 16, color: colors.text },
+  // Black on gold, as on every gold button: white on it is too faint to read.
+  badgePaidText: { color: '#000000' },
   wordRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, height: 42 },
   wordDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   // Bleeds past the row's text so the highlight reads as the whole row.

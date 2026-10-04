@@ -138,7 +138,7 @@ export default function HomeScreen() {
           <View style={styles.poolHead}>
             <View style={{ flex: 1 }}>
               <Text style={styles.poolLabel}>Prize pool this week</Text>
-              {pool.data ? <LiveNumber value={pool.data.poolUsd} format={usd} style={styles.poolAmount} /> : <Text style={styles.poolAmount}>—</Text>}
+              {pool.data ? <LiveNumber value={pool.data.poolUsd} format={usd} style={styles.poolAmount} /> : <Text style={styles.poolAmount}>–</Text>}
             </View>
             <View style={styles.poolEnds}>
               <Ionicons name="time-outline" size={14} color={colors.gold} />
@@ -283,7 +283,7 @@ function ClosingCard({ market }: { market: MarketSummary }) {
   const [failed, setFailed] = useState(false);
   // Ticks by the second, in gold, in the market's last hour.
   const { text: closes, urgent } = useCountdown(market.lockAt);
-  const pool = poolLabel(market.pool);
+  const pool = poolLabel(market);
   const hasCover = !!market.cover && !failed;
   return (
     <Link href={market.href as Href} asChild>
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   rail: { paddingHorizontal: spacing.md, gap: spacing.sm },
   railCard: { width: RAIL_CARD, height: 180, borderRadius: radius.card, backgroundColor: colors.surface, overflow: 'hidden', padding: spacing.sm + 4, justifyContent: 'space-between' },
   wash: { backgroundColor: 'rgba(0,0,0,0.45)' },
-  // Wraps: the countdown and "Free · 300 play tokens" together are wider than a card.
+  // Wraps: a long countdown and "Paid · 30 traders" together are wider than a card.
   railTop: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 6 },
   railBottom: { gap: 4 },
   railTitle: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 21, color: colors.text, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6 },

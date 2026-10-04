@@ -1,0 +1,132 @@
+{
+  "resolved": true,
+  "leaderboard": [
+    {
+      "wallet": "HDZvcytxnhsPBLoToa9DnXWGKMUVPsii3wAgkHMV53kw",
+      "username": "diar",
+      "pfpEmoji": null,
+      "stakeUsdc": 7.74999,
+      "payoutUsdc": 14.879477,
+      "profitUsdc": 7.129487,
+      "points": 500,
+      "words": [
+        {
+          "wordIndex": 0,
+          "label": "2014",
+          "side": "YES",
+          "won": true,
+          "costUsdc": 2,
+          "payoutUsdc": 3.979349,
+          "pnlUsdc": 1.979349
+        },
+        {
+          "wordIndex": 1,
+          "label": "Blue Wave",
+          "side": "NO",
+          "won": false,
+          "costUsdc": 1.74999,
+          "payoutUsdc": 0,
+          "pnlUsdc": -1.74999
+        },
+        {
+          "wordIndex": 2,
+          "label": "Four-time champions",
+          "side": "NO",
+          "won": true,
+          "costUsdc": 2,
+          "payoutUsdc": 4.540399,
+          "pnlUsdc": 2.540399
+        },
+        {
+          "wordIndex": 3,
+          "label": "Texas",
+          "side": "NO",
+          "won": true,
+          "costUsdc": 2,
+          "payoutUsdc": 6.359729,
+          "pnlUsdc": 4.359729
+        }
+      ]
+    },
+    {
+      "wallet": "677vDcgkqD96ikb37uKB4vYZeLpifxBJXqHNN5D4QHwS",
+      "username": "duk_random",
+      "pfpEmoji": null,
+      "stakeUsdc": 1,
+      "payoutUsdc": 0,
+      "profitUsdc": -1,
+      "points": 100,
+      "words": [
+        {
+          "wordIndex": 0,
+          "label": "2014",
+          "side": "NO",
+          "won": false,
+          "costUsdc": 1,
+          "payoutUsdc": 0,
+          "pnlUsdc": -1
+        }
+      ]
+    },
+    {
+      "wallet": "FBKRMmqQgZf4GjjivLnsJ9TnM4S8Ez6tn97K6QDgMZ1F",
+      "username": "OVOXO",
+      "pfpEmoji": "\ud83d\uddfa\ufe0f",
+      "stakeUsdc": 1,
+      "payoutUsdc": 0,
+      "profitUsdc": -1,
+      "points": 100,
+      "words": [
+        {
+          "wordIndex": 2,
+          "label": "Four-time champions",
+          "side": "YES",
+          "won": false,
+          "costUsdc": 1,
+          "payoutUsdc": 0,
+          "pnlUsdc": -1
+        }
+      ]
+    },
+    {
+      "wallet": "FJ6ZEfKheF88VcK3uVQxUXTMoSqxtEmbiFs4BW2QE4Gz",
+      "username": null,
+      "pfpEmoji": null,
+      "stakeUsdc": 1,
+      "payoutUsdc": 0,
+      "profitUsdc": -1,
+      "points": 100,
+      "words": [
+        {
+          "wordIndex": 0,
+          "label": "2014",
+          "side": "NO",
+          "won": false,
+          "costUsdc": 1,
+          "payoutUsdc": 0,
+          "pnlUsdc": -1
+        }
+      ]
+    },
+    {
+      "wallet": "2kRJr1m4TVN7rNSFQZLQr81orBSf4EChfzgZi5U2hexM",
+      "username": "taylor",
+      "pfpEmoji": "\ud83d\udcac",
+      "stakeUsdc": 2,
+      "payoutUsdc": 0,
+      "profitUsdc": -2,
+      "points": 100,
+      "words": [
+        {
+          "wordIndex": 3,
+          "label": "Texas",
+          "side": "YES",
+          "won": false,
+          "costUsdc": 2,
+          "payoutUsdc": 0,
+          "pnlUsdc": -2
+        }
+      ]
+    }
+  ]
+}

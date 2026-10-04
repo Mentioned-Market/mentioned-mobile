@@ -123,6 +123,13 @@ export async function planTransfer(opts: { asset: TransferAsset; from: string; t
   return [await createAtaIx(toAddress(opts.payer), opts.to, USDC_MINT), createTokenTransferIx(source, destination, from, opts.units)];
 }
 
+/**
+ * What a deposit says when its confirmation timed out. The transfer was
+ * broadcast and may still land, so this never reads as a failure. It replaces
+ * the ported timeout's own message, which is written for the website.
+ */
+export const TRANSFER_STILL_CONFIRMING = 'Still confirming. Check your balance in a moment before sending again.';
+
 /** A chain or wallet error, as a sentence. */
 export function friendlyTransferError(raw: string): string {
   if (/insufficient (funds|lamports)|0x1\b|Attempt to debit an account but found no record/i.test(raw)) {

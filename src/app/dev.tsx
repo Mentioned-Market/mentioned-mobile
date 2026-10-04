@@ -1,9 +1,11 @@
 // Dev-only screen: runs the V0_GUIDE section 5 smoke tests on the device.
 // Reached from the You tab in dev builds, or `adb shell am start -a android.intent.action.VIEW -d mentioned://dev`.
 // `mentioned://dev?wallet=<base58>` sets the viewed wallet on open (QA shortcut).
+// In a production build it opens only for a signed-in admin wallet, and sends
+// everyone else Home (src/lib/dev-access.ts).
 import { AccountTypeEnum, ChainTypeEnum, EmbeddedState } from '@openfort/openfort-js';
 import { useEmbeddedSolanaWallet, useOpenfortClient, useUser } from '@openfort/react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -17,7 +19,8 @@ import { API_BASE, FLAVOR, isOpenfortConfigured } from '@/config';
 import * as Application from 'expo-application';
 
 import type { MobileConfig } from '@/api/mobileConfig';
-import { useLeaderboard, useMobileConfig } from '@/api/queries';
+import { useIsAdmin, useLeaderboard, useMobileConfig } from '@/api/queries';
+import { devAccess } from '@/lib/dev-access';
 import { evaluateMobileConfig } from '@/lib/mobile-config';
 import { usePositionGroups } from '@/lib/use-position-groups';
 import { standingOf, winKeys } from '@/markets/moments';
@@ -41,7 +44,24 @@ import { SeekerOfferCard } from '@/ui/seeker-offer';
 import { seekerHomeOffer } from '@/lib/seeker-perk';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
-export default function DevScreen() {
+export default function DevRoute() {
+  const sessionWallet = useSession((st) => st.wallet);
+  // Only a production release build has anything to ask the server.
+  const gated = !__DEV__ && FLAVOR === 'production';
+  const check = useIsAdmin(sessionWallet, gated);
+  const access = devAccess({
+    devBuild: __DEV__,
+    flavor: FLAVOR,
+    sessionWallet,
+    admin: check.isFetchedAfterMount ? check.data : undefined,
+    failed: check.isError,
+  });
+  if (access === 'checking') return <Screen title="" actions={false} />;
+  if (access === 'denied') return <Redirect href="/" />;
+  return <DevScreen />;
+}
+
+function DevScreen() {
   const [runId, setRunId] = useState(0);
   const [state, setState] = useState<{ running: boolean; results?: SmokeResult[]; fatal?: string }>({
     running: true,

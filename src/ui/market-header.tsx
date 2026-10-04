@@ -69,9 +69,9 @@ export function MarketHeader({ title, cover, status, lockAt, eventAt, now, descr
       </View>
       {game ? (
         <View style={styles.game}>
-          <Ionicons name={GAME_ICON[game]} size={15} color={game === 'majority' ? colors.gold : colors.textMuted} style={styles.gameIcon} />
+          <Ionicons name={GAME_ICON[game]} size={15} color={colors.text} style={styles.gameIcon} />
           <Text style={styles.gameText}>
-            <Text style={[styles.gameName, game === 'majority' && { color: colors.gold }]}>{gameName(game, paidPlaces)}. </Text>
+            <Text style={styles.gameName}>{gameName(game, paidPlaces)}. </Text>
             {howToPlay(game, paidPlaces)}
           </Text>
         </View>

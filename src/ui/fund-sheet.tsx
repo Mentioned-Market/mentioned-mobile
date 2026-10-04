@@ -21,7 +21,7 @@ import { RPC_URL } from '@/config';
 import { shortAddress, usd } from '@/lib/format';
 import { toBaseUnits } from '@/lib/units';
 import { useWallet } from '@/store/wallet';
-import { checkTransfer, DECIMALS, friendlyTransferError, maxTransfer, planTransfer, type TransferAsset } from '@/trade/transfer';
+import { checkTransfer, DECIMALS, friendlyTransferError, maxTransfer, planTransfer, TRANSFER_STILL_CONFIRMING, type TransferAsset } from '@/trade/transfer';
 import { useTrade } from '@/trade/use-trade';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
 import { Button } from '@/ui/button';
@@ -39,7 +39,7 @@ const ASSETS = [
 ];
 
 const fmtSol = (n: number) => `${n.toLocaleString('en-US', { maximumFractionDigits: 4 })} SOL`;
-const fmtAmount = (asset: TransferAsset, n: number | undefined) => (n === undefined ? '—' : asset === 'USDC' ? usd(n, { dp: 2 }) : fmtSol(n));
+const fmtAmount = (asset: TransferAsset, n: number | undefined) => (n === undefined ? '–' : asset === 'USDC' ? usd(n, { dp: 2 }) : fmtSol(n));
 
 type SheetProps = { visible: boolean; onClose: () => void; wallet: string; initialAsset?: TransferAsset };
 
@@ -265,7 +265,7 @@ export function DepositSheet({ visible, onClose, wallet, initialAsset = 'USDC' }
         await confirmSignature(done.signature, { proxyUrl: RPC_URL });
       } catch (e) {
         if (e instanceof ConfirmationTimeoutError) {
-          setState({ status: 'failed', message: e.message, indeterminate: true });
+          setState({ status: 'failed', message: TRANSFER_STILL_CONFIRMING, indeterminate: true });
           return;
         }
         throw e;

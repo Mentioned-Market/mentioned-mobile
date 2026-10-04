@@ -1,12 +1,13 @@
 # Mentioned Mobile: specification
 
 Native Android app for Mentioned, built for the Solana Mobile CLOCK IN
-hackathon (Sep 8 to Oct 8 2026) and shipped for real on the Solana dApp Store
-on Sep 28. This document is the plan for everything after v0 (`V0_GUIDE.md`). Revised
+hackathon (Sep 8 to Oct 8 2026) and submitted to the Solana dApp Store on
+Oct 4 2026. This document is the plan for everything after v0 (`V0_GUIDE.md`). Revised
 Sep 9 2026: v1 is now the complete read-only app, and auth, trading, push and
 store each moved one version later (section 3). Revised Sep 14 2026: v7 is a
 UI pass over the whole app. Revised Sep 16 2026: v8 is the production build
 working on a device, v9 is release prep and submission, cleanup is v10.
+Revised Oct 4 2026: the submission moved from Sep 21 to Oct 4 (section 12).
 It is written to live in this repo; the web-side changes it depends on are
 listed in section 15 and tracked in the `mentioned` repo.
 
@@ -101,7 +102,7 @@ Each version is a runnable app on a Seeker and a store-shippable increment.
 | **v6** | Arena (seasons, prizes, team leaderboard, team profiles) and referrals (earned referral fees, share link), matching the website (section 9) | nothing: every route exists and is public | DONE Sep 14 2026. Production comparison and team actions are v10 checks (section 13) |
 | **v7** | UI pass: the whole app re-laid out to one calmer system (section 10). Five tabs, one card shape, a single chance figure per word, full-screen trade sheet with a swipe to confirm, deposit and withdraw on Me | nothing | Sep 14 to 15 |
 | **v8** | Production on the device: the mainnet build running on a Seeker, sign-in and wallet recovery proven, every trade type run once on mainnet (section 11) | `feat/mobile-api-updates` on main (bearer, push routes): DONE Sep 15 | Sep 16 to 17 |
-| **v9** | Release prep and submission: store keystore, App Links verified, wallet-keyed rate limits, mobile config, portal listing, the fresh-install run-through, submission (section 12) | assetlinks.json; wallet-keyed rate limits; `/api/mobile/config` | Sep 18 target, Sep 21 hard limit |
+| **v9** | Release prep and submission: store keystore, App Links verified, wallet-keyed rate limits, mobile config, portal listing, the fresh-install run-through, submission (section 12) | assetlinks.json; wallet-keyed rate limits; `/api/mobile/config` | Submitted Oct 4 2026 (planned Sep 18 to 21) |
 | **v9.1** | Stretch: Seeker perk, widget, price alerts, Kora gas | perk route | Sep 25 if green |
 | **v10** | Final: cleanup and testing. Everything v4 left open, checked on a Seeker (section 13) | Discord gate decision; Helius webhook on dev | Last |
 
@@ -126,12 +127,14 @@ Gates (checked on a Seeker, not an emulator):
 - **Sep 18:** one real trade of each of the four types signed in-app, all
   visible on mentioned.market. (v4: met on devnet Sep 11; the production
   check moved to v10)
-- **Sep 21 at the latest:** release APK in the store review queue; a new user
-  can sign in, fund from their Seeker, trade any market type, and get a push,
-  unaided. Sep 18 stays the target if v3 starts early.
-- **Sep 25:** store approval received; launch markets scheduled.
-- **Sep 28:** a stranger installs from the store and makes a pick.
-- **Oct 6:** hackathon entry submitted with real usage numbers.
+- **Oct 4:** release APK in the store review queue; a new user can sign in,
+  fund from their Seeker, trade any market type, and get a push, unaided.
+  (Planned for Sep 21; the weeks between went on Privy sign-in for older
+  accounts, the Seeker welcome stake, chat, and top 3 majority markets.)
+- **On approval:** launch markets scheduled; a stranger installs from the
+  store and makes a pick. Review is three to five business days.
+- **Oct 6:** hackathon entry submitted. Whatever the judging criteria still
+  need is added during that week.
 
 Order inside each version: on-chain flows first (they carry the risk), free
 markets second (cheap REST calls), AMM polish last (the maths never changes).
@@ -733,8 +736,8 @@ order it has to happen. Two items are web tasks, written up for handover as
 `docs/WEB_ASSETLINKS_TASK.md` and `docs/WEB_RATE_LIMIT_TASK.md`; two more are
 outside every repo, in a password manager and in the publishing portal.
 
-Sep 18 to Sep 21. The submission is the hard deadline: review takes three to
-five business days and launch is Sep 28.
+Planned for Sep 18 to Sep 21; submitted Oct 4 2026. Review takes three to
+five business days, and the listing goes public on approval.
 
 ### 12.1 More to scroll (done Sep 18 2026)
 
@@ -827,11 +830,10 @@ the four types, a claim, a push received, sign out and back in with no dialog,
 and every item in 12.2. Then the same on a Pixel with Phantom and a Samsung
 with Solflare, which is also where a non-Seeker wallet app is proven.
 
-**Submission.** Fri Sep 18, Mon Sep 21 the hard limit. Review is three to five
-business days by email. The release branch is frozen from submission; only
+**Submission.** Oct 4 2026. Review is three to five business days by email. The release branch is frozen from submission; only
 review fixes land on it, and every resubmission restarts the clock.
 
-**Launch Sep 28.** Listing public, announcements out, the first live-event
+**Launch on approval.** Listing public, announcements out, the first live-event
 market that evening. A hotfix build ready to submit within 24 hours. Record
 everything on Seekers for the demo video.
 
@@ -1089,7 +1091,7 @@ NativeWind for styling.
 | dApp Store policy on real-money prediction markets | Read the current policy before writing store code; the config kill switch can hide paid trading for a store flavour; age rating 18+ regardless |
 | Carrier NAT versus per-IP limits | Wallet-keyed limits; load check before launch |
 | App killed during the MWA deposit | Persist pending state before `transact()`, resume on foreground, 120s timeout |
-| Store review timing | Submit Sep 18 if v3 started early, Sep 21 at the latest; frozen release branch; review fixes only. Sep 21 leaves no slack for a resubmission before Sep 28 |
+| Store review timing | Submitted Oct 4 2026; frozen release branch; review fixes only. Every resubmission restarts the three to five day clock |
 | Four market types in ten days | Two screen types cover all four and are designed read-only in v1, so v4 is builders and confirm sheets only; never cut |
 
 ## 20. Open questions

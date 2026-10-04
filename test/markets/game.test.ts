@@ -1,6 +1,6 @@
 // What a newcomer is told about a market: the game, how it is won, and what the
 // money on the card is. "300 tokens" on its own once read as a price.
-import { GAME_NAME, HOW_TO_PLAY, gameName, gameOf, howToPlay, poolLabel } from '@/markets/game';
+import { GAME_BADGE, GAME_NAME, HOW_TO_PLAY, STAKE_NAME, gameName, gameOf, howToPlay, moneyLine, poolLabel, stakeOf } from '@/markets/game';
 
 describe('gameOf', () => {
   it('puts free and paid of the same game together', () => {
@@ -11,22 +11,55 @@ describe('gameOf', () => {
   });
 });
 
-describe('poolLabel', () => {
-  it('says a token market is free and its tokens are for play', () => {
-    expect(poolLabel({ kind: 'tokens', tokens: 300 })).toBe('Free · 300 play tokens');
+describe('stakeOf', () => {
+  it('puts both games of the same stake together', () => {
+    expect(stakeOf('paid-majority')).toBe('paid');
+    expect(stakeOf('paid-yesno')).toBe('paid');
+    expect(stakeOf('free-majority')).toBe('free');
+    expect(stakeOf('free-yesno')).toBe('free');
+  });
+
+  it('gives every one of the four markets its own pair of badges', () => {
+    const kinds = ['paid-majority', 'paid-yesno', 'free-majority', 'free-yesno'] as const;
+    const badges = kinds.map((k) => `${STAKE_NAME[stakeOf(k)]} ${GAME_BADGE[gameOf(k)]}`);
+    expect(new Set(badges).size).toBe(4);
+  });
+});
+
+const free = { pool: { kind: 'tokens', tokens: 300 }, traderCount: 12 } as const;
+const majority = { pool: { kind: 'usdc', usd: 12 }, traderCount: 4 } as const;
+const yesno = { pool: { kind: 'usdc', usd: 0 }, traderCount: 30 } as const;
+
+describe('moneyLine', () => {
+  it('says nothing on a free market: the badge says Free and the tokens are always the same', () => {
+    expect(moneyLine(free)).toBeNull();
   });
 
   it('shows a paid pool in dollars', () => {
-    expect(poolLabel({ kind: 'usdc', usd: 12 })).toBe('$12.00 pool');
+    expect(moneyLine(majority)).toBe('$12.00 pool');
   });
 
-  it('names the currency when a paid market has no pool figure', () => {
-    expect(poolLabel({ kind: 'usdc', usd: 0 })).toBe('USDC market');
+  it('counts traders where the list has no pool figure', () => {
+    expect(moneyLine(yesno)).toBe('30 traders');
+    expect(moneyLine({ ...yesno, traderCount: 1 })).toBe('1 trader');
+  });
+
+  it('says nothing rather than "0 traders"', () => {
+    expect(moneyLine({ ...yesno, traderCount: 0 })).toBeNull();
+  });
+});
+
+describe('poolLabel', () => {
+  it('says Free or Paid itself, for a row that has no badges', () => {
+    expect(poolLabel(free)).toBe('Free');
+    expect(poolLabel(majority)).toBe('$12.00 pool');
+    expect(poolLabel(yesno)).toBe('Paid · 30 traders');
+    expect(poolLabel({ ...yesno, traderCount: 0 })).toBe('Paid');
   });
 });
 
 describe('how to play', () => {
-  const all = [...Object.values(GAME_NAME), ...Object.values(HOW_TO_PLAY)].join(' ');
+  const all = [...Object.values(GAME_NAME), ...Object.values(GAME_BADGE), ...Object.values(HOW_TO_PLAY)].join(' ');
 
   it('says how a majority board is won', () => {
     expect(HOW_TO_PLAY.majority).toMatch(/said most/);

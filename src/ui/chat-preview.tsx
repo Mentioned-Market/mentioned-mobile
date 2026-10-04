@@ -36,8 +36,10 @@ export function ChatPreview({ eventId, title, focused, now }: { eventId: string;
           ) : (
             recent.map((m) => (
               <View key={m.id} style={styles.line}>
+                <Text style={styles.name} numberOfLines={1}>
+                  {m.username}
+                </Text>
                 <Text style={styles.text} numberOfLines={1}>
-                  <Text style={styles.name}>{m.username} </Text>
                   {m.message}
                 </Text>
                 <Text style={styles.when}>{ago(Date.parse(m.created_at), now)}</Text>
@@ -59,7 +61,9 @@ const styles = StyleSheet.create({
   card: { padding: spacing.md, borderRadius: radius.card, backgroundColor: colors.surface, gap: spacing.sm },
   line: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm },
   text: { flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: colors.text },
-  name: { fontFamily: fonts.semibold, color: colors.textMuted },
+  // Its own column, so the gap to the message is the row's and not a space
+  // character. Capped, so a long name cannot push the message off the line.
+  name: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20, color: colors.textMuted, flexShrink: 0, maxWidth: '40%' },
   when: { ...type.muted, fontSize: 12, lineHeight: 16, fontVariant: ['tabular-nums'] },
   open: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: spacing.xs },
   openText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.gold },

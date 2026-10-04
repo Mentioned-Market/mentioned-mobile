@@ -20,6 +20,11 @@
       "predictiveBackGestureEnabled": false,
       "package": "market.mentioned.app",
       "versionCode": 1,
+      "blockedPermissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
       "googleServicesFile": "./google-services.json",
       "intentFilters": [
         {
@@ -86,7 +91,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Mentioned uses your photos to set a team picture."
+          "photosPermission": "Mentioned uses your photos to set a team picture.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ]
     ],

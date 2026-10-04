@@ -1,6 +1,6 @@
-// Result routes: settled leaderboards for paid majority and free markets.
-// Paid YES/NO has no results route; its result screen reads the decoded
-// account (word outcomes) plus chart volume and trades. Shapes from Sep 9 2026.
+// Result routes: settled leaderboards for paid majority, paid YES/NO and free
+// markets. Shapes from Sep 9 2026; the paid YES/NO route was added on the
+// website later and captured Oct 4 2026.
 import { z } from 'zod';
 
 import { get } from './client';
@@ -18,6 +18,25 @@ export type PaidMajorityResultRow = z.infer<typeof PaidMajorityResultRow>;
 
 export const PaidMajorityResults = z.object({ resolved: z.boolean(), leaderboard: z.array(PaidMajorityResultRow) });
 export type PaidMajorityResults = z.infer<typeof PaidMajorityResults>;
+
+/** One word a trader held in a resolved paid YES/NO market, and how it came out. */
+export const PaidMarketResultWord = z.object({
+  wordIndex: z.number(),
+  label: z.string(),
+  side: z.enum(['YES', 'NO']),
+  won: z.boolean(),
+  costUsdc: z.number(),
+  payoutUsdc: z.number(),
+  pnlUsdc: z.number(),
+});
+export type PaidMarketResultWord = z.infer<typeof PaidMarketResultWord>;
+
+export const PaidMarketResultRow = PaidMajorityResultRow.extend({ words: z.array(PaidMarketResultWord) });
+export type PaidMarketResultRow = z.infer<typeof PaidMarketResultRow>;
+
+/** `resolved` is false, with no rows, until every word in the market has an outcome. */
+export const PaidMarketResults = z.object({ resolved: z.boolean(), leaderboard: z.array(PaidMarketResultRow) });
+export type PaidMarketResults = z.infer<typeof PaidMarketResults>;
 
 export const FreeResultWord = z.object({
   word_id: z.number(),
@@ -47,4 +66,5 @@ export const FreeResults = z.object({ leaderboard: z.array(FreeResultRow) });
 export type FreeResults = z.infer<typeof FreeResults>;
 
 export const getPaidMajorityResults = (id: string) => get(`/api/paid-majority/${id}/results`, PaidMajorityResults);
+export const getPaidMarketResults = (id: string) => get(`/api/paid-markets/market/${id}/results`, PaidMarketResults);
 export const getFreeResults = (id: number) => get(`/api/custom/${id}/results`, FreeResults);
