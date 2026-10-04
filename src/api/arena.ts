@@ -80,6 +80,99 @@ export const TeamProfile = z.object({
 });
 export type TeamProfile = z.infer<typeof TeamProfile>;
 
+/**
+ * A season as the website's registry defines it, with its window as ISO
+ * strings. Kept as strings here because the query cache is written to disk as
+ * JSON, and a Date would come back from it as a string anyway;
+ * `src/arena/seasons.ts` turns these into the seasons the screens use.
+ *
+ * Medal ids are plain strings on purpose: the web adds and renames medals
+ * mid-season, and an id this build has never heard of is still a medal.
+ */
+export const ArenaWire = z.object({
+  id: z.number(),
+  slug: z.string(),
+  name: z.string(),
+  emoji: z.string(),
+  tagline: z.string(),
+  start: z.string(),
+  end: z.string(),
+  displayRange: z.string(),
+  maxMembers: z.number(),
+  prizePool: z.string(),
+  prizes: z.array(z.object({ place: z.number(), amount: z.string() })),
+  heroImage: z.string().nullable().optional(),
+  bounty: z
+    .object({
+      bountyPool: z.string(),
+      leaderboardPool: z.string(),
+      bounties: z.array(
+        z.object({ id: z.string(), name: z.string(), emoji: z.string(), amount: z.string(), blurb: z.string(), rules: z.string() }),
+      ),
+    })
+    .nullable()
+    .optional(),
+});
+export type ArenaWire = z.infer<typeof ArenaWire>;
+
+export const Arenas = z.object({
+  /** The slug of the season open for entry. */
+  current: z.string(),
+  arenas: z.array(ArenaWire),
+});
+export type Arenas = z.infer<typeof Arenas>;
+
+const MedalStanding = z.object({
+  team: z.object({ id: z.number(), name: z.string(), slug: z.string() }),
+  /** The headline value, e.g. "+$12.40" or "16 markets". */
+  display: z.string(),
+  /** A second line, e.g. "@alice" or "18 of 25 calls". */
+  detail: z.string().nullable().optional(),
+  /** Where it happened, e.g. the title of the market a win came from. */
+  context: z.string().nullable().optional(),
+});
+export type MedalStanding = z.infer<typeof MedalStanding>;
+
+export const MedalResult = z.object({
+  id: z.string(),
+  /** 'upcoming' | 'waiting' | 'live' | 'final' today; a string so a new state does not fail the parse. */
+  state: z.string(),
+  /** Everyone tied for first; a tie splits the medal. */
+  holders: z.array(MedalStanding),
+  contenders: z.array(MedalStanding),
+  /** For a medal that opens partway through the season. */
+  opensAt: z.string().nullable().optional(),
+  note: z.string().nullable().optional(),
+});
+export type MedalResult = z.infer<typeof MedalResult>;
+
+/** Who holds each medal right now, or who was awarded it once the season is final. */
+export const MedalBoard = z.object({
+  arena: z.string(),
+  state: z.string(),
+  generatedAt: z.string(),
+  bounties: z.array(MedalResult),
+  /** Made-up standings, which staging can switch on to show a full board. */
+  preview: z.boolean().optional(),
+});
+export type MedalBoard = z.infer<typeof MedalBoard>;
+
+/** Null when the route answers 404: "not there", which each caller reads its own way. */
+async function orNull<T>(request: Promise<T>): Promise<T | null> {
+  try {
+    return await request;
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+/** Every season, or null from a server that predates the route (the app then uses its bundled copy). */
+export const getArenas = () => orNull(get('/api/teams/arenas', Arenas));
+
+/** A season's medal standings, or null for a season that has no medals. */
+export const getMedalBoard = (arena: string) => orNull(get(`/api/teams/bounties${q({ arena })}`, MedalBoard));
+
 /** A season's team standings. No `arena` asks the server for its current season. */
 export const getTeamLeaderboard = (arena?: string) => get(`/api/teams/leaderboard${q({ arena })}`, TeamLeaderboard);
 

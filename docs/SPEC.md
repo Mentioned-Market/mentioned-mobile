@@ -510,7 +510,8 @@ Results screens use `paid-majority/[id]/results`, `paid-markets` history, and
 - **Mobile config.** App side BUILT Sep 14 2026; the route is still missing on
   the web (handover: `docs/WEB_MOBILE_CONFIG_TASK.md`). `GET /api/mobile/config`
   on launch: `minVersion`, `killSwitch`, `cluster`, `features` (paid trading,
-  free trading, seeker perk, onramp). A maintenance screen for the kill switch,
+  free trading, seeker perk, onramp) and, since Oct 3 2026, `points` (the
+  scorers' constants, quoted by the "How to earn points" sheet). A maintenance screen for the kill switch,
   a forced-update screen below `minVersion`, and the paid and free trade
   buttons disabled when their flag is off. Claims are never disabled: they
   return the user's own money. A 404 or a malformed value means "no rules",
@@ -540,12 +541,16 @@ While a season is live the weekly leaderboard's window becomes the season window
 too (`lib/scoringPeriod.ts`), so points "reset" at kickoff.
 
 **Data.**
-- Seasons: `lib/arenas.ts` is pure data plus helpers (`CURRENT_ARENA`,
-  `arenaStatus`, `prizeForRank`, `resolveArena`) with no server imports. Port it
-  byte-identical under the PORTED_FROM rule. The web adds a season by appending
-  to that array, so the port goes stale when a season is added: a contract check
-  compares `GET /api/teams/leaderboard` (no `arena` param resolves to the current
-  season) against the ported `CURRENT_ARENA.slug`, so the daily job says when.
+- Seasons: `GET /api/teams/arenas` returns `{ current, arenas }`, the web's
+  `lib/arenas.ts` registry as JSON (dates as ISO strings). Since Oct 3 2026 this
+  is where the app reads its seasons, prizes and medals from, so a new season or
+  an edited medal needs no release. `lib/arenas.ts` is still ported
+  byte-identical as the fallback for a first launch with no signal and for a
+  server without the route; the contract check reports how far it has drifted.
+- Medals: `GET /api/teams/bounties?arena=<slug>` returns the live board, per
+  medal a `state` (`upcoming`, `waiting`, `live`, `final`), `holders` (a tie
+  splits the medal), up to three `contenders`, `opensAt` and a `note`. 404 for
+  a season without medals. Polled every 30 seconds while the season is live.
 - `GET /api/teams/leaderboard?arena=<slug>` returns `{ data, arena, compStart,
   compEnd }`, each row `{ team_id, team_name, team_slug, member_count,
   weekly_points, all_time_points }`, where `weekly_points` is the season score.

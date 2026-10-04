@@ -1,0 +1,347 @@
+{
+  "arena": "worlds-fair",
+  "state": "live",
+  "generatedAt": "2026-10-03T19:13:11.475Z",
+  "teamCount": 74,
+  "bounties": [
+    {
+      "id": "trigger_happy",
+      "state": "live",
+      "holders": [
+        {
+          "team": {
+            "id": 96,
+            "name": "The Sovereign Order",
+            "slug": "the-sovereign-order-2",
+            "hasPfp": true
+          },
+          "display": "16 markets",
+          "detail": null,
+          "context": null
+        }
+      ],
+      "contenders": [
+        {
+          "team": {
+            "id": 106,
+            "name": "Boss",
+            "slug": "boss",
+            "hasPfp": true
+          },
+          "display": "14 markets",
+          "detail": null,
+          "context": null
+        },
+        {
+          "team": {
+            "id": 131,
+            "name": "STEVEN JANCOK",
+            "slug": "steven-jancok",
+            "hasPfp": true
+          },
+          "display": "14 markets",
+          "detail": null,
+          "context": null
+        },
+        {
+          "team": {
+            "id": 101,
+            "name": "Locked in ☔️",
+            "slug": "bando-babies--2",
+            "hasPfp": true
+          },
+          "display": "13 markets",
+          "detail": null,
+          "context": null
+        }
+      ],
+      "opensAt": null,
+      "note": null
+    },
+    {
+      "id": "big_game_hunter",
+      "state": "live",
+      "holders": [
+        {
+          "team": {
+            "id": 114,
+            "name": "brainlets",
+            "slug": "brainlets",
+            "hasPfp": false
+          },
+          "display": "+$14.90",
+          "detail": "@moneybelly",
+          "context": "What will be said the most during the Micron earnings call?"
+        },
+        {
+          "team": {
+            "id": 155,
+            "name": "Pluto 🪐",
+            "slug": "pluto-",
+            "hasPfp": true
+          },
+          "display": "+$14.90",
+          "detail": "@Mrswaz99",
+          "context": "What will be said the most during the Micron earnings call?"
+        }
+      ],
+      "contenders": [
+        {
+          "team": {
+            "id": 154,
+            "name": "Brayan1987",
+            "slug": "brayan1987",
+            "hasPfp": false
+          },
+          "display": "+$13.90",
+          "detail": "@blackwater",
+          "context": "What will be said the most during the Micron earnings call?"
+        },
+        {
+          "team": {
+            "id": 107,
+            "name": "SerMuse",
+            "slug": "sermuse",
+            "hasPfp": true
+          },
+          "display": "+$11.18",
+          "detail": "@SerMuse",
+          "context": "What will be said during Czechia vs England?"
+        },
+        {
+          "team": {
+            "id": 117,
+            "name": "2 banger boys",
+            "slug": "2-banger-boys",
+            "hasPfp": true
+          },
+          "display": "+$7.87",
+          "detail": "@Zeelon",
+          "context": "What will be said during the Nike earnings call?"
+        }
+      ],
+      "opensAt": null,
+      "note": null
+    },
+    {
+      "id": "sharpshooter",
+      "state": "live",
+      "holders": [],
+      "contenders": [],
+      "opensAt": null,
+      "note": "Teams need calls in 5+ resolved markets"
+    },
+    {
+      "id": "longshot",
+      "state": "live",
+      "holders": [
+        {
+          "team": {
+            "id": 114,
+            "name": "brainlets",
+            "slug": "brainlets",
+            "hasPfp": false
+          },
+          "display": "2.9%",
+          "detail": "@moneybelly",
+          "context": "What will be said the most during the Micron earnings call?"
+        }
+      ],
+      "contenders": [
+        {
+          "team": {
+            "id": 155,
+            "name": "Pluto 🪐",
+            "slug": "pluto-",
+            "hasPfp": true
+          },
+          "display": "5.4%",
+          "detail": "@Mrswaz99",
+          "context": "What will be said the most during the Micron earnings call?"
+        },
+        {
+          "team": {
+            "id": 154,
+            "name": "Brayan1987",
+            "slug": "brayan1987",
+            "hasPfp": false
+          },
+          "display": "6.7%",
+          "detail": "@blackwater",
+          "context": "What will be said the most during the Micron earnings call?"
+        },
+        {
+          "team": {
+            "id": 108,
+            "name": "Apex predators",
+            "slug": "apex-predators",
+            "hasPfp": true
+          },
+          "display": "22%",
+          "detail": "@noobMaster27",
+          "context": "What will be said during the Nike earnings call?"
+        }
+      ],
+      "opensAt": null,
+      "note": null
+    },
+    {
+      "id": "last_stand",
+      "state": "waiting",
+      "holders": [],
+      "contenders": [],
+      "opensAt": "2026-10-09T00:00:00.000Z",
+      "note": null
+    },
+    {
+      "id": "maverick",
+      "state": "live",
+      "holders": [
+        {
+          "team": {
+            "id": 117,
+            "name": "2 banger boys",
+            "slug": "2-banger-boys",
+            "hasPfp": true
+          },
+          "display": "4 calls",
+          "detail": "of 7 correct calls",
+          "context": null
+        }
+      ],
+      "contenders": [
+        {
+          "team": {
+            "id": 107,
+            "name": "SerMuse",
+            "slug": "sermuse",
+            "hasPfp": true
+          },
+          "display": "3 calls",
+          "detail": "of 5 correct calls",
+          "context": null
+        },
+        {
+          "team": {
+            "id": 154,
+            "name": "Brayan1987",
+            "slug": "brayan1987",
+            "hasPfp": false
+          },
+          "display": "3 calls",
+          "detail": "of 5 correct calls",
+          "context": null
+        },
+        {
+          "team": {
+            "id": 96,
+            "name": "The Sovereign Order",
+            "slug": "the-sovereign-order-2",
+            "hasPfp": true
+          },
+          "display": "2 calls",
+          "detail": "of 5 correct calls",
+          "context": null
+        }
+      ],
+      "opensAt": null,
+      "note": null
+    },
+    {
+      "id": "hot_streak",
+      "state": "live",
+      "holders": [
+        {
+          "team": {
+            "id": 107,
+            "name": "SerMuse",
+            "slug": "sermuse",
+            "hasPfp": true
+          },
+          "display": "2 in a row",
+          "detail": "Current run: 1",
+          "context": null
+        }
+      ],
+      "contenders": [
+        {
+          "team": {
+            "id": 154,
+            "name": "Brayan1987",
+            "slug": "brayan1987",
+            "hasPfp": false
+          },
+          "display": "2 in a row",
+          "detail": "Current run: 0",
+          "context": null
+        },
+        {
+          "team": {
+            "id": 96,
+            "name": "The Sovereign Order",
+            "slug": "the-sovereign-order-2",
+            "hasPfp": true
+          },
+          "display": "1 in a row",
+          "detail": "Still going",
+          "context": null
+        },
+        {
+          "team": {
+            "id": 101,
+            "name": "Locked in ☔️",
+            "slug": "bando-babies--2",
+            "hasPfp": true
+          },
+          "display": "1 in a row",
+          "detail": "Still going",
+          "context": null
+        }
+      ],
+      "opensAt": null,
+      "note": null
+    },
+    {
+      "id": "wanted",
+      "state": "live",
+      "holders": [
+        {
+          "team": {
+            "id": 114,
+            "name": "brainlets",
+            "slug": "brainlets",
+            "hasPfp": false
+          },
+          "display": "+$14.90",
+          "detail": "@moneybelly",
+          "context": "What will be said the most during the Micron earnings call?"
+        },
+        {
+          "team": {
+            "id": 154,
+            "name": "Brayan1987",
+            "slug": "brayan1987",
+            "hasPfp": false
+          },
+          "display": "+$14.90",
+          "detail": "@blackwater",
+          "context": "What will be said the most during the Micron earnings call?"
+        },
+        {
+          "team": {
+            "id": 155,
+            "name": "Pluto 🪐",
+            "slug": "pluto-",
+            "hasPfp": true
+          },
+          "display": "+$14.90",
+          "detail": "@Mrswaz99",
+          "context": "What will be said the most during the Micron earnings call?"
+        }
+      ],
+      "contenders": [],
+      "opensAt": null,
+      "note": null
+    }
+  ]
+}

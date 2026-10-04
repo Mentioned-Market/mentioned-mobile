@@ -1,7 +1,7 @@
 // The Arena, as the thing Home leads with while a season is open.
 //
 // The backdrop is the same painted hero the website's season page uses, taken
-// from the registry and fetched from the site itself, so the two cannot drift.
+// from the season and fetched from the site itself, so the two cannot drift.
 // Seasons before this one carry an SVG there, which expo-image does not draw
 // reliably, so anything but a bitmap falls back to the gold ground and the
 // card reads the same.
@@ -11,7 +11,8 @@ import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { CURRENT_ARENA, arenaStatus } from '@/arena/arenas';
+import { seasonStatus } from '@/arena/seasons';
+import { useSeasons } from '@/arena/use-seasons';
 import { API_BASE } from '@/config';
 import { formatCountdown, leaderboardPool, seasonCountdown } from '@/lib/arena-view';
 import { useNow } from '@/lib/use-now';
@@ -23,8 +24,8 @@ export function ArenaHero() {
   // Its own clock: the countdown ticks without re-rendering the rest of Home.
   const now = useNow(1000);
   const [failed, setFailed] = useState(false);
-  const arena = CURRENT_ARENA;
-  const status = arenaStatus(arena, new Date(now));
+  const arena = useSeasons().current;
+  const status = seasonStatus(arena, new Date(now));
   if (status === 'ended') return null;
 
   const countdown = seasonCountdown(arena, now);

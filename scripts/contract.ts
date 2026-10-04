@@ -9,7 +9,8 @@ import * as free from '../src/api/free';
 import * as paidMajority from '../src/api/paidMajority';
 import * as paidMarkets from '../src/api/paidMarkets';
 import * as referral from '../src/api/referral';
-import { CURRENT_ARENA } from '../src/arena/arenas';
+import * as mobileConfig from '../src/api/mobileConfig';
+import { bundledDrift, currentSeason, resolveSeasons } from '../src/arena/seasons';
 import * as results from '../src/api/results';
 import * as user from '../src/api/user';
 import { getAssociatedTokenAddress } from '../src/chain/amm';
@@ -58,22 +59,50 @@ async function main() {
 
   add('paid-majority/list', async () => `${majList.length} markets`);
 
-  // Arena. The season list is a port of the website's lib/arenas.ts, so this is
-  // also where a new season on the web shows up before the app knows about it.
-  add('teams/leaderboard: ported season is the current one', async () => {
-    const current = await arena.getTeamLeaderboard();
-    if (current.arena !== CURRENT_ARENA.slug) {
-      throw new Error(`the web's current season is "${current.arena}" but the app's is "${CURRENT_ARENA.slug}": re-port lib/arenas.ts`);
+  // Arena. The app reads its seasons from the website and falls back to the
+  // registry bundled in the build, so two things are checked: that the seasons
+  // route parses and agrees with the server about which season is current, and
+  // how far the bundled fallback has drifted. Drift is reported, not failed:
+  // the app shows the server's seasons either way. Against a server without
+  // the route the app is running on the fallback alone, and then a fallback
+  // that names the wrong season is a failure, as it always was.
+  const served = await arena.getArenas();
+  const seasons = resolveSeasons(served?.arenas);
+  const season = currentSeason(seasons);
+  add('teams/arenas: the seasons agree with the server', async () => {
+    const board = await arena.getTeamLeaderboard();
+    if (board.arena !== season.slug) {
+      throw new Error(
+        served
+          ? `the seasons route makes "${season.slug}" current but the leaderboard answers for "${board.arena}"`
+          : `the web's current season is "${board.arena}" but the bundled one is "${season.slug}", and there is no seasons route: re-port lib/arenas.ts`,
+      );
     }
-    return `${current.arena}, ${current.data.length} teams`;
+    if (!served) return `${season.slug} from the bundled registry (no seasons route on this server yet)`;
+    if (served.current !== season.slug) throw new Error(`the route names "${served.current}" as current but its highest id is "${season.slug}"`);
+    const drift = bundledDrift(served.arenas);
+    return `${seasons.length} seasons, current ${season.slug}${drift.length ? `. BUNDLED FALLBACK IS STALE, re-port lib/arenas.ts: ${drift.join('; ')}` : ', bundled fallback matches'}`;
+  });
+  add('teams/bounties', async () => {
+    if (!season.bounty) return `${season.slug} has no medals, nothing to check`;
+    const board = await arena.getMedalBoard(season.slug);
+    if (!board) throw new Error(`${season.slug} has medals but the board answered 404`);
+    const unknown = board.bounties.filter((r) => !season.bounty?.bounties.some((m) => m.id === r.id)).map((r) => r.id);
+    if (unknown.length) throw new Error(`the board has medals the season does not define: ${unknown.join(', ')}`);
+    return `${board.state}, ${board.bounties.filter((r) => r.holders.length > 0).length} of ${board.bounties.length} medals held`;
+  });
+  add('mobile/config', async () => {
+    const config = await mobileConfig.getMobileConfig();
+    if (!config) return 'no route on this server yet: the app runs with no rules';
+    return `minVersion ${config.minVersion ?? 'unset'}, killSwitch ${config.killSwitch === true}, points ${config.points ? 'sent' : 'not sent'}`;
   });
   add('teams/[slug] and my-team', async () => {
-    const standings = await arena.getTeamLeaderboard(CURRENT_ARENA.slug);
+    const standings = await arena.getTeamLeaderboard(season.slug);
     const top = standings.data[0];
     if (!top) return 'no teams this season, nothing to check';
     const profile = await arena.getTeam(top.team_slug);
     const member = profile.members[0];
-    const mine = member ? await arena.getMyTeam(member.wallet, CURRENT_ARENA.slug) : null;
+    const mine = member ? await arena.getMyTeam(member.wallet, season.slug) : null;
     return `${profile.team.name}: ${profile.members.length} members, my-team ${mine ? 'found' : 'null'}`;
   });
   add('referral', async () => {

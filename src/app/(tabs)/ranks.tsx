@@ -17,7 +17,9 @@ import { shortAddress, usd } from '@/lib/format';
 import { weeklyPauseNotice } from '@/lib/arena-view';
 import { raffleRules, raffleShare } from '@/lib/raffle-view';
 import { useActiveWallet } from '@/store/active-wallet';
-import { CURRENT_ARENA, arenaStatus } from '@/arena/arenas';
+import { seasonStatus } from '@/arena/seasons';
+import { useSeasons } from '@/arena/use-seasons';
+import { useNow } from '@/lib/use-now';
 import { Button } from '@/ui/button';
 import { BottomSheet } from '@/ui/bottom-sheet';
 import { Card, SectionTitle, Stat } from '@/ui/card';
@@ -69,10 +71,14 @@ export default function RanksScreen() {
   const boardReady = !board.isPending && !board.isError;
   const myIndex = viewed ? rows.findIndex((e) => e.wallet === viewed) : -1;
   const pinned = board.data?.userEntry ?? null;
-  const arena = arenaStatus(CURRENT_ARENA);
+  const { seasons, current: season } = useSeasons();
+  // Against a ticking clock, so the screen leaves "paused for the Arena" by
+  // itself when the season ends while it is open.
+  const now = new Date(useNow(30_000));
+  const arena = seasonStatus(season, now);
   const router = useRouter();
   // Set when an Arena season stands in for the week being looked at.
-  const pause = weeklyPauseNotice(week, CURRENT_ARENA, pool.data?.paused);
+  const pause = weeklyPauseNotice(week, season, pool.data?.paused, now, seasons);
   const span = week === 'current' && arena === 'active' ? 'this season' : 'this week';
 
   // The rows are one card drawn in pieces: the first piece takes the top

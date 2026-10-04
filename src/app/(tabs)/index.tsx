@@ -20,11 +20,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useFreeList, useIsScreenFocused, useLeaderboard, usePaidMajorityList, usePaidMarketsList, usePrizePool, useRecentTrades } from '@/api/queries';
 import type { LeaderboardEntry } from '@/api/user';
-import { CURRENT_ARENA, arenaStatus } from '@/arena/arenas';
+import { seasonStatus } from '@/arena/seasons';
+import { useSeasons } from '@/arena/use-seasons';
 import { FLAVOR } from '@/config';
 import { shortAddress, usd } from '@/lib/format';
 import { countdown } from '@/lib/time';
-import { weeklyPaused } from '@/lib/arena-view';
+import { weeklyPauseNotice, weeklyPaused } from '@/lib/arena-view';
 import { tickerItems } from '@/lib/ticker';
 import { useCountdown } from '@/lib/use-countdown';
 import { useNow } from '@/lib/use-now';
@@ -81,9 +82,20 @@ export default function HomeScreen() {
   // live the weekly board is paused and Home does not show it. The pool is not
   // fetched then; the board still is, because points keep accruing through a
   // season and the "points since your last visit" toast is read from it.
-  const arenaOpen = arenaStatus(CURRENT_ARENA) !== 'ended';
-  const weeklyOff = weeklyPaused(CURRENT_ARENA);
-  const pool = usePrizePool(undefined, focused && !weeklyOff);
+  //
+  // All of it is decided against the ticking clock, never a bare `new Date()`:
+  // the compiler memoises a call whose inputs have not changed, and a season
+  // that ends while the app is open has to hand Home back to the week on its
+  // own, within one tick, with no restart.
+  const { seasons, current: season } = useSeasons();
+  const today = new Date(now);
+  const arenaOpen = seasonStatus(season, today) !== 'ended';
+  const seasonLive = weeklyPaused(season, today);
+  const pool = usePrizePool(undefined, focused && !seasonLive);
+  // The server can still call this week paused for a moment either side of
+  // the cutoff (a phone clock slightly ahead of it); the card stays out then
+  // too, rather than showing a pool of $0.00.
+  const weeklyOff = seasonLive || weeklyPauseNotice('current', season, pool.data?.paused, today, seasons) !== null;
   const board = useLeaderboard('current', wallet, focused);
   const trades = useRecentTrades(focused);
   // One feed, two views: the ticker slides the latest twenty past, Activity
@@ -108,7 +120,7 @@ export default function HomeScreen() {
 
   const refetchAll = () => {
     setRefreshing(true);
-    Promise.all([paidMajority.refetch(), paidYesNo.refetch(), free.refetch(), ...(weeklyOff ? [] : [pool.refetch()]), board.refetch(), trades.refetch(), positions.refetch()]).finally(() =>
+    Promise.all([paidMajority.refetch(), paidYesNo.refetch(), free.refetch(), ...(seasonLive ? [] : [pool.refetch()]), board.refetch(), trades.refetch(), positions.refetch()]).finally(() =>
       setRefreshing(false),
     );
   };

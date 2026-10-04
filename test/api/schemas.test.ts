@@ -8,7 +8,8 @@ import { FreeActivityPosition, FreeBoard, FreeChart, FreeListEntry, FreeMarketDe
 import { PaidMajorityListEntry, PaidMajorityMarket, PaidMajorityMetadata, PaidMajorityUserPosition } from '@/api/paidMajority';
 import { PaidMarketAccount, PaidMarketChart, PaidMarketListEntry, PaidMarketMetadata, PaidMarketTrade, PaidMarketUserPosition } from '@/api/paidMarkets';
 import { FreeResults, PaidMajorityResults } from '@/api/results';
-import { MyTeam, TeamLeaderboard, TeamProfile } from '@/api/arena';
+import { Arenas, MedalBoard, MyTeam, TeamLeaderboard, TeamProfile } from '@/api/arena';
+import { ARENAS, CURRENT_ARENA } from '@/arena/arenas';
 import { Referral } from '@/api/referral';
 import { Leaderboard, PrizePool, Profile, PublicProfile, Raffle, SearchResults } from '@/api/user';
 
@@ -22,6 +23,7 @@ import customActivity from '../fixtures/custom-user-activity.json';
 import leaderboard from '../fixtures/leaderboard.json';
 import referral from '../fixtures/referral.json';
 import teamMyTeam from '../fixtures/team-my-team.json';
+import teamsBounties from '../fixtures/teams-bounties.json';
 import teamProfile from '../fixtures/team-profile.json';
 import teamsLeaderboard from '../fixtures/teams-leaderboard.json';
 import majList from '../fixtures/paid-majority-list.json';
@@ -187,6 +189,21 @@ describe('arena and referral schemas', () => {
 
   it('parses my-team, which carries the member role', () => {
     expectParses(MyTeam, teamMyTeam.team);
+  });
+
+  it('parses the medal board, and a medal id it has never seen', () => {
+    expectParses(MedalBoard, teamsBounties);
+    const withNew = { ...teamsBounties, bounties: [{ ...teamsBounties.bounties[0], id: 'a_medal_added_next_week', state: 'a_new_state' }] };
+    expect(MedalBoard.safeParse(withNew).success).toBe(true);
+  });
+
+  it('parses the seasons route: the registry as JSON, with fields this build does not know', () => {
+    // The route is the web's ARENAS serialised, which is what this builds.
+    const body = JSON.parse(JSON.stringify({ current: CURRENT_ARENA.slug, arenas: ARENAS.map((a) => ({ ...a, somethingNew: true })) }));
+    const parsed = Arenas.parse(body);
+    expect(parsed.arenas).toHaveLength(ARENAS.length);
+    expect(typeof parsed.arenas[0].start).toBe('string');
+    expect('somethingNew' in parsed.arenas[0]).toBe(false);
   });
 
   it('parses the referral route', () => expectParses(Referral, referral));
