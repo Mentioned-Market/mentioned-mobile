@@ -32,6 +32,13 @@ export const FreeMarket = z.object({
   bets_per_user: z.number(),
   seed_per_word: decStr,
   banned_words: z.array(z.string()),
+  /**
+   * Majority markets: the weight of each paid finishing place. `[3,2,1]` pays
+   * the top three; `[1]`, or nothing at all from an older server, is the
+   * original winner-takes-all. Read through `placeWeights` in
+   * `@/markets/top3`, never directly.
+   */
+  payout_weights: z.array(z.number()).nullable().optional(),
 });
 export type FreeMarket = z.infer<typeof FreeMarket>;
 
@@ -46,6 +53,8 @@ export const FreeListEntry = FreeMarket.extend({
       yes_price: z.number(),
       no_price: z.number(),
       resolved_outcome: z.boolean().nullable(),
+      /** Majority: finishing place once resolved. Tied words share one. */
+      place: z.number().nullable().optional(),
     }),
   ),
 });
@@ -92,7 +101,10 @@ export const FreeBoardWord = z.object({
   word: z.string(),
   added_by: z.string().nullable(),
   mention_count: z.number(),
+  /** On a market that pays places this is true for every placed word, not only the top one. */
   resolved_outcome: z.boolean().nullable(),
+  /** Finishing place once resolved. Tied words share one, and the place below a tie is skipped. */
+  place: z.number().nullable().optional(),
   pending_resolution: z.boolean(),
   bet_count: z.number(),
   staked: z.number(),

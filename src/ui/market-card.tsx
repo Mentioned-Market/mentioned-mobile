@@ -21,6 +21,7 @@ import { isMajority, sameMarket, wordHref, type MarketSummary } from '@/markets/
 import { sideQuote } from '@/trade/amm-display';
 import { LiveNumber } from '@/ui/live-number';
 import { Pill } from '@/ui/pill';
+import { CompactPodium } from '@/ui/podium';
 import { PressableScale } from '@/ui/pressable-scale';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
@@ -67,7 +68,7 @@ function MarketCardImpl({ market }: MarketCardProps) {
 
   return (
     <Link href={market.href as Href} asChild>
-      <PressableScale accessibilityRole="button" accessibilityLabel={market.title} style={StyleSheet.flatten([styles.card, finished && styles.finished])}>
+      <PressableScale accessibilityRole="button" accessibilityLabel={market.title} style={StyleSheet.flatten([styles.card, finished && !market.podium && styles.finished])}>
         <View style={styles.cover}>
           {market.cover && !imgFailed ? (
             <Image source={{ uri: market.cover }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} onError={() => setImgFailed(true)} />
@@ -93,7 +94,11 @@ function MarketCardImpl({ market }: MarketCardProps) {
             <Text style={[styles.kindText, majority && { color: colors.gold }]}>{GAME_NAME[gameOf(market.kind)]}</Text>
           </View>
 
-          {market.words.length > 0 ? (
+          {market.podium ? (
+            // A resolved market that pays places shows its result, not its
+            // rows. The whole card, podium included, opens the market.
+            <CompactPodium tiers={market.podium} />
+          ) : market.words.length > 0 ? (
             <View>
               {words.map((w, i) => (
                 // Keyed by position: two words can share a label while the

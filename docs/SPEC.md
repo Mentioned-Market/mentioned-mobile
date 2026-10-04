@@ -547,6 +547,8 @@ too (`lib/scoringPeriod.ts`), so points "reset" at kickoff.
   an edited medal needs no release. `lib/arenas.ts` is still ported
   byte-identical as the fallback for a first launch with no signal and for a
   server without the route; the contract check reports how far it has drifted.
+- Top 3 majority markets (Oct 4 2026): see `docs/MM_V2_SPEC.md` and the
+  section of the same name in `docs/ENGINEERING.md`.
 - Medals: `GET /api/teams/bounties?arena=<slug>` returns the live board, per
   medal a `state` (`upcoming`, `waiting`, `live`, `final`), `holders` (a tie
   splits the medal), up to three `contenders`, `opensAt` and a `note`. 404 for

@@ -1,4 +1,4 @@
-// PORTED_FROM mentioned/lib/majorityMarketUsdc.ts @ ae8c82e
+// PORTED_FROM mentioned/lib/majorityMarketUsdc.ts @ c4e78d9
 // Keep byte-identical to the web copy. If the program changes, change both.
 // Mobile edits: imports only (config, ./amm, ./majorityWords, noble 2.x blake3.js path).
 
@@ -84,7 +84,14 @@ const DISC = {
   setBannedWord: new Uint8Array([247, 0, 212, 185, 110, 130, 3, 7]),
   withdrawFees: new Uint8Array([198, 212, 171, 109, 144, 215, 174, 89]),
   removeWord: new Uint8Array([79, 71, 89, 189, 245, 139, 246, 174]),
+  // Top-3 upgrade (specs/paid_majority_top3_upgrade_spec.md): sha256("global:<name>")[0..8].
+  setPayoutWeights: new Uint8Array([160, 159, 82, 177, 60, 60, 185, 33]),
+  resolvePlaced: new Uint8Array([164, 91, 14, 20, 65, 199, 136, 84]),
 }
+
+/** User trade instructions (buy only: majority positions can't be sold). The
+ * paid RPC proxy matches these to require a trading attestation. */
+export const TRADE_IX_DISCRIMINATORS: readonly Uint8Array[] = [DISC.buy]
 
 // Account discriminators (first 8 bytes of each account's data).
 export const ACCT_DISC = {
@@ -131,6 +138,14 @@ export interface MajorityMarketAccount {
   winnerUnits: bigint
   feeCollected: bigint
   vault: Address
+  // Top-3 upgrade. These sit in what was reserved space, so a market created
+  // before the upgrade reads all zeros, which means winner-takes-all.
+  /** Weight per finishing place, exactly as stored ([0,0,0] on a legacy market). */
+  payoutWeights: number[]
+  /** USDC set aside for each place at resolve. Index = place - 1. */
+  placePot: bigint[]
+  /** Units on the words in each place. Index = place - 1. */
+  placeUnits: bigint[]
 }
 
 export interface WordEntryAccount {
@@ -141,6 +156,8 @@ export interface WordEntryAccount {
   totalUnits: bigint
   outcome: WordOutcome
   addedBy: Address
+  /** 0 = not placed (and any word settled by the original `resolve`); 1-3 = finishing place. */
+  place: number
 }
 
 export interface PositionAccount {
@@ -523,6 +540,47 @@ export async function createResolveIx(
   }
 }
 
+// ADMIN: set how many places a market pays and their weights ([3,2,1] = top 3,
+// [1,0,0] = winner takes all). Signer must be the market's authority, and the
+// market must have no picks yet, which is why the admin panel sends this in the
+// same transaction as create_market.
+export async function createSetPayoutWeightsIx(
+  authority: Address,
+  marketId: bigint,
+  weights: readonly number[]
+): Promise<Instruction> {
+  const market = await getMarketPDA(marketId)
+  return {
+    programAddress: PROGRAM_ID,
+    accounts: [
+      { address: authority, role: AccountRole.READONLY_SIGNER },
+      { address: market, role: AccountRole.WRITABLE },
+    ] as AccountMeta[],
+    data: concat(DISC.setPayoutWeights, encodePayoutWeights(weights)),
+  }
+}
+
+// ADMIN: resolve a market that pays several places. `tiers` is the finishing
+// order, best first; each tier is the WordEntry accounts in that place (more than
+// one = a tie). Sent as tier sizes + the accounts flattened in order.
+export async function createResolvePlacedIx(
+  resolveAuthority: Address,
+  marketId: bigint,
+  tiers: Address[][]
+): Promise<Instruction> {
+  const market = await getMarketPDA(marketId)
+  const sizes = Uint8Array.from(tiers.map((t) => t.length))
+  return {
+    programAddress: PROGRAM_ID,
+    accounts: [
+      { address: resolveAuthority, role: AccountRole.READONLY_SIGNER },
+      { address: market, role: AccountRole.WRITABLE },
+      ...tiers.flat().map((we) => ({ address: we, role: AccountRole.WRITABLE })),
+    ] as AccountMeta[],
+    data: concat(DISC.resolvePlaced, u32LE(sizes.length), sizes),
+  }
+}
+
 // ADMIN: ban a word in this market (blocks future buys of it). Signer must be a
 // market admin. Each ban is its own PDA (pays rent) — reversible only by not
 // existing; use the global common-word list for a blocklist that spans markets.
@@ -649,11 +707,24 @@ export function deserializeMajorityMarket(
   const feeCollected = readU64(data, off); off += 8
   const vault = readAddress(data, off); off += 32
 
+  // Top-3 fields, carved from the reserved bytes that follow the vault. Absent
+  // (short buffer) or zero on anything created before the upgrade.
+  const payoutWeights = [0, 0, 0]
+  const placePot = [0n, 0n, 0n]
+  const placeUnits = [0n, 0n, 0n]
+  if (data.length >= off + PAID_PLACES_MAX * 17) {
+    for (let i = 0; i < PAID_PLACES_MAX; i++) payoutWeights[i] = data[off + i]
+    off += PAID_PLACES_MAX
+    for (let i = 0; i < PAID_PLACES_MAX; i++) { placePot[i] = readU64(data, off); off += 8 }
+    for (let i = 0; i < PAID_PLACES_MAX; i++) { placeUnits[i] = readU64(data, off); off += 8 }
+  }
+
   return {
     version, bump, marketId, authority, admins, resolveAuthority,
     feeRecipient, usdcMint, unitPrice, lockTs, feeBps, floorMultiple,
     status, createdAt, resolvedAt, claimableAfterTs, totalUnits, wordCount,
     distributable, winnerUnits, feeCollected, vault,
+    payoutWeights, placePot, placeUnits,
   }
 }
 
@@ -667,10 +738,11 @@ export function deserializeWordEntry(data: Uint8Array): WordEntryAccount | null 
   const totalUnits = readU64(data, 73)
   const outcome = data[81] as WordOutcome
   const addedBy = readAddress(data, 82)
+  const place = wordEntryPlace(data)
 
   return {
     bump, market, wordHash, wordHashHex: toHex(wordHash),
-    totalUnits, outcome, addedBy,
+    totalUnits, outcome, addedBy, place,
   }
 }
 
@@ -684,6 +756,154 @@ export function deserializePosition(data: Uint8Array): PositionAccount | null {
   const claimed = data[49] !== 0
 
   return { bump, owner, units, claimed }
+}
+
+// ── Placed payouts (top 3) ───────────────────────────────
+// specs/paid_majority_top3_upgrade_spec.md. The program stores at most three
+// place weights per market; all zero means the market predates the upgrade.
+
+export const PAID_PLACES_MAX = 3
+export const MAX_PLACE_WEIGHT = 10
+export const WINNER_TAKES_ALL: readonly number[] = [1, 0, 0]
+export const TOP_THREE: readonly number[] = [3, 2, 1]
+
+/** Byte offset of `WordEntry.place`: the first byte after `added_by`. */
+const WORD_ENTRY_PLACE_OFFSET = 114
+
+/** Finishing place off raw WordEntry bytes (0 when unplaced or pre-upgrade). */
+export function wordEntryPlace(data: Uint8Array): number {
+  const place = data.length > WORD_ENTRY_PLACE_OFFSET ? data[WORD_ENTRY_PLACE_OFFSET] : 0
+  return place >= 1 && place <= PAID_PLACES_MAX ? place : 0
+}
+
+/** The weights a market actually pays by, as a list of its paid places: [1] or [3,2,1]. */
+export function effectivePayoutWeights(market: Pick<MajorityMarketAccount, 'payoutWeights'>): number[] {
+  const w = (market.payoutWeights ?? []).filter((x) => x > 0)
+  return w.length > 0 ? w : [1]
+}
+
+/** How many finishing places a market pays (1 for every pre-upgrade market). */
+export function paidPlaceCount(market: Pick<MajorityMarketAccount, 'payoutWeights'>): number {
+  return effectivePayoutWeights(market).length
+}
+
+/** Same rules the program enforces in set_payout_weights. */
+export function payoutWeightsError(weights: readonly number[]): string | null {
+  if (weights.length < 1 || weights.length > PAID_PLACES_MAX) return `Between 1 and ${PAID_PLACES_MAX} places`
+  let seenZero = false
+  for (let i = 0; i < weights.length; i++) {
+    const w = weights[i]
+    if (!Number.isInteger(w) || w < 0 || w > MAX_PLACE_WEIGHT) return `Each weight must be a whole number up to ${MAX_PLACE_WEIGHT}`
+    if (w === 0) seenZero = true
+    else if (seenZero) return 'A paid place cannot follow an unpaid one'
+    if (i > 0 && w > weights[i - 1]) return 'A lower place cannot out-weigh a higher one'
+  }
+  if (weights[0] < 1) return '1st place must be paid'
+  return null
+}
+
+function encodePayoutWeights(weights: readonly number[]): Uint8Array {
+  const err = payoutWeightsError(weights)
+  if (err) throw new Error(`Invalid payout weights: ${err}`)
+  const out = new Uint8Array(PAID_PLACES_MAX)
+  weights.forEach((w, i) => { out[i] = w })
+  return out
+}
+
+export interface PlacedTierInput {
+  /** Words in this tier (more than one = a tie). */
+  words: number
+  /** Units on those words. */
+  units: bigint
+}
+export interface PlacedTierResult {
+  /** Finishing place, 1-based. Tied words share one and use up the places below. */
+  place: number
+  units: bigint
+  /** USDC base units set aside for this place. */
+  pot: bigint
+}
+
+/**
+ * Integer mirror of the program's `resolve_placed` division (spec §4.3): how the
+ * distributable pool splits across the finishing places. Must stay byte-for-byte
+ * with the Rust, since the admin preview and any pre-settlement figure come from
+ * here. `dust` is the rounding remainder, which the program adds to the fee.
+ */
+export function placedPots(
+  distributable: bigint,
+  tiers: readonly PlacedTierInput[],
+  weights: readonly number[]
+): { tiers: PlacedTierResult[]; dust: bigint } {
+  let place = 1
+  const places: number[] = []
+  for (const t of tiers) { places.push(place); place += t.words }
+  // S_t: the sum of the place weights a tier covers (a tie covers several).
+  const covered = tiers.map((t, i) => {
+    let sum = 0n
+    for (let k = 0; k < t.words; k++) sum += BigInt(weights[places[i] - 1 + k] ?? 0)
+    return sum
+  })
+  // w_t = S_t * product of every OTHER tier's word count: a common denominator,
+  // so a tie's averaged weight never needs a fraction.
+  const shares = tiers.map((t, i) => {
+    let w = covered[i]
+    tiers.forEach((other, j) => { if (j !== i) w *= BigInt(other.words) })
+    return w * t.units
+  })
+  const total = shares.reduce((a, b) => a + b, 0n)
+  const pots = shares.map((share) => (total === 0n ? 0n : (distributable * share) / total))
+  const paid = pots.reduce((a, b) => a + b, 0n)
+  return {
+    tiers: tiers.map((t, i) => ({ place: places[i], units: t.units, pot: pots[i] })),
+    dust: total === 0n ? 0n : distributable - paid,
+  }
+}
+
+/** Most words one resolve can place (the program's MAX_WINNERS). */
+export const MAX_PLACED_WORDS = 16
+
+// The program's errors added with the top-3 upgrade, by Anchor code. A failed
+// transaction surfaces them as "custom program error: 0x1791" and the like.
+const TOP3_ERRORS: Array<[number, string, string]> = [
+  [6033, 'InvalidPayoutWeights', 'Those payout weights are not allowed.'],
+  [6034, 'MarketHasPicks', 'The payout can only be set before anyone has picked.'],
+  [6035, 'InvalidTiers', 'That finishing order is not valid for this market.'],
+  [6036, 'UsePlacedResolve', 'This market pays several places: set the finishing order to resolve it.'],
+  [6037, 'UseSingleResolve', 'This market pays one winner: pick the winning word to resolve it.'],
+]
+
+/** Plain-language text for a top-3 program error, or the original message. */
+export function top3ErrorMessage(raw: string): string {
+  const lower = raw.toLowerCase()
+  for (const [code, name, text] of TOP3_ERRORS) {
+    if (lower.includes(`0x${code.toString(16)}`) || lower.includes(name.toLowerCase())) return text
+  }
+  return raw
+}
+
+/** What a market needs to price a winning position. A MajorityMarketAccount fits. */
+export interface PayoutTerms {
+  distributable: bigint
+  winnerUnits: bigint
+  placePot?: readonly bigint[]
+  placeUnits?: readonly bigint[]
+}
+
+/**
+ * Payout for a position on a word with `outcome = Winner`, in USDC base units.
+ * THE one place that chooses between the two formulas, exactly as the program's
+ * `claim` does: `place` 0 is a market settled by the original `resolve`
+ * (units * distributable / winnerUnits); 1-3 pays from that place's own pot.
+ * Every surface that shows or scores a payout goes through this.
+ */
+export function winnerPayoutBaseUnits(units: bigint, place: number, terms: PayoutTerms): bigint {
+  if (place >= 1) {
+    const pot = terms.placePot?.[place - 1] ?? 0n
+    const placeUnits = terms.placeUnits?.[place - 1] ?? 0n
+    return placeUnits === 0n ? 0n : (units * pot) / placeUnits
+  }
+  return payoutBaseUnits(units, terms.distributable, terms.winnerUnits)
 }
 
 // ── Math ─────────────────────────────────────────────────

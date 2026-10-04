@@ -14,6 +14,17 @@ export const PaidMajorityListWord = z.object({
   outcome: z.number(),
 });
 
+/**
+ * One step of a resolved top 3 market's podium, priced by the server from the
+ * on-chain pots: the place, the word or tied words on it, and what a pick on
+ * it paid per dollar staked (0 when nobody backed that place).
+ */
+export const PaidMajorityPodiumTier = z.object({
+  place: z.number(),
+  words: z.array(z.string()),
+  multiple: z.number(),
+});
+
 export const PaidMajorityListEntry = z.object({
   marketId: numStr,
   title: z.string(),
@@ -28,6 +39,8 @@ export const PaidMajorityListEntry = z.object({
   eventStartTime: z.string().nullable(),
   traderCount: z.number(),
   isFeatured: z.boolean(),
+  /** Present only on a resolved market that pays several places. Best place first. */
+  podium: z.array(PaidMajorityPodiumTier).nullable().optional(),
 });
 export type PaidMajorityListEntry = z.infer<typeof PaidMajorityListEntry>;
 
@@ -46,6 +59,8 @@ export const PaidMajorityMarket = z.object({
       units: numStr,
       oddsPct: z.number(),
       outcome: z.number(),
+      /** 1 to 3 once resolved on a market that pays places, else 0. Absent from a server that predates top 3. */
+      place: z.number().optional(),
     }),
   ),
   totalUnits: numStr,
@@ -75,6 +90,8 @@ export const PaidMajorityPosition = z.object({
   word: z.string(),
   units: numStr,
   outcome: z.number(),
+  /** The word's finishing place, as on the market route. */
+  place: z.number().optional(),
 });
 
 export const PaidMajorityUserPosition = z.object({

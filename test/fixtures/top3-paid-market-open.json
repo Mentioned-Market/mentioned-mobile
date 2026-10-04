@@ -1,0 +1,56 @@
+{
+  "account": "HWmFBkBOY18B/yT8UgahAQAAGfslgGXG9F55chkUVqrVpGgXfnX62gcZ54blHAtDj24BAAAAGfslgGXG9F55chkUVqrVpGgXfnX62gcZ54blHAtDj24Z+yWAZcb0XnlyGRRWqtWkaBd+dfraBxnnhuUcC0OPbr/k37RwbHAWcZqeW1cB4u+pT3JhXp6hLK0TExZBeSugU76uM7UCs8nFJ9QNKj//xI/kTkFVb0M3JVr85M7N6qRAQg8AAAAAAFgvwmoAAAAAyABAQg8AAAAAAACPIcJqAAAAAAAAAAAAAAAAAAgAAAAAAAAABgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFNPAb2T6I7+abpQX3jIanuJ9+DU1LtCrrr/6swBRa3iAwIBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+  "vaultAmount": "8000000",
+  "board": [
+    {
+      "wordHash": "29f225525f3c514a1f2f474e595020cc8d21facb36b2c04c997c66e56caf3514",
+      "word": "china",
+      "units": "2",
+      "oddsPct": 25,
+      "outcome": 0,
+      "place": 0
+    },
+    {
+      "wordHash": "4878ca0425c739fa427f7eda20fe845f6b2e46ba5fe2a14df5b1e32f50603215",
+      "word": "test",
+      "units": "2",
+      "oddsPct": 25,
+      "outcome": 0,
+      "place": 0
+    },
+    {
+      "wordHash": "485216adbab98d719346a0c6755e88ff5f84bdae31063cd986ce730544374bcf",
+      "word": "bad",
+      "units": "1",
+      "oddsPct": 12.5,
+      "outcome": 0,
+      "place": 0
+    },
+    {
+      "wordHash": "99a5bc94901320538e81f67b40fdf06b05ec50a4898873e7c8e904722339d2a8",
+      "word": "word",
+      "units": "1",
+      "oddsPct": 12.5,
+      "outcome": 0,
+      "place": 0
+    },
+    {
+      "wordHash": "f7d2f8b46dc004c5d91119332e3141ce07813b0473a778332b60d2eb26f26812",
+      "word": "big",
+      "units": "1",
+      "oddsPct": 12.5,
+      "outcome": 0,
+      "place": 0
+    },
+    {
+      "wordHash": "7b04305882d8383b5519a9cf850d8f41115efe2285b6bee85adfc6707a91afff",
+      "word": "economy",
+      "units": "1",
+      "oddsPct": 12.5,
+      "outcome": 0,
+      "place": 0
+    }
+  ],
+  "totalUnits": "8",
+  "traderCount": 2
+}

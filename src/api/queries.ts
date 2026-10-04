@@ -166,8 +166,13 @@ export const useFreePositions = (id: number, wallet: string | null, focused: boo
     enabled: !!wallet,
     ...poll(focused, DETAIL_POLL_MS),
   });
-export const useFreeBoard = (id: number, wallet: string | null, focused: boolean) =>
-  useQuery({ queryKey: keys.freeBoard(id, wallet ?? undefined), queryFn: () => free.getFreeBoard(id, wallet ?? undefined), ...poll(focused, DETAIL_POLL_MS) });
+export const useFreeBoard = (id: number, wallet: string | null, focused: boolean, enabled = true) =>
+  useQuery({
+    queryKey: keys.freeBoard(id, wallet ?? undefined),
+    queryFn: () => free.getFreeBoard(id, wallet ?? undefined),
+    enabled,
+    ...poll(focused, DETAIL_POLL_MS),
+  });
 export const useFreeChart = (id: number, focused: boolean) =>
   useQuery({ queryKey: keys.freeChart(id), queryFn: () => free.getFreeChart(id), ...poll(focused, LIST_POLL_MS) });
 export const useFreeUserActivity = (wallet: string | null, focused: boolean) =>

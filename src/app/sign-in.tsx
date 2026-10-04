@@ -12,6 +12,7 @@
 // LEGACY_PRIVY_ACCOUNT) and this screen hands the person to Privy instead,
 // the way the website does. Privy is never offered before that answer. See
 // src/auth/wallet-routing.ts for the whole rule.
+import { endFinish, tryStartFinish } from '@/auth/finish-lock';
 import { AccountTypeEnum, ChainTypeEnum, OAuthProvider } from '@openfort/openfort-js';
 import { useEmailAuthOtp, useEmbeddedSolanaWallet, useOAuth, useOpenfortClient, useUser } from '@openfort/react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -134,6 +135,13 @@ function SignInFlow() {
     setError(null);
     setNote(null);
     setCode('');
+    // The step changes BEFORE Openfort is signed out, not after. Until it
+    // does, this screen is still on the wallet step with nothing attempted,
+    // and the automatic finish below starts again. That second run met an
+    // Openfort that was being signed out and failed with "No access token
+    // found", which is what the person then saw on the Privy step, as if the
+    // handoff itself had failed.
+    setStep('privy');
     try {
       await logoutOpenfort();
     } catch (e) {
@@ -141,7 +149,6 @@ function SignInFlow() {
       // app ends both sessions anyway.
       console.log('[sign-in] openfort logout before privy failed', e);
     }
-    setStep('privy');
   };
 
   /** Back to the normal sign-in, for a Privy account the server will not take. */
@@ -150,13 +157,16 @@ function SignInFlow() {
     setWalletFailed(false);
     setNote(null);
     setCode('');
+    // Step first, for the same reason as in toPrivy: while Privy is still
+    // signed in the derived step is its wallet step, and the automatic finish
+    // would run again against a session on its way out.
+    setStep('email');
+    setError(message);
     try {
       await privyRef.current.logout();
     } catch (e) {
       console.log('[sign-in] privy logout failed', e);
     }
-    setStep('email');
-    setError(message);
   };
 
   const fail = (e: unknown) => {
@@ -224,6 +234,20 @@ function SignInFlow() {
     }
   };
 
+  /**
+   * Run a finish unless one is already running in another copy of this screen
+   * (src/auth/finish-lock.ts). Every way a finish starts goes through here:
+   * the automatic step, the Privy logins, and the retry button.
+   */
+  const finishOnce = async (fn: () => Promise<void>) => {
+    if (!tryStartFinish()) return;
+    try {
+      await fn();
+    } finally {
+      endFinish();
+    }
+  };
+
   const sendCode = () =>
     run(async () => {
       await requestEmailOtp({ email: email.trim() });
@@ -273,7 +297,7 @@ function SignInFlow() {
       const user = await privy.loginWithEmailCode(email.trim(), code.trim());
       setStep('privy-wallet');
       attempted.current = true;
-      await finishPrivy(user);
+      await finishOnce(() => finishPrivy(user));
     });
 
   const privyOAuth = (provider: 'google' | 'twitter') =>
@@ -282,7 +306,7 @@ function SignInFlow() {
       if (!user) return;
       setStep('privy-wallet');
       attempted.current = true;
-      await finishPrivy(user);
+      await finishOnce(() => finishPrivy(user));
     });
 
   /** Recover or create the Solana wallet, then bind a Mentioned session to it. */
@@ -371,7 +395,12 @@ function SignInFlow() {
     const next = step === 'wallet' && settled ? finish : step === 'privy-wallet' && privy.user ? () => finishPrivy() : null;
     if (!next || busy || attempted.current) return;
     attempted.current = true;
-    void run(next);
+    // Another copy of this screen may already be finishing the same sign-in
+    // (see src/auth/finish-lock.ts). It will take everyone Home; a second run
+    // here would only make a second session and a second "Signed in". The
+    // lock is released when the finish settles either way, so a failure can
+    // be retried.
+    void run(() => finishOnce(next));
     // finish and run are stable enough for this: the effect fires once per mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, settled, busy, privy.user]);
@@ -405,7 +434,7 @@ function SignInFlow() {
   const retryWallet = () => {
     setWalletFailed(false);
     attempted.current = true;
-    void run(step === 'privy-wallet' ? () => finishPrivy() : finish);
+    void run(() => finishOnce(step === 'privy-wallet' ? () => finishPrivy() : finish));
   };
 
   return (

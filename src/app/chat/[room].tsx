@@ -117,7 +117,7 @@ export default function ChatScreen() {
   const title = room === null ? 'Chat' : (params.title ?? 'Market chat');
 
   return (
-    <Screen title={title} back flush right={<LiveDot live={chat.live} />} actions={['search', 'notifications']}>
+    <Screen title={title} back flush right={<LiveDot live={chat.live} />} actions={['search', 'docs', 'notifications']}>
       <View style={{ flex: 1, paddingBottom: keyboard > 0 ? keyboard + insets.bottom : 0 }}>
         {chat.loading ? (
           <View style={styles.pad}>

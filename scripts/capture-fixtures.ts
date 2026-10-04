@@ -101,6 +101,10 @@ async function main() {
   // The medal board is captured from the season that has one. Three contenders
   // a medal is all the route sends, so nothing needs trimming.
   write('teams-bounties', await get('/api/teams/bounties?arena=worlds-fair'));
+  // The top3-* fixtures are NOT captured here. They come from staging, where
+  // markets that pay the top three exist (docs/MM_V2_SPEC.md): two paid market
+  // routes, two free boards (one with a tie for 1st) and the two list entries.
+  // Re-capture them by hand from mentioned-staging.up.railway.app if the shapes change.
   write('referral', trim(await get(`/api/referral?wallet=${WALLET}`), 'referredUsers', 5));
   const publicProfile = await get<Record<string, unknown>>(`/api/profile/${USERNAME}`);
   const { pointHistory, freeMarket, ...restProfile } = publicProfile as Record<string, unknown> & { freeMarket: Record<string, unknown> };

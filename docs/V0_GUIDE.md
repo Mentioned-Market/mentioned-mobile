@@ -148,9 +148,9 @@ above. Put a header on each copy:
 
 | Web file | Mobile file | Edits needed |
 |---|---|---|
-| `lib/majorityMarketUsdc.ts` | `src/chain/majority.ts` | Import program id from `src/config`; import ATA helpers etc. from `./amm` |
+| `lib/majorityMarketUsdc.ts` | `src/chain/majority.ts` | Import program id from `src/config`; import ATA helpers etc. from `./amm`. Re-ported @ c4e78d9 for top 3 markets: `payoutWeights`, `placePot`, `placeUnits`, `wordEntryPlace`, `winnerPayoutBaseUnits` |
 | `lib/mentionMarketUsdc.ts` | `src/chain/amm.ts` | Import ids and `RPC_URL` from `src/config`; import `sendViaProxy`/`confirmSignature` from `./rpcSend`; `fetchWith429Retry` from `./fetchRetry` |
-| `lib/majorityMarket.ts` | `src/chain/majorityWords.ts` | None (stopwords + validation) |
+| `lib/majorityMarket.ts` | `src/chain/majorityWords.ts` | None (stopwords + validation). Re-ported @ ce01ac3 for top 3 markets: `tieredMultiples`, `firstPlaceMultiple`, `placeLabel` |
 | `lib/oddsDisplay.ts` | `src/lib/oddsDisplay.ts` | None (AMM multiplier odds; the app uses multiplier mode only) |
 | `lib/rpcSend.ts` | `src/chain/rpcSend.ts` | Replace the `MAINNET_RPC_PROXY` import with `RPC_URL` from config |
 | `lib/fetchRetry.ts` | `src/chain/fetchRetry.ts` | None |

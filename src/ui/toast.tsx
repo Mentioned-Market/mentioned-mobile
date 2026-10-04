@@ -13,9 +13,10 @@ import Animated, { Easing, FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { create } from 'zustand';
 
+import { enqueueToast, type Toast } from '@/lib/toast-queue';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
-export type Toast = { id: number; emoji: string; title: string; body?: string };
+export type { Toast } from '@/lib/toast-queue';
 
 const SHOW_MS = 2600;
 
@@ -28,7 +29,8 @@ type ToastState = { queue: Toast[]; next: number; push: (t: Omit<Toast, 'id'>) =
 const useToasts = create<ToastState>()((set) => ({
   queue: [],
   next: 1,
-  push: (t) => set((s) => ({ queue: [...s.queue, { ...t, id: s.next }], next: s.next + 1 })),
+  // A message already showing or waiting is not queued again (enqueueToast).
+  push: (t) => set((s) => enqueueToast(s, t)),
   shift: () => set((s) => ({ queue: s.queue.slice(1) })),
 }));
 

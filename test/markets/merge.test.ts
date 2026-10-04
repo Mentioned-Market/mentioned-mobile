@@ -15,6 +15,7 @@ import {
   wordHref,
   sortMarkets,
   type MarketSummary,
+  sameMarket,
 } from '@/markets/merge';
 
 import freeList from '../fixtures/custom-list.json';
@@ -222,5 +223,47 @@ describe('findWordParam', () => {
     expect(findWordParam(labels, undefined)).toBe(-1);
     expect(findWordParam(labels, '')).toBe(-1);
     expect(findWordParam(labels, 'Interception')).toBe(-1);
+  });
+});
+
+describe('the podium on a market card', () => {
+  // Captured from staging, where top 3 markets exist (docs/MM_V2_SPEC.md).
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  const paidList = require('../fixtures/top3-paid-list.json') as { markets: unknown[] };
+  const freeList = require('../fixtures/top3-free-list.json') as unknown[];
+  const { PaidMajorityListEntry } = require('@/api/paidMajority') as typeof import('@/api/paidMajority');
+  const { FreeListEntry } = require('@/api/free') as typeof import('@/api/free');
+  /* eslint-enable @typescript-eslint/no-require-imports */
+  const paid = paidList.markets.map((m) => PaidMajorityListEntry.parse(m));
+  const free = freeList.map((m) => FreeListEntry.parse(m));
+
+  it('is carried by a resolved paid market that pays places, and by no other paid market', () => {
+    const cards = paid.map((m) => fromPaidMajority(m, Date.now()));
+    const resolved = cards.find((c) => c.status === 'resolved');
+    expect(resolved?.podium?.map((t) => t.words[0].word)).toEqual(['america', 'china', 'wolf']);
+    expect(cards.filter((c) => c.status !== 'resolved').every((c) => c.podium === undefined)).toBe(true);
+  });
+
+  it('is worked out for a resolved free market from the list alone, tie included', () => {
+    const cards = free.map(fromFree);
+    expect(cards.find((c) => c.id === '75')?.podium?.map((t) => t.place)).toEqual([1, 2, 3]);
+    const tie = cards.find((c) => c.id === '76')?.podium;
+    expect(tie?.map((t) => [t.place, t.words.length])).toEqual([
+      [1, 2],
+      [3, 1],
+    ]);
+  });
+
+  it('is absent from a free market that pays one winner, which keeps its word rows', () => {
+    const oneWinner = { ...free[0], payout_weights: [1] };
+    expect(fromFree(oneWinner).podium).toBeUndefined();
+    const { payout_weights: _gone, ...older } = free[0];
+    expect(fromFree(older).podium).toBeUndefined();
+  });
+
+  it('makes two cards differ when only the podium does, so the memo redraws it', () => {
+    const card = fromFree(free[0]);
+    expect(sameMarket(card, { ...card })).toBe(true);
+    expect(sameMarket(card, { ...card, podium: undefined })).toBe(false);
   });
 });

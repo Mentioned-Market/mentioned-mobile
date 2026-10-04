@@ -64,7 +64,7 @@ export default function SearchScreen() {
   const nothing = q.length >= 2 && !search.isPending && users.length + freeHits.length + paidHits.length === 0;
 
   return (
-    <Screen title="Search" back actions={['chat', 'notifications']}>
+    <Screen title="Search" back actions={['chat', 'docs', 'notifications']}>
       <View style={styles.field}>
         <Ionicons name="search" size={18} color={colors.textMuted} />
         <TextInput

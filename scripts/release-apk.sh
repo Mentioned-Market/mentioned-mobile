@@ -44,9 +44,24 @@ if [ ! -f android/keystore.properties ]; then
   echo "NOTE: android/keystore.properties is missing; this APK will be DEBUG-SIGNED." >&2
 fi
 
+BUNDLE="android/app/build/generated/assets/react/release/index.android.bundle"
+
+# Force a fresh bundle. The flavour reaches the JavaScript through .env.local,
+# which is not an input Gradle tracks: with no source file changed since the
+# last build, the bundle task is "up to date" and the previous flavour's bundle
+# is packaged under this flavour's name. That shipped a staging bundle inside
+# an APK called production on Oct 4 2026. Removing the old bundle makes the
+# task run, and removing Metro's transform cache makes it inline the flavour
+# again rather than reuse the transform that held the last one.
+rm -f "$BUNDLE"
+rm -rf "${TMPDIR:-/tmp}/metro-cache"
+STARTED="$(date +%s)"
+
 ( cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a -q )
 
-BUNDLE="android/app/build/generated/assets/react/release/index.android.bundle"
+if [ ! -f "$BUNDLE" ] || [ "$(stat -f %m "$BUNDLE")" -lt "$STARTED" ]; then
+  echo "ERROR: the JavaScript bundle was not rebuilt, so its flavour is unknown" >&2; exit 1
+fi
 case "$FLAVOR" in
   production) HOST="www.mentioned.market" ;;
   staging) HOST="mentioned-staging.up.railway.app" ;;

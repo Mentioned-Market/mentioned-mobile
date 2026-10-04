@@ -16,8 +16,10 @@ import { chatEventId } from '@/chat/rules';
 import { recordMajorityBuys } from '@/api/paidMajority';
 import { useIsScreenFocused, usePaidMajorityMarket, usePaidMajorityMetadata, usePaidMajorityPositions, useSolBalance, useUsdcBalance } from '@/api/queries';
 import { deserializeMajorityMarket, MajorityStatus, normalizeWord, WordOutcome } from '@/chain/majority';
+import { placeLabel } from '@/chain/majorityWords';
 import { base64ToBytes } from '@/lib/bytes';
 import { findWordParam } from '@/markets/merge';
+import { boardTitle, freshPickWin, heldPickWin, paidResult, paidWeights, paysPlaces, ticketNote, winLine, type PoolState } from '@/markets/top3';
 import { usd, usdc } from '@/lib/format';
 import { useNow } from '@/lib/use-now';
 import { useActiveWallet } from '@/store/active-wallet';
@@ -35,6 +37,7 @@ import { Chip } from '@/ui/chip';
 import { PAUSED_NOTE, useFeatures } from '@/ui/config-gate';
 import { MarketHeader, statusFromLock } from '@/ui/market-header';
 import { Pill } from '@/ui/pill';
+import { Podium } from '@/ui/podium';
 import { PINNED_BAR_HEIGHT, PinnedBar } from '@/ui/pinned-bar';
 import { FeaturedWords } from '@/ui/featured-words';
 import { Screen } from '@/ui/screen';
@@ -115,12 +118,33 @@ export default function PaidMajorityScreen() {
   const boardByWord = new Map(named.map((b) => [normalizeWord(b.word), b]));
   const refunding = new Set(named.filter((b) => b.outcome === WordOutcome.Refunding).map((b) => normalizeWord(b.word)));
 
-  // Payout preview for a fresh unit on a word if it wins: pro-rata share of the
-  // pool after the fee, the same estimate the website shows.
-  const feeRate = acct.feeBps / 10_000;
-  const totalUnits = Number(market.data.totalUnits);
-  const winIfSaidMost = (wordUnits: number) => ((totalUnits + 1) * unitUsd * (1 - feeRate)) / (wordUnits + 1);
-  const winFor = (word: string) => winIfSaidMost(Number(boardByWord.get(word)?.units ?? 0));
+  // Most markets pay the one word said the most. A market can instead pay the
+  // top three from one pool (docs/MM_V2_SPEC.md); it says so in its account,
+  // and everything below that differs for it hangs off `places`.
+  const weights = paidWeights(acct.payoutWeights);
+  const places = paysPlaces(weights);
+
+  // Payout preview for a fresh unit on a word, the same estimate the website
+  // shows: on a market with one winner, its share of the pool after the fee if
+  // it wins; on a top 3 market, the least it pays if it finishes 1st.
+  const pool: PoolState = {
+    weights,
+    pool: Number(market.data.totalUnits),
+    stakes: board.map((b) => Number(b.units)),
+    fee: acct.feeBps / 10_000,
+    // The guaranteed multiple is a free market's; a paid pool pays what it holds.
+    floor: 0,
+  };
+  const indexOfHash = new Map(board.map((b, i) => [b.wordHash, i]));
+  /** Dollars a fresh pick on the word at `index` pays (-1 for a word not on the board yet). */
+  const winAt = (index: number) => freshPickWin(pool, index, 1) * unitUsd;
+  const winFor = (word: string) => winAt(indexOfHash.get(boardByWord.get(word)?.wordHash ?? '') ?? -1);
+
+  // Once resolved, a top 3 market shows its podium. Right after a resolve the
+  // account can say Resolved before the words carry their places (they come
+  // from a slower index), so there may be nothing to draw for a moment; the
+  // market query keeps polling and the podium appears when the places do.
+  const { podium, picks: myResults } = paidResult(board, mine.data ?? [], acct, finished === 'resolved');
 
   const words: BoardWord[] = [...board]
     .sort((a, b) => Number(b.units) - Number(a.units))
@@ -134,8 +158,10 @@ export default function PaidMajorityScreen() {
           ? 'Removed, being refunded'
           : `${w.units} ${Number(w.units) === 1 ? 'pick' : 'picks'} · ${usd(Number(w.units) * unitUsd)}`,
       outcome: finished === 'resolved' ? (w.outcome === WordOutcome.Winner ? 'winner' : 'loser') : null,
+      // Every placed word is a winner on a top 3 market, so each says which place.
+      place: places && (w.place ?? 0) >= 1 ? placeLabel(w.place ?? 0) : undefined,
       yours: ownedHashes.has(w.wordHash),
-      winLabel: `Wins ${usd(winIfSaidMost(Number(w.units)))} if said most`,
+      winLabel: winLine(places, usd(winAt(indexOfHash.get(w.wordHash) ?? -1))),
       locked: w.word === null || ownedHashes.has(w.wordHash) || w.outcome === WordOutcome.Refunding,
     }));
 
@@ -304,25 +330,49 @@ export default function PaidMajorityScreen() {
             now={now}
             description={info?.description}
             kind='paid-majority'
+            paidPlaces={weights.length}
           />
           <View style={styles.chips}>
             <Chip value={usdc(market.data.vaultAmount)} caption="pool" />
             <Chip value={usd(unitUsd)} caption="per word" />
           </View>
-          {finished ? (
+          {/* A market with a podium shows its result right here, so the button
+              above it would promise the same thing twice; it moves under the
+              podium and names what the next screen adds. */}
+          {finished && !podium ? (
             <Link href={`/result/majority/${id}` as Href} asChild>
               <Button label="See results" tone="neutral" />
             </Link>
           ) : null}
 
-          {viewed && mine.data && mine.data.length > 0 ? (
+          {podium ? (
+            <>
+              <Podium tiers={podium} paidPlaces={weights.length} picks={viewed ? myResults : []} unit="usd" />
+              <Link href={`/result/majority/${id}` as Href} asChild>
+                <Button label="Payouts and claims" tone="neutral" />
+              </Link>
+            </>
+          ) : places && finished === 'resolved' ? (
+            <Text style={type.muted}>The final places are being confirmed. This updates on its own.</Text>
+          ) : null}
+
+          {/* The podium carries the viewer's picks once it is up; until then, and on every other market, this card does. */}
+          {viewed && mine.data && mine.data.length > 0 && !podium ? (
             <Card style={{ gap: spacing.xs }}>
               <Text style={type.heading}>Your picks</Text>
-              <Text style={type.muted}>{mine.data.map((p) => `${p.word} ×${p.units}`).join(', ')}</Text>
+              {places && !finished ? (
+                mine.data.map((p) => (
+                  <Text key={p.wordHash} style={type.muted}>
+                    {p.word} · if 1st ~{usd(heldPickWin(pool, indexOfHash.get(p.wordHash) ?? -1, Number(p.units)) * unitUsd)}
+                  </Text>
+                ))
+              ) : (
+                <Text style={type.muted}>{mine.data.map((p) => `${p.word} ×${p.units}`).join(', ')}</Text>
+              )}
             </Card>
           ) : null}
 
-          <SectionTitle title={open ? 'Pick the word said the most' : 'Board'} />
+          <SectionTitle title={boardTitle(places, open, weights.length)} />
           {board.length === 0 && open ? <Text style={type.muted}>No words yet. Add the first one below.</Text> : null}
           <WordBoard words={words} selected={selectedKeys} onToggle={toggle} selectable={open} />
 
@@ -433,7 +483,7 @@ export default function PaidMajorityScreen() {
                       <Text style={styles.pickWord}>{w}</Text>
                       {!boardByWord.has(w) ? <Pill label="NEW" tone="gold" /> : null}
                     </View>
-                    <Text style={[type.muted, { color: colors.yes }]}>Wins {usd(winFor(w))} if said most</Text>
+                    <Text style={[type.muted, { color: colors.yes }]}>{winLine(places, usd(winFor(w)))}</Text>
                   </View>
                   <Text style={type.money}>{usd(unitUsd)}</Text>
                   <Pressable onPress={() => removeFromBasket(w)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Remove ${w}`}>
@@ -446,6 +496,7 @@ export default function PaidMajorityScreen() {
                 <Text style={type.money}>{usd(total)}</Text>
               </Row>
             </Card>
+            {places ? <Text style={type.muted}>{ticketNote(weights.length)}</Text> : null}
             {newWords.length > 0 ? <Text style={type.muted}>A new word also pays a small SOL deposit for its record on chain.</Text> : null}
             {basket.length > BUYS_PER_TX ? (
               <Text style={type.muted}>

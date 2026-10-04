@@ -5,11 +5,13 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import {
+  useFreeBoard,
   useFreeMarket,
   useFreeResults,
   useIsScreenFocused,
   usePaidMajorityMarket,
   usePaidMajorityMetadata,
+  usePaidMajorityPositions,
   usePaidMajorityUserPositions,
   usePaidMajorityResults,
   usePaidMarket,
@@ -19,6 +21,8 @@ import {
 } from '@/api/queries';
 import { deserializeMarketAccount, impliedYesPrice } from '@/chain/amm';
 import { deserializeMajorityMarket, WordOutcome } from '@/chain/majority';
+import { placeLabel } from '@/chain/majorityWords';
+import { freeResult, freeWeights, paidResult, paidWeights, placesLine } from '@/markets/top3';
 import { base64ToBytes } from '@/lib/bytes';
 import { sideQuote } from '@/trade/amm-display';
 import { pct, shortAddress, tokens, usd, usdc } from '@/lib/format';
@@ -66,6 +70,7 @@ function PaidMajorityResult({ id }: { id: string }) {
   const wallet = useSession((s) => s.wallet);
   const claimFlow = useClaimFlow(wallet);
   const mine = usePaidMajorityUserPositions(wallet, focused);
+  const positions = usePaidMajorityPositions(id, viewed, focused);
   const claimable = (mine.data ?? []).filter((p) => p.marketId === id && p.claimableUsdc > 0);
   if (market.isPending || results.isPending) return <Loading />;
   if (market.isError || !market.data || !acct) {
@@ -78,6 +83,10 @@ function PaidMajorityResult({ id }: { id: string }) {
   const info = meta.data?.find((m) => m.market_id === id);
   const winners = market.data.board.filter((w) => w.outcome === WordOutcome.Winner);
   const resolved = results.data?.resolved ?? acct.status === 1;
+  // A market that pays the top three names all three places here. The podium
+  // itself is on the market screen, which is where this screen is reached
+  // from; drawing it again made the two screens the same screen.
+  const { podium } = paidResult(market.data.board, positions.data ?? [], acct, resolved && acct.status === 1);
   return (
     <Screen back>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -91,9 +100,19 @@ function PaidMajorityResult({ id }: { id: string }) {
         />
         <Card style={styles.winnerCard}>
           <Text style={type.label}>
-            {acct.status === 2 ? 'Cancelled, stakes refundable' : resolved ? (winners.length > 1 ? 'Winning words' : 'Winning word') : 'Awaiting resolution'}
+            {acct.status === 2
+              ? 'Cancelled, stakes refundable'
+              : podium
+                ? `Top ${paidWeights(acct.payoutWeights).length}`
+                : resolved
+                  ? winners.length > 1
+                    ? 'Winning words'
+                    : 'Winning word'
+                  : 'Awaiting resolution'}
           </Text>
-          {winners.length > 0 ? (
+          {podium ? (
+            <Text style={styles.places}>{placesLine(podium)}</Text>
+          ) : winners.length > 0 ? (
             <Text style={styles.winner}>{winners.map((w) => w.word ?? 'Word not shown yet').join(' · ')}</Text>
           ) : (
             <Text style={styles.winner}>{acct.status === 2 ? '–' : 'Pending'}</Text>
@@ -127,7 +146,11 @@ function PaidMajorityResult({ id }: { id: string }) {
                   {w.word ?? 'Word not shown yet'}
                 </Text>
                 <Text style={type.muted}>{w.units} {Number(w.units) === 1 ? 'pick' : 'picks'}</Text>
-                {w.outcome === WordOutcome.Winner ? <Pill label="WON" tone="green" /> : resolved ? <Pill label="LOST" tone="neutral" /> : null}
+                {w.outcome === WordOutcome.Winner ? (
+                  <Pill label={podium && (w.place ?? 0) >= 1 ? placeLabel(w.place ?? 0).toUpperCase() : 'WON'} tone="green" />
+                ) : resolved && !podium ? (
+                  <Pill label="LOST" tone="neutral" />
+                ) : null}
               </View>
             ))}
           </Card>
@@ -238,6 +261,9 @@ function FreeResult({ id, majority }: { id: number; majority: boolean }) {
   const viewed = useActiveWallet();
   const market = useFreeMarket(id, focused);
   const results = useFreeResults(id);
+  // The market route does not carry finishing places or stakes; the board
+  // route does, and only a majority market has one.
+  const board = useFreeBoard(id, viewed, focused && majority, majority);
   if (market.isPending || results.isPending) return <Loading />;
   if (market.isError || !market.data) {
     return (
@@ -249,6 +275,8 @@ function FreeResult({ id, majority }: { id: number; majority: boolean }) {
   const m = market.data.market;
   const winners = market.data.words.filter((w) => w.resolved_outcome === true);
   const resolved = m.status === 'resolved' || market.data.words.every((w) => w.resolved_outcome !== null);
+  const { podium } = majority && board.data ? freeResult(board.data, resolved && m.status !== 'cancelled') : { podium: null };
+  const placeOf = new Map((board.data?.board ?? []).map((w) => [w.word_id, w.place ?? null]));
   return (
     <Screen back>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -262,8 +290,14 @@ function FreeResult({ id, majority }: { id: number; majority: boolean }) {
         />
         {majority ? (
           <Card style={styles.winnerCard}>
-            <Text style={type.label}>{resolved ? (winners.length > 1 ? 'Winning words' : 'Winning word') : 'Awaiting resolution'}</Text>
-            <Text style={styles.winner}>{winners.length > 0 ? winners.map((w) => w.word).join(' · ') : 'Pending'}</Text>
+            <Text style={type.label}>
+              {podium ? `Top ${freeWeights(board.data?.market.payout_weights).length}` : resolved ? (winners.length > 1 ? 'Winning words' : 'Winning word') : 'Awaiting resolution'}
+            </Text>
+            {podium ? (
+              <Text style={styles.places}>{placesLine(podium)}</Text>
+            ) : (
+              <Text style={styles.winner}>{winners.length > 0 ? winners.map((w) => w.word).join(' · ') : 'Pending'}</Text>
+            )}
           </Card>
         ) : null}
         <View style={styles.section}>
@@ -274,13 +308,14 @@ function FreeResult({ id, majority }: { id: number; majority: boolean }) {
                 <Text style={styles.word} numberOfLines={1}>
                   {w.word}
                 </Text>
-                <Text style={type.muted}>{majority ? `said ${w.mention_count}×` : `closed at ${pct(w.yes_price)} chance`}</Text>
+                {/* A top 3 result does not show how often a word was said: the count is not part of its resolution yet. */}
+                {podium ? null : <Text style={type.muted}>{majority ? `said ${w.mention_count}×` : `closed at ${pct(w.yes_price)} chance`}</Text>}
                 {w.resolved_outcome === null ? (
                   <Pill label="PENDING" tone="orange" />
                 ) : majority ? (
                   w.resolved_outcome ? (
-                    <Pill label="WON" tone="green" />
-                  ) : (
+                    <Pill label={podium && placeOf.get(w.id) ? placeLabel(placeOf.get(w.id) ?? 0).toUpperCase() : 'WON'} tone="green" />
+                  ) : podium ? null : (
                     <Pill label="LOST" tone="neutral" />
                   )
                 ) : (
@@ -336,6 +371,8 @@ const styles = StyleSheet.create({
   section: { gap: spacing.sm },
   winnerCard: { gap: spacing.xs },
   winner: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 32, color: colors.gold },
+  // Three places in a line need less size than one winning word.
+  places: { fontFamily: fonts.bold, fontSize: 18, lineHeight: 26, color: colors.gold },
   stats: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.sm },
   listCard: { paddingHorizontal: spacing.md },
   name: { flexShrink: 1, fontFamily: fonts.semibold, fontSize: 15, lineHeight: 22, color: colors.text },

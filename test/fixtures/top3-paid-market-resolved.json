@@ -1,0 +1,56 @@
+{
+  "account": "HWmFBkBOY18B/xNxWQahAQAAGfslgGXG9F55chkUVqrVpGgXfnX62gcZ54blHAtDj24BAAAAGfslgGXG9F55chkUVqrVpGgXfnX62gcZ54blHAtDj24Z+yWAZcb0XnlyGRRWqtWkaBd+dfraBxnnhuUcC0OPbr/k37RwbHAWcZqeW1cB4u+pT3JhXp6hLK0TExZBeSugU76uM7UCs8nFJ9QNKj//xI/kTkFVb0M3JVr85M7N6qRAQg8AAAAAABgkwmoAAAAAyABAQg8AAAAAAAE0I8JqAAAAAAGfJMJqAAAAAJ8kwmoAAAAABwAAAAAAAAAGAAAA36xoAAAAAAAEAAAAAAAAAOEiAgAAAAAAlUXYsVBGe7ylPEPfi9P739fiISpP7R1sWiNHf7Mb4CsDAgGVyEUAAAAAANxCFwAAAAAAbqELAAAAAAACAAAAAAAAAAEAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+  "vaultAmount": "3951112",
+  "board": [
+    {
+      "wordHash": "fb0f026918d4ddff50b4f3ad86e5b384f8be222167728a6b6b08cd0d6d2ef46b",
+      "word": "america",
+      "units": "2",
+      "oddsPct": 28.57142857142857,
+      "outcome": 1,
+      "place": 1
+    },
+    {
+      "wordHash": "485216adbab98d719346a0c6755e88ff5f84bdae31063cd986ce730544374bcf",
+      "word": "bad",
+      "units": "1",
+      "oddsPct": 14.285714285714285,
+      "outcome": 0,
+      "place": 0
+    },
+    {
+      "wordHash": "f7d2f8b46dc004c5d91119332e3141ce07813b0473a778332b60d2eb26f26812",
+      "word": "big",
+      "units": "1",
+      "oddsPct": 14.285714285714285,
+      "outcome": 0,
+      "place": 0
+    },
+    {
+      "wordHash": "29f225525f3c514a1f2f474e595020cc8d21facb36b2c04c997c66e56caf3514",
+      "word": "china",
+      "units": "1",
+      "oddsPct": 14.285714285714285,
+      "outcome": 1,
+      "place": 2
+    },
+    {
+      "wordHash": "99a5bc94901320538e81f67b40fdf06b05ec50a4898873e7c8e904722339d2a8",
+      "word": "word",
+      "units": "1",
+      "oddsPct": 14.285714285714285,
+      "outcome": 0,
+      "place": 0
+    },
+    {
+      "wordHash": "a3215d7b475673b77cc9171a351933bc6783aea218f36ff84d0efe3e4e69e421",
+      "word": "wolf",
+      "units": "1",
+      "oddsPct": 14.285714285714285,
+      "outcome": 1,
+      "place": 3
+    }
+  ],
+  "totalUnits": "7",
+  "traderCount": 2
+}
