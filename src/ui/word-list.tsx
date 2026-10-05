@@ -1,8 +1,8 @@
-// The words of a YES/NO market, one row each. A free market shows the chance
-// the word happens, and tapping the row opens the trade sheet on YES. A paid
-// (AMM) market passes `quote` and shows a Yes and a No button with what each
-// pays, e.g. "Yes 1.58x", each opening the sheet on its own side: AMM markets
-// show multipliers only (src/trade/amm-display.ts).
+// The words of a YES/NO market, one row each. Both kinds pass `quote` and get
+// a Yes and a No button with what each pays, e.g. "Yes 1.58x", each opening
+// the sheet on its own side: a paid market from src/trade/amm-display.ts, a
+// free one from src/free/display.ts. Without `quote` a row falls back to the
+// chance the word happens, which no screen uses any more.
 import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 

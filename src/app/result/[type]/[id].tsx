@@ -27,8 +27,9 @@ import { placeLabel } from '@/chain/majorityWords';
 import { foldedRows, pnlTone, resultsSummary, returnPct, RESULTS_SHOWN, signedUsd, traderLine } from '@/markets/paid-results';
 import { freeResult, freeWeights, paidResult, paidWeights, placesLine } from '@/markets/top3';
 import { base64ToBytes } from '@/lib/bytes';
+import { freeQuote } from '@/free/display';
 import { sideQuote } from '@/trade/amm-display';
-import { pct, shortAddress, tokens, usd, usdc } from '@/lib/format';
+import { shortAddress, tokens, usd, usdc } from '@/lib/format';
 import { toMs } from '@/lib/time';
 import { useNow } from '@/lib/use-now';
 import { useActiveWallet } from '@/store/active-wallet';
@@ -409,7 +410,7 @@ function FreeResult({ id, majority }: { id: number; majority: boolean }) {
                   {w.word}
                 </Text>
                 {/* A top 3 result does not show how often a word was said: the count is not part of its resolution yet. */}
-                {podium ? null : <Text style={type.muted}>{majority ? `said ${w.mention_count}×` : `closed at ${pct(w.yes_price)} chance`}</Text>}
+                {podium ? null : <Text style={type.muted}>{majority ? `said ${w.mention_count}×` : `closed at Yes ${freeQuote(w.yes_price, 'YES')}`}</Text>}
                 {w.resolved_outcome === null ? (
                   <Pill label="PENDING" tone="orange" />
                 ) : majority ? (

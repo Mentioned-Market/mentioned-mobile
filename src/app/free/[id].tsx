@@ -12,9 +12,10 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { chatEventId } from '@/chat/rules';
 import { getFreeMarket, getFreeMarketIdBySlug, tradeFree } from '@/api/free';
 import { useFreeChart, useFreeMarket, useFreePositions, useIsScreenFocused } from '@/api/queries';
+import { freeBuyMultiplier, freeQuote } from '@/free/display';
 import { sharesForTokens, virtualBuyCost, virtualSellReturn } from '@/free/lmsr';
 import { VIRTUAL_MARKET_POINTS_CAP, VIRTUAL_MARKET_POINTS_MULTIPLIER, getDisplayStatus } from '@/free/marketUtils';
-import { pct, tokens } from '@/lib/format';
+import { tokens } from '@/lib/format';
 import { toMs } from '@/lib/time';
 import { prepareSeries } from '@/lib/chart';
 import { useNow } from '@/lib/use-now';
@@ -144,7 +145,8 @@ function FreeYesNoScreen({ id, wordParam }: { id: number; wordParam?: string }) 
   });
   const heldBadges: Record<string, string> = {};
   for (const p of positions.data?.positions ?? []) {
-    const parts = [p.yes_shares > 0.005 ? `${fmt(p.yes_shares)} YES` : null, p.no_shares > 0.005 ? `${fmt(p.no_shares)} NO` : null].filter(Boolean);
+    // A share pays one token if its side wins, so a holding reads as what it pays.
+    const parts = [p.yes_shares > 0.005 ? `Yes pays ${tokens(p.yes_shares)} tokens` : null, p.no_shares > 0.005 ? `No pays ${tokens(p.no_shares)} tokens` : null].filter(Boolean);
     if (parts.length) heldBadges[String(p.word_id)] = parts.join(' · ');
   }
 
@@ -160,8 +162,9 @@ function FreeYesNoScreen({ id, wordParam }: { id: number; wordParam?: string }) 
   const canSell = heldYes > 0 || heldNo > 0;
   const mode: TradeMode = canSell ? modeChoice : 'buy';
   const amountNum = Number(amount) || 0;
-  const chance = word ? (side === 'YES' ? word.yes_price : word.no_price) : 0;
-  let headline = { label: 'Potential return', value: '0 tokens' };
+  // What one token on this side pays right now, as on a paid market.
+  const oddsChip: SheetChip | null = word ? { value: freeQuote(word.yes_price, side), caption: 'odds now', tone: side === 'YES' ? 'yes' : 'no' } : null;
+  let headline = { label: 'Payout', value: '0 tokens' };
   let detail: string | null = null;
   let chips: SheetChip[] = [];
   let warning: string | null = null;
@@ -171,11 +174,11 @@ function FreeYesNoScreen({ id, wordParam }: { id: number; wordParam?: string }) 
     const tokensIn = Math.min(amountNum, Math.max(0, balance));
     const sharesOut = tokensIn > 0 ? sharesForTokens(word.yes_qty, word.no_qty, side, tokensIn, b) : 0;
     const cost = sharesOut > 0 ? virtualBuyCost(word.yes_qty, word.no_qty, side, sharesOut, b) : 0;
-    const avg = sharesOut > 0 ? cost / sharesOut : 0;
-    headline = { label: 'Potential return', value: `${tokens(sharesOut)} tokens` };
-    detail = sharesOut > 0 ? `${fmt(sharesOut)} shares · avg ${pct(avg)} · cost ${tokens(cost)} tokens` : null;
+    const multiplier = freeBuyMultiplier(sharesOut, cost);
+    headline = { label: `Payout if ${side === 'YES' ? 'Yes' : 'No'}`, value: `${tokens(sharesOut)} tokens` };
+    detail = multiplier ? `${multiplier} on your pick · costs ${tokens(cost)} tokens` : null;
     chips = [
-      { value: pct(chance), caption: 'chance', tone: side === 'YES' ? 'yes' : 'no' },
+      ...(oddsChip ? [oddsChip] : []),
       { value: viewed ? tokens(balance) : tokens(m.play_tokens), caption: viewed ? 'tokens available' : 'tokens to start' },
     ];
     if (amountNum > balance) warning = `You have ${tokens(balance)} tokens on this market.`;
@@ -183,11 +186,12 @@ function FreeYesNoScreen({ id, wordParam }: { id: number; wordParam?: string }) 
   } else if (word) {
     const capped = Math.min(amountNum, heldSide);
     const ret = capped > 0 ? virtualSellReturn(word.yes_qty, word.no_qty, side, capped, b) : 0;
-    const avg = capped > 0 ? ret / capped : 0;
+    const kept = Math.max(0, heldSide - capped);
     headline = { label: 'You receive', value: `${tokens(ret)} tokens` };
-    detail = capped > 0 ? `avg ${pct(avg)}` : null;
+    // What is left still pays a token a share if the side wins.
+    detail = capped > 0 && kept > 0.005 ? `Keeps ${tokens(kept)} tokens if ${side === 'YES' ? 'Yes' : 'No'}` : null;
     chips = [
-      { value: pct(chance), caption: 'chance', tone: side === 'YES' ? 'yes' : 'no' },
+      ...(oddsChip ? [oddsChip] : []),
       { value: fmt(heldSide), caption: `${side} held` },
     ];
     if (!viewed) warning = 'Connect a wallet to see what you hold.';
@@ -291,10 +295,11 @@ function FreeYesNoScreen({ id, wordParam }: { id: number; wordParam?: string }) 
             <Button label="See results" tone="neutral" />
           </Link>
         ) : null}
-        <WordList words={words} onPick={openSheet} open={open} held={heldBadges} />
-        <SectionTitle title="Chance over time" />
+        <WordList words={words} onPick={openSheet} open={open} held={heldBadges} quote={(w, sd) => freeQuote(w.yesPrice, sd)} />
+        <SectionTitle title="Odds over time" />
         <Card>
-          <LineChart series={series} selectedKey={pick ? String(pick.wordId) : null} format={pct} />
+          {/* Lines read as what a Yes pays, like the buttons above. */}
+          <LineChart series={series} selectedKey={pick ? String(pick.wordId) : null} format={(p) => freeQuote(p, 'YES')} />
         </Card>
         <Text style={[type.muted, { textAlign: 'center' }]}>{POINTS_NOTE}</Text>
         <ChatPreview eventId={chatEventId('free-yesno', id)} title={m.title} focused={focused} now={now} />
