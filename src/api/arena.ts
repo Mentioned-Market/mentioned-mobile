@@ -8,7 +8,7 @@
 import { z } from 'zod';
 
 import { API_BASE } from '@/config';
-import { ApiError, get, patch, post, q } from './client';
+import { ApiError, authHeader, get, patch, post, q } from './client';
 
 export const TeamLeaderboardEntry = z.object({
   team_id: z.number(),
@@ -200,14 +200,31 @@ export const updateTeam = (slug: string, wallet: string, fields: { name?: string
 /**
  * Upload a new team avatar. Multipart, not JSON, so it bypasses the JSON
  * client; errors still come back as ApiError so callers handle them alike.
+ *
+ * It must carry the session itself for the same reason: the route takes the
+ * captain from the verified session and ignores `wallet` in the form.
+ *
+ * The file part is NOT React Native's `{ uri, type, name }`. Expo SDK 57
+ * replaces the global `fetch` with its own (expo/src/winter), and that one
+ * builds the multipart body itself and refuses a `uri` part outright
+ * ("Unsupported FormDataPart implementation"). It threw before any request
+ * left the phone, and the screen reported it as "check your connection"
+ * (Oct 5 2026). What it does accept is anything with `bytes()`, a name and a
+ * type, so that is what the caller hands over. The caller supplies `bytes`
+ * (the screen reads the picked file with expo-file-system) because this module
+ * is also loaded by the Node scripts, which cannot import a native package.
  */
-export async function uploadTeamAvatar(slug: string, wallet: string, file: { uri: string; mimeType: string; name: string }): Promise<void> {
+export type AvatarFile = { name: string; mimeType: string; bytes: () => Promise<Uint8Array> };
+
+/** The file as a multipart part Expo's fetch will take: never a `uri`. */
+export const avatarPart = (file: AvatarFile) => ({ name: file.name, type: file.mimeType, bytes: file.bytes });
+
+export async function uploadTeamAvatar(slug: string, wallet: string, file: AvatarFile): Promise<void> {
   const path = `/api/teams/pfp/${encodeURIComponent(slug)}`;
   const form = new FormData();
   form.append('wallet', wallet);
-  // React Native's FormData takes a file reference in this shape rather than a Blob.
-  form.append('file', { uri: file.uri, type: file.mimeType, name: file.name } as unknown as Blob);
-  const res = await fetch(API_BASE + path, { method: 'POST', body: form });
+  form.append('file', avatarPart(file) as unknown as Blob);
+  const res = await fetch(API_BASE + path, { method: 'POST', body: form, headers: { Accept: 'application/json', ...authHeader() } });
   if (!res.ok) {
     let message: string | undefined;
     try {

@@ -455,6 +455,20 @@ ask, so `CAMERA` and `RECORD_AUDIO` are removed in the main manifest
 them back) and `SYSTEM_ALERT_WINDOW` now lives only in the debug manifest,
 where the dev overlay needs it. Check with `aapt dump badging` on the APK.
 
+That was not enough. The first submission (version code 1) was rejected on
+Oct 5 2026 under PER-001 for four more: `READ_EXTERNAL_STORAGE`,
+`WRITE_EXTERNAL_STORAGE`, `USE_BIOMETRIC` and `USE_FINGERPRINT`. None was
+asked for by the app. The two storage ones came from the Expo template and
+from `expo-file-system` and `expo-image-picker`; the only file the app writes
+is its own query cache in its own cache directory, and the picture picker is
+the system's, neither of which needs a permission. The two biometric ones are
+declared by `androidx.biometric`, which `expo-secure-store` links for a
+`requireAuthentication` option that nothing here, in Openfort or in Privy
+turns on. All four are removed the same way, and version code 2 is the
+resubmission. The lesson: a library's manifest is merged into the app's
+whether or not its feature is used, so read the permission list off the built
+APK before every submission, not off `app.json`.
+
 `mentioned://dev` was open to anyone with the link in every build. It was left
 that way on purpose, because a release build sends no console output to logcat
 and the screen is how a wallet problem gets diagnosed on a real phone. But it

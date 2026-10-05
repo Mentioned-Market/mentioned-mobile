@@ -54,7 +54,7 @@ export function setAuthTokenGetter(getter: () => string | null) {
  * Read at call time, never captured: a token can arrive or be cleared between
  * a query being defined and it running.
  */
-function authHeader(): Record<string, string> {
+export function authHeader(): Record<string, string> {
   const token = tokenGetter();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
