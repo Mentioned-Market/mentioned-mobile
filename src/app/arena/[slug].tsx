@@ -3,6 +3,7 @@
 // captain can edit the details, change the picture and share the join code.
 import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
+import { File } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
 import { Link, useLocalSearchParams, type Href } from 'expo-router';
@@ -121,7 +122,7 @@ export default function TeamScreen() {
     }
     setUploading(true);
     try {
-      await uploadTeamAvatar(slug, wallet, { uri: asset.uri, mimeType: asset.mimeType ?? 'image/jpeg', name: asset.fileName ?? 'team.jpg' });
+      await uploadTeamAvatar(slug, wallet, { mimeType: asset.mimeType ?? 'image/jpeg', name: asset.fileName ?? 'team.jpg', bytes: () => new File(asset.uri).bytes() });
       setAvatarFailed(false);
       setAvatarVersion(Date.now());
     } catch (e) {
