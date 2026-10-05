@@ -66,8 +66,9 @@ describe('how to play', () => {
     expect(HOW_TO_PLAY.majority).toMatch(/shares the pool/);
   });
 
-  it('says what the percentage on a word means', () => {
-    expect(HOW_TO_PLAY.yesno).toMatch(/%/);
+  it('says what the multiplier on a word means, and never calls it a percentage', () => {
+    expect(HOW_TO_PLAY.yesno).toMatch(/2x doubles it/);
+    expect(HOW_TO_PLAY.yesno).not.toMatch(/%/);
   });
 
   it('keeps to the house style', () => {

@@ -18,6 +18,7 @@ import { pct } from '@/lib/format';
 import { useCountdown } from '@/lib/use-countdown';
 import { GAME_BADGE, GAME_ICON, STAKE_NAME, gameOf, moneyLine, stakeOf } from '@/markets/game';
 import { isMajority, sameMarket, wordHref, type MarketSummary } from '@/markets/merge';
+import { freeQuote } from '@/free/display';
 import { sideQuote } from '@/trade/amm-display';
 import { LiveNumber } from '@/ui/live-number';
 import { Pill } from '@/ui/pill';
@@ -135,13 +136,14 @@ function MarketCardImpl({ market }: MarketCardProps) {
                       tone={w.outcome === 'winner' || w.outcome === 'yes' ? 'green' : w.outcome === 'loser' ? 'neutral' : 'red'}
                     />
                   ) : (
-                    // A paid YES/NO market shows what Yes pays, as the web's list does
-                    // (spot, before fees); everything else keeps its chance. Either
-                    // way it flashes with the chance, green for up.
+                    // A YES/NO market, paid or free, shows what Yes pays, as the
+                    // web's list does (spot, before fees); a majority board keeps
+                    // its share of the pool. Either way it flashes with the
+                    // chance, green for up.
                     <LiveNumber
                       value={w.pct}
                       format={pct}
-                      text={market.kind === 'paid-yesno' ? `Yes ${sideQuote(w.pct, 'YES', NO_FEES)}` : undefined}
+                      text={market.kind === 'paid-yesno' ? `Yes ${sideQuote(w.pct, 'YES', NO_FEES)}` : market.kind === 'free-yesno' ? `Yes ${freeQuote(w.pct, 'YES')}` : undefined}
                       style={StyleSheet.flatten([styles.wordPct, majority && { color: colors.text }])}
                     />
                   )}

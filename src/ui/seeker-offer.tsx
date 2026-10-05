@@ -120,19 +120,20 @@ function Glow({ still }: { still: boolean }) {
 const GIFT = 36;
 
 const styles = StyleSheet.create({
+  // No outline. A hairline gold border around corners this round drew
+  // unevenly on Android, thicker on the curves than on the sides, and no other
+  // card in the app has one (docs/DESIGN.md). The gold tint alone marks it out.
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm + 4,
-    paddingVertical: spacing.sm + 4,
-    paddingLeft: spacing.sm + 4,
-    paddingRight: spacing.md + 6,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     borderRadius: radius.card,
     backgroundColor: colors.goldTint,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.gold,
   },
-  celebrate: { borderWidth: 1 },
+  // The moment the stake lands: a deeper gold ground, where the border used to thicken.
+  celebrate: { backgroundColor: 'rgba(242,183,31,0.28)' },
   giftWrap: { width: GIFT + 6, height: GIFT + 6, alignItems: 'center', justifyContent: 'center' },
   halo: { position: 'absolute', width: GIFT + 6, height: GIFT + 6, borderRadius: (GIFT + 6) / 2, backgroundColor: colors.gold },
   gift: { width: GIFT, height: GIFT, borderRadius: GIFT / 2, backgroundColor: colors.gold, alignItems: 'center', justifyContent: 'center' },
@@ -141,5 +142,5 @@ const styles = StyleSheet.create({
   amount: { fontFamily: fonts.bold, color: colors.gold, fontVariant: ['tabular-nums'] },
   subtitle: { ...type.muted, fontSize: 13, lineHeight: 17 },
   error: { color: colors.no },
-  close: { position: 'absolute', top: 8, right: 10 },
+  close: { position: 'absolute', top: 10, right: 12 },
 });

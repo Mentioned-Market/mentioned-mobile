@@ -3,8 +3,8 @@
 //
 // The web moved AMM markets to multiplier odds in September 2026
 // (lib/oddsDisplay.ts, ported as src/lib/oddsDisplay.ts). The app shows only
-// that mode; there is no cents toggle. Majority markets and free markets are
-// not AMM markets and keep their own display.
+// that mode; there is no cents toggle. Free YES/NO markets read the same way,
+// in tokens (src/free/display.ts). Majority boards keep their share of the pool.
 //
 // Two places this deliberately goes further than the web page:
 // - A payout is net of the market's winner rake everywhere. The web's buy

@@ -39,7 +39,7 @@ export const GAME_ICON: Record<Game, 'podium' | 'checkmark-done'> = {
 /** How the game is won, in a line. The same for free and paid: only the unit differs. */
 export const HOW_TO_PLAY: Record<Game, string> = {
   majority: 'Pick words. Everyone who picked the word said most shares the pool.',
-  yesno: 'Pick Yes if you think it gets said, No if not. The % is how likely players think it is.',
+  yesno: 'Pick Yes if you think it gets said, No if not. The number is what a winning pick pays back: 2x doubles it.',
 };
 
 /**
