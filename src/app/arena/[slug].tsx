@@ -22,6 +22,7 @@ import { Pill } from '@/ui/pill';
 import { Screen } from '@/ui/screen';
 import { Segmented } from '@/ui/segmented';
 import { CardSkeleton, ErrorState } from '@/ui/states';
+import { SeekerBadge } from '@/ui/seeker-badge';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
 type Sort = 'season' | 'all';
@@ -241,6 +242,7 @@ export default function TeamScreen() {
                       <Text style={styles.name} numberOfLines={1}>
                         {m.username ?? shortAddress(m.wallet)}
                       </Text>
+                      <SeekerBadge wallet={m.wallet} />
                       {m.role === 'captain' ? <Pill label="CAPTAIN" tone="gold" /> : null}
                       {m.wallet === wallet ? <Pill label="YOU" tone="neutral" /> : null}
                     </View>

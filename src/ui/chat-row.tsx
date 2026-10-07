@@ -11,6 +11,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ChatMessage } from '@/api/chat';
 import { profileHref, quote } from '@/chat/rules';
 import { ago } from '@/lib/time';
+import { SeekerBadge } from '@/ui/seeker-badge';
 import { colors, fonts, spacing } from '@/ui/theme';
 
 type Props = { m: ChatMessage; now: number; mine: boolean; head: boolean; onLongPress?: (m: ChatMessage) => void };
@@ -66,6 +67,7 @@ export function ChatRow({ m, now, mine, head, onLongPress }: Props) {
                 </Text>
               </Pressable>
             </Link>
+            <SeekerBadge wallet={m.wallet} size={10} />
             <Text style={styles.when}>{when}</Text>
           </View>
         ) : null}

@@ -9,6 +9,7 @@ import { Button } from '@/ui/button';
 import { Card, SectionTitle, Stat } from '@/ui/card';
 import { Screen } from '@/ui/screen';
 import { ErrorState, Skeleton } from '@/ui/states';
+import { SeekerBadge } from '@/ui/seeker-badge';
 import { colors, radius, spacing, type } from '@/ui/theme';
 
 export default function PublicProfileScreen() {
@@ -39,9 +40,12 @@ export default function PublicProfileScreen() {
             <Text style={styles.emoji}>{p.pfpEmoji ?? '🙂'}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={type.title} numberOfLines={1}>
-              {p.username}
-            </Text>
+            <View style={styles.nameRow}>
+              <Text style={[type.title, { flexShrink: 1 }]} numberOfLines={1}>
+                {p.username}
+              </Text>
+              <SeekerBadge wallet={p.wallet} size={14} />
+            </View>
             <Text style={type.muted}>
               {shortAddress(p.wallet)}
               {since ? ` · since ${since}` : ''}
@@ -91,6 +95,7 @@ export default function PublicProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   content: { gap: spacing.md, paddingBottom: spacing.xl },
   section: { gap: spacing.sm },
   identity: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },

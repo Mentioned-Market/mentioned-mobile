@@ -21,11 +21,13 @@ import {
   usePaidMarketWordSpend,
   useSolBalance,
   useUsdcBalance,
+  useSeekerStatus,
 } from '@/api/queries';
 import { chatEventId } from '@/chat/rules';
 import { deserializeMarketAccount, estimateBuyCost, estimateSellReturn, impliedYesPrice, MarketStatus, sharesForUsdc } from '@/chain/amm';
 import { base64ToBytes } from '@/lib/bytes';
 import { shortAddress, usd, usdc } from '@/lib/format';
+import { freePickElsewhereNote } from '@/lib/seeker-perk';
 import { toBaseUnits } from '@/lib/units';
 import { prepareSeries } from '@/lib/chart';
 import { useNow } from '@/lib/use-now';
@@ -115,6 +117,8 @@ export default function PaidYesNoScreen() {
   const features = useFeatures();
   const queryClient = useQueryClient();
   const sessionWallet = useSession((st) => st.wallet);
+  // An unused free Seeker pick cannot be spent here; say so, so nobody looks for it.
+  const freePickNote = freePickElsewhereNote(useSeekerStatus(sessionWallet, features.seekerPerk).data);
 
   const acct = useMemo(() => (market.data ? deserializeMarketAccount(base64ToBytes(market.data.account)) : null), [market.data]);
   if (market.isPending) {
@@ -406,6 +410,7 @@ export default function PaidYesNoScreen() {
           description={meta.data?.description}
           kind="paid-yesno"
         />
+        {freePickNote && status === 'open' ? <Text style={type.muted}>{freePickNote}</Text> : null}
         <YourPositions connected={!!viewed} rows={heldRows} loading={!!viewed && positions.isPending} />
         {status === 'resolved' ? (
           <Link href={`/result/paid/${id}` as Href} asChild>

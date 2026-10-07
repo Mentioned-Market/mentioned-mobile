@@ -1,0 +1,59 @@
+{
+    "categories": [
+        {
+            "slug": "football",
+            "name": "Football",
+            "sort_order": 10
+        },
+        {
+            "slug": "nfl",
+            "name": "NFL",
+            "sort_order": 20
+        },
+        {
+            "slug": "earnings",
+            "name": "Earnings",
+            "sort_order": 30
+        },
+        {
+            "slug": "esports",
+            "name": "Esports",
+            "sort_order": 40
+        },
+        {
+            "slug": "f1",
+            "name": "F1",
+            "sort_order": 50
+        },
+        {
+            "slug": "crypto",
+            "name": "Crypto",
+            "sort_order": 60
+        },
+        {
+            "slug": "nba",
+            "name": "NBA",
+            "sort_order": 70
+        },
+        {
+            "slug": "nhl",
+            "name": "NHL",
+            "sort_order": 80
+        },
+        {
+            "slug": "baseball",
+            "name": "Baseball",
+            "sort_order": 90
+        },
+        {
+            "slug": "awards",
+            "name": "Awards",
+            "sort_order": 100
+        },
+        {
+            "slug": "politics",
+            "name": "Politics",
+            "sort_order": 110
+        }
+    ]
+}

@@ -88,7 +88,14 @@ async function main() {
   // ── Positions and user ────────────────────────────────────────────
   write('paid-majority-user-positions', await get(`/api/paid-majority/user-positions?wallet=${WALLET}`));
   write('paid-markets-user-positions', await get(`/api/paid-markets/user-positions?wallet=${WALLET}`));
-  write('profile', await get(`/api/profile?wallet=${WALLET}`));
+  // The linked Discord account is personal, so the fixture keeps the shape and
+  // not the identity.
+  const profileData = await get<Record<string, unknown>>(`/api/profile?wallet=${WALLET}`);
+  write('profile', {
+    ...profileData,
+    ...(profileData.discordId ? { discordId: '100000000000000000' } : {}),
+    ...(profileData.discordUsername ? { discordUsername: 'example_user' } : {}),
+  });
 
   // Arena and referrals. The team avatar is a data URL of up to a megabyte, and
   // the app never reads it from this route, so it is not stored.
@@ -101,7 +108,9 @@ async function main() {
     const member = profile.members[0]?.wallet;
     if (member) {
       const mine = await get<{ team: Record<string, unknown> | null }>(`/api/teams/my-team?wallet=${member}&arena=world-cup`);
-      write('team-my-team', { team: mine.team ? { ...mine.team, pfp_data: null } : null });
+      // A join code lets anyone into the team, so a real one is never stored.
+      const team = mine.team ? { ...mine.team, pfp_data: null, ...(mine.team.join_code ? { join_code: 'ABC123' } : {}) } : null;
+      write('team-my-team', { team });
     }
   }
   // The medal board is captured from the season that has one. Three contenders
@@ -120,6 +129,7 @@ async function main() {
   write('prize-pool', await get('/api/prize-pool'));
   write('raffle', await get(`/api/raffle/tickets?wallet=${WALLET}`));
   write('search', await get('/api/search?q=mich'));
+  write('categories', await get('/api/categories'));
 
   console.log('done');
 }

@@ -20,6 +20,7 @@ const BASE: MarketSummary = {
   pool: { kind: 'usdc', usd: 420 },
   traderCount: 33,
   isFeatured: false,
+  category: null,
 };
 
 /** A fresh object with the same contents, as mergeMarkets produces each tick. */

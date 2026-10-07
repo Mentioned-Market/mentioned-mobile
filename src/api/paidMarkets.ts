@@ -28,6 +28,8 @@ export const PaidMarketListEntry = z.object({
   eventStartTime: z.string().nullable(),
   traderCount: z.number(),
   isFeatured: z.boolean(),
+  /** Category slug (see src/api/categories.ts), or null. Absent on a server from before categories. */
+  category: z.string().nullable().optional(),
 });
 export type PaidMarketListEntry = z.infer<typeof PaidMarketListEntry>;
 

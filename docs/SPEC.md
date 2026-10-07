@@ -9,13 +9,7 @@ UI pass over the whole app. Revised Sep 16 2026: v8 is the production build
 working on a device, v9 is release prep and submission, cleanup is v10.
 Revised Oct 4 2026: the submission moved from Sep 21 to Oct 4 (section 12).
 It is written to live in this repo; the web-side changes it depends on are
-listed in section 15 and tracked in the `mentioned` repo.
-
-Companion documents in the web repo: `specs/hackathon_fall_2026_plan.md`
-(Colosseum overlap, Arena 3, owner lanes, branch landing schedule),
-`specs/wallet_provider_routing.md` and `specs/openfort_migration_plan.md`
-(Openfort), `specs/openfort_usdc_gas_plan.md` (Kora), `specs/paid_majority_market_spec.md`,
-`specs/custom_free_market_spec.md`.
+listed in section 15.
 
 ## 1. Product
 
@@ -261,7 +255,7 @@ dependencies are `expo-application`, `expo-crypto`, `expo-linking`,
 `expo-apple-authentication`; the app already has three of those. Note the web
 verifies tokens with `@openfort/openfort-node` while the app would mint them
 with the v2 React Native SDK, so proving one token verifies server side is the
-first thing to check, before any UI (see section 20, open question 3).
+first thing to check, before any UI.
 
 Mobile flow:
 
@@ -362,8 +356,22 @@ Built Sep 25 2026 (web `app/api/seeker/*`, app `src/ui/seeker-card.tsx`).
    `SEEKER_GRANT_DAILY_CAP`.
 3. `GET /api/seeker/status` drives the card on Me, behind the `seekerPerk` flag.
 
-Not built: a Seeker badge on public profiles, and linking automatically after a
-deposit (the card on Me is the only entry point).
+4. **Free pick, in place of the cash stake** (Oct 7 2026). The stake was being
+   withdrawn to the Seeker unplayed, so it is now one sponsored majority pick:
+   `POST /api/seeker/free-pick/build` reserves it and returns a transaction the
+   funder has signed, which funds and places the pick together; the app checks
+   it (`src/trade/seeker-pick.ts`), simulates it, co-signs it, and sends it to
+   `POST /api/seeker/free-pick/submit`, which broadcasts and settles it from
+   the chain. The status gains a `freePick` half; `grant` reports unavailable
+   in this mode, so older builds offer the link only. `SEEKER_GRANT_MODE=cash`
+   restores the transfer. Needs the three `grant_*` columns from
+   `scripts/migrate.ts` on the web. Untested on a device.
+
+5. **Seeker mark beside a name** (Oct 7 2026): Ranks, profiles, chat, team
+   members, from `POST /api/seeker/verified` (docs/ENGINEERING.md).
+
+Not built: linking automatically after a deposit (the card on Me is the only
+entry point).
 
 ## 7. v4: trading
 
@@ -598,10 +606,8 @@ server does (2 to 30 character names, 300 character bios, an X handle read from
 a handle or a profile link, images under 1 MB) so a form never sends something
 the server will refuse.
 
-All four routes take `wallet` from the request body and never check the
-session, so any caller can act as any wallet. The app sends its own signed-in
-wallet, which is all it can do from here; the fix belongs on the website
-(section 15) and is worth making regardless.
+All four routes act as the wallet in the verified session, like every other
+write route, so the app only has to send its bearer.
 
 ### 9.2 Referrals
 
@@ -732,9 +738,9 @@ mentioned.market, a deposit and a withdrawal round-tripped, a push received.
 ## 12. v9: release prep and submission
 
 Everything between a working production build and a public listing, in the
-order it has to happen. Two items are web tasks, written up for handover as
-`docs/WEB_ASSETLINKS_TASK.md` and `docs/WEB_RATE_LIMIT_TASK.md`; two more are
-outside every repo, in a password manager and in the publishing portal.
+order it has to happen. Two items are web tasks (`docs/WEB_ASSETLINKS_TASK.md`
+covers the first); two more are outside every repo, in a password manager and
+in the publishing portal.
 
 Planned for Sep 18 to Sep 21; submitted Oct 4 2026. Review takes three to
 five business days, and the listing goes public on approval.
@@ -759,17 +765,14 @@ sections, both fed by routes that already existed:
 
 v8 shipped with the mainnet build working and most of the trade matrix run on
 production: a majority pick, an AMM buy, and free buys and sells, all visible
-on mentioned.market. These were not run and belong in the release checklist
+on mentioned.market. What was not run then belongs in the release checklist
 below rather than in a version of their own:
 
 1. An **AMM sell** and a **free majority entry**.
-2. A **claim**. There is $4.80 waiting on a resolved majority market, so this
-   is available now.
-3. A **deposit from the Seed Vault** and a **withdrawal** back to it. The
-   deposit has never been signed against a real wallet app.
-4. **Google and X sign-in**, once both providers are switched on in the
-   Openfort dashboard. The `mentioned://` redirect is already allowed there.
-5. **A push**, now that the routes are live on production.
+
+Since run on a Seeker and working, so no longer owed: a **claim**, a **deposit
+from the Seed Vault** and a **withdrawal** back to it, **Google and X
+sign-in**, and **a push** received on the device.
 
 Also worth a look while testing: the production Openfort account collected
 nine Solana wallets, eight of them empty, from a race fixed on Sep 15. The app
@@ -793,13 +796,11 @@ the routes behind them work. What makes them verified rather than a chooser is
 `public/.well-known/assetlinks.json`, served at `www` with the release
 certificate's fingerprint. The apex 301s and Android does not follow it.
 
-### 12.5 Wallet-keyed rate limits (web)
+### 12.5 Rate limits on mobile networks (web)
 
-Every limit is keyed on the client IP. Carrier NAT puts thousands of phones
-behind one, so the paid RPC proxy would throttle a whole mobile network during
-a live event. Key on the wallet when a request carries a verified session, on
-the IP otherwise. The app already sends the bearer on every authenticated
-call, so nothing changes here.
+Carrier NAT puts thousands of phones behind one address, so limits for
+signed-in callers have to follow the wallet rather than the network. The app
+already sends the bearer on every authenticated call, so nothing changes here.
 
 ### 12.6 Mobile config (web)
 
@@ -920,9 +921,8 @@ Gate: every item above is either checked on a Seeker or decided, and a fresh
 In priority order. Anything green on both Seekers by Sep 25 goes into a 1.1
 submission that day; otherwise the post-launch update.
 
-1. **Seeker holder perk.** `seeker_verified_at` holders get one sponsored $1
-   majority pick into the app wallet via `POST /api/seeker/free-pick`
-   (reuses `buildSponsoredPickTx`, budget-capped like the event pass).
+1. ~~**Seeker holder perk.** One sponsored $1 majority pick.~~ Built Oct 7
+   2026 as the replacement for the cash stake (section 6.5, item 4).
 2. **Share sheet polish** and share-points flow on every result screen.
 3. **Price alerts UI** on free YES/NO words (API exists), delivered as push.
 4. **Home-screen widget** (Kotlin AppWidget via an Expo config plugin) showing
@@ -935,31 +935,22 @@ submission that day; otherwise the post-launch update.
 
 ## 15. Web repo dependencies
 
-All in the existing Railway services; no new service.
+What the app needs from the website. All of it runs in the existing services;
+nothing here needed a new one.
 
-**Status Sep 10 2026.** PR #159 (`feat/openfort-privy-routing`) is merged to
-`main`, so `type: 'openfort'` sign-in, the encryption-session route, the signer
-and the card on-ramp all exist. None of the four mobile-specific changes below
-have been started, and the merged specs do not mention mobile. Three of them
-are small; the first is the one that matters, because every authenticated route
-goes through it.
-
-| Change | Where | What | Needed by |
-|---|---|---|---|
-| ~~Land the Openfort branches~~ | merged as PR #159 | DONE. `type: 'openfort'` sign-in, `/api/openfort/encryption-session` (409 `LEGACY_PRIVY_ACCOUNT`, accessToken in body, no browser assumptions), `lib/openfortSolanaSigner.ts` and its test, `/api/onramp/quote` and `/session`. Gated on `NEXT_PUBLIC_OPENFORT_CUTOVER_AT` | v3 |
-| **Bearer sessions** | `lib/walletAuth.ts:402` | `getVerifiedWallet` is cookie-only today (`req.cookies.get('session')`). Read `Authorization: Bearer` first, fall back to the cookie, same `verifySessionToken`. Four lines. This one change unlocks every authenticated route at once, including the on-ramp, which already 401s a mobile caller | v3 |
-| **Mobile sign-in additions** | `app/api/auth/sign-in` | The route mints `sessionToken` and sets it only as an httpOnly cookie, and reads `ref` only from a cookie. Return the token in the JSON body when `client === 'mobile'`, and accept `ref` in the body. The app has no cookie jar to rely on | v3 |
-| **Seeker wallet link** | `app/api/seeker/link`, `lib/seekerLink.ts` | Does not exist; there is no `app/api/seeker` directory. Nonce, verify MWA-signed message, store `seeker_wallet`, DAS check, `seeker_verified_at` | v3 |
-| Retire the Discord gate | `lib/db.ts` (`assertDiscordTradingEligible`, `insertPointEvent`), free trade + entry routes | Behind an env flag so web and app flip together. Keep the lock check and rate limits. Watch Sybil pressure on free points | v10 |
-| Wallet-keyed rate limits | `lib/rateLimit.ts`, `/api/paid-rpc` | Carrier NAT puts thousands of phones behind one IP. Key authenticated calls on the wallet; the proxy on the wallet when a bearer is present, IP otherwise. Spec: `docs/WEB_RATE_LIMIT_TASK.md` | v9 |
-| Push channel | `scripts/migrate.ts`, `lib/notifications.ts`, `services/notification-worker` | `push_tokens` table, `notification_settings.push_*`, `push` outbox rows, worker `push.ts` with Firebase Admin (`FCM_SERVICE_ACCOUNT_JSON`), remove tokens on `UNREGISTERED`. Delivery gate applies. Change both copies of delivery logic | v5 |
-| Mobile config | `app/api/mobile/config` | Static JSON from env: `minVersion`, `killSwitch`, `cluster`, `features`. Handover with the exact route: `docs/WEB_MOBILE_CONFIG_TASK.md` | v5 |
-| Verified wallets on team routes | `app/api/teams/create`, `join`, `[slug]` (PATCH), `pfp/[slug]` (POST) | All four trust `wallet` from the body; switch to `getVerifiedWallet` like every other write route. A security fix on the website regardless, and required before the app offers team actions | v6 (team actions only) |
-| App Links | `public/.well-known/assetlinks.json` | Package name + release cert SHA-256. Spec: `docs/WEB_ASSETLINKS_TASK.md` | v9 |
-| Seeker perk | `app/api/seeker/free-pick`, `lib/seekerPerk.ts` | Requires `seeker_verified_at`; one row per (wallet, cluster); budget cap | v9.1 |
-| Widget endpoint | `app/api/mobile/widget` | User's best-ranked open pick, cached 15s | v9.1 |
-
-Env: `FCM_SERVICE_ACCOUNT_JSON` on the worker; nothing new in the app.
+| Change | What the app needs | Needed by |
+|---|---|---|
+| Openfort sign-in | `type: 'openfort'` sign-in, `/api/openfort/encryption-session` and the card on-ramp routes | v3 |
+| Bearer sessions | Every authenticated route accepts `Authorization: Bearer` as well as the cookie. The app has no cookie jar | v3 |
+| Mobile sign-in | The session token returned in the JSON body, and `ref` accepted in the body | v3 |
+| Seeker wallet link | `/api/seeker/status`, `/link` and `/grant` (section 6.5) | v3 |
+| Push channel | Device token registration, per-user push settings and delivery through FCM | v5 |
+| Mobile config | `/api/mobile/config`: minimum version, kill switch, cluster and feature flags (`docs/REMOTE_CONFIG.md`) | v5 |
+| Team actions | Create, join, edit and picture routes that act as the session wallet | v6 |
+| Rate limits | Limits that follow the wallet for signed-in callers (section 12.5) | v9 |
+| App Links | `assetlinks.json` with the package name and release certificate (`docs/WEB_ASSETLINKS_TASK.md`) | v9 |
+| Seeker perk | A one-time free pick for a verified Seeker | v9.1 |
+| Widget endpoint | The user's best-ranked open pick | v9.1 |
 
 ## 16. API contract
 
@@ -1076,34 +1067,3 @@ NativeWind for styling.
 - **Load check** before launch: 50 simulated wallets from one IP against
   staging to confirm the wallet-keyed rate limits.
 - **Release run-through** as in section 11 by someone who did not build it.
-
-## 19. Risks
-
-| Risk | Mitigation |
-|---|---|
-| Eligibility: the web product predates the 3-month window | New repo with a visible history from Sep 8; a deck slide listing the mobile-only engineering; the question sent to the organisers in writing |
-| Openfort-only login versus "integrate MWA" | MWA is the funding and identity bridge, made unmissable: Fund sheet on first launch, Seed Vault approval in the first 30s of the video, Seeker badge. Confirm the reading with organisers; if they insist on MWA sign-in, that is a product decision, not a lane decision |
-| Openfort branches are owned by another lane | v1 (section 4) needs nothing from them, so the mobile lane stays busy until Sep 13 regardless. If staging is not usable by Sep 13, the mobile lane rebases the branches itself |
-| Legacy Privy users are blocked in the app | Clear message pointing at the website; count active ones before launch |
-| RN Openfort Solana signing parity | v3 day-one memo spike; the signer hard-asserts 64 bytes |
-| Embedded wallet with no SOL | Seed Vault deposit always carries a SOL reserve; Kora is stretch |
-| Free markets depend on the Discord gate | The app already explains the gate to anyone it blocks; retiring it is a v10 decision (section 13) |
-| dApp Store policy on real-money prediction markets | Read the current policy before writing store code; the config kill switch can hide paid trading for a store flavour; age rating 18+ regardless |
-| Carrier NAT versus per-IP limits | Wallet-keyed limits; load check before launch |
-| App killed during the MWA deposit | Persist pending state before `transact()`, resume on foreground, 120s timeout |
-| Store review timing | Submitted Oct 4 2026; frozen release branch; review fixes only. Every resubmission restarts the three to five day clock |
-| Four market types in ten days | Two screen types cover all four and are designed read-only in v1, so v4 is builders and confirm sheets only; never cut |
-
-## 20. Open questions
-
-1. Organisers: eligibility of an existing product with a new native client, and
-   whether MWA as funding/identity satisfies the MWA requirement.
-2. Current dApp Store publisher policy on prediction markets and the required
-   age rating.
-3. Openfort: mainnet keys and Shield keys for the mobile identity; whether the
-   RN SDK needs its own Openfort project or shares the web one (the
-   encryption-session route must accept tokens from whichever it is).
-4. ~~Seeker Genesis Token collection address for the DAS check.~~ Resolved Sep 25 2026: no DAS; metadata and group address `GT22s89nU4iWFkNXj1Bw6uYhJJWDRPpShHt4Bk8f99Te` (section 6.5).
-5. Which company wallet mints the publisher NFT; who holds the store keystore.
-6. Firebase project ownership and where the FCM service account lives in
-   Railway.

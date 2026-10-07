@@ -8,6 +8,7 @@ import { deserializeMarketAccount } from '@/chain/amm';
 import { getSolBalance, getUsdcBalance } from '@/chain/balance';
 import { base64ToBytes } from '@/lib/bytes';
 import { standingsPollMs, type SeasonPhase } from '@/lib/arena-view';
+import { markSeekerVerified } from '@/store/seeker-verified';
 import { fetchAmmClaim } from '@/trade/claim';
 import * as achievements from './achievements';
 import * as arena from './arena';
@@ -19,6 +20,7 @@ import * as paidMajority from './paidMajority';
 import * as paidMarkets from './paidMarkets';
 import * as referral from './referral';
 import * as results from './results';
+import * as categories from './categories';
 import * as seeker from './seeker';
 import * as transfers from './transfers';
 import * as sidebar from './sidebar';
@@ -100,6 +102,7 @@ export const keys = {
   ammClaimAll: ['chain', 'amm-claim'] as const,
   recentTrades: ['trades', 'recent'] as const,
   trendingWords: ['trending', 'words'] as const,
+  categories: ['categories'] as const,
   chatPreview: (eventId: string) => ['chat', 'preview', eventId] as const,
   globalChatLatest: ['chat', 'global', 'latest'] as const,
   ammClaim: (wallet: string, id: string) => ['chain', 'amm-claim', wallet, id] as const,
@@ -115,6 +118,9 @@ export const useFreeList = (focused: boolean) =>
 
 // The route caches for five minutes server side, so asking more often than
 // that only costs a round trip.
+// The category list changes when an admin adds one, which is rare.
+export const useCategories = () => useQuery({ queryKey: keys.categories, queryFn: categories.getCategories, staleTime: 10 * 60_000 });
+
 export const useTrendingWords = (focused: boolean) =>
   useQuery({ queryKey: keys.trendingWords, queryFn: sidebar.getTrendingWords, staleTime: 5 * 60_000, ...poll(focused, 5 * 60_000) });
 
@@ -383,7 +389,12 @@ export const useReferral = (wallet: string | null) =>
 export const useSeekerStatus = (sessionWallet: string | null, enabled: boolean) =>
   useQuery({
     queryKey: keys.seekerStatus(sessionWallet ?? ''),
-    queryFn: seeker.getSeekerStatus,
+    queryFn: async () => {
+      const status = await seeker.getSeekerStatus();
+      // The account's own mark needs no second request: this already says it is linked.
+      if (status.linked && sessionWallet) markSeekerVerified(sessionWallet);
+      return status;
+    },
     enabled: enabled && !!sessionWallet,
     staleTime: 60_000,
   });

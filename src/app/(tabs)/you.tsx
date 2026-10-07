@@ -24,6 +24,7 @@ import { Screen } from '@/ui/screen';
 import { SeekerCard } from '@/ui/seeker-card';
 import { SignInCard } from '@/ui/sign-in-card';
 import { ErrorState, Skeleton } from '@/ui/states';
+import { SeekerBadge } from '@/ui/seeker-badge';
 import { colors, fonts, spacing, type } from '@/ui/theme';
 import { UsernameForm } from '@/ui/username-form';
 
@@ -137,9 +138,12 @@ export default function YouScreen() {
                 accessibilityLabel={own ? 'Change your username' : undefined}
                 style={{ flex: 1, gap: 2 }}
               >
-                <Text style={styles.name} numberOfLines={1}>
-                  {profile.data.username ?? 'No username yet'}
-                </Text>
+                <View style={styles.nameRow}>
+                  <Text style={[styles.name, { flexShrink: 1 }]} numberOfLines={1}>
+                    {profile.data.username ?? 'No username yet'}
+                  </Text>
+                  <SeekerBadge wallet={active} size={13} />
+                </View>
                 <Text style={type.muted}>{shortAddress(active)}</Text>
               </Pressable>
             </Card>
@@ -241,6 +245,7 @@ function MenuRow({ href, icon, label, first = false }: { href: string; icon: key
 }
 
 const styles = StyleSheet.create({
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   content: { gap: spacing.md, paddingBottom: spacing.xl },
   identity: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' },

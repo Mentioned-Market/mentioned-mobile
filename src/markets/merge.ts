@@ -26,6 +26,8 @@ export type MarketSummary = {
   pool: { kind: 'usdc'; usd: number } | { kind: 'tokens'; tokens: number };
   traderCount: number;
   isFeatured: boolean;
+  /** Category slug, or null when the market has none. */
+  category: string | null;
   /**
    * The result of a resolved majority market that pays several places, drawn
    * on the card in place of the word rows. Absent for every other market,
@@ -69,6 +71,7 @@ export function fromPaidMajority(m: PaidMajorityListEntry, now = Date.now()): Ma
     pool: { kind: 'usdc', usd: Number(m.poolUsdc) / 1e6 },
     traderCount: m.traderCount,
     isFeatured: m.isFeatured,
+    category: m.category ?? null,
     // The server prices the podium from the on-chain pots and only sends it
     // for a resolved market that pays places.
     ...withPodium(status === 'resolved' ? listPodium(m.podium) : null),
@@ -96,6 +99,7 @@ export function fromPaidYesNo(m: PaidMarketListEntry, now = Date.now()): MarketS
     pool: { kind: 'usdc', usd: 0 },
     traderCount: m.traderCount,
     isFeatured: m.isFeatured,
+    category: m.category ?? null,
   };
 }
 
@@ -122,6 +126,7 @@ export function fromFree(m: FreeListEntry): MarketSummary {
     pool: { kind: 'tokens', tokens: m.play_tokens },
     traderCount: m.trader_count,
     isFeatured: m.is_featured,
+    category: m.category ?? null,
     ...withPodium(majority && status === 'resolved' ? freeListPodium(m) : null),
   };
 }

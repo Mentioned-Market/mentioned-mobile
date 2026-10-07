@@ -14,6 +14,7 @@ const market = (kind: MarketSummary['kind'], id: string, status: MarketSummary['
   pool: { kind: 'usdc', usd: 0 },
   traderCount: 0,
   isFeatured: false,
+  category: null,
 });
 
 describe('similarMarkets', () => {
