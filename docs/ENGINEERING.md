@@ -26,9 +26,9 @@ fixtures and assets.
 | v8 production, v9 prep | Sep 15 to 16 | | Production build on a Seeker with the first mainnet trade; sign-out, wallet recovery and cold-start reconnect fixes; balances at confirmed commitment; release signing from a gitignored `keystore.properties`, App Links for the website's five paths with redirect routes and slug resolution, referral capture at sign-in, the flavour-safe release script, the portal-based store submission (`dapp-store/README.md`) |
 | v7 UI pass | Sep 14 to 15 | see `git diff --stat` | Every screen re-laid out to one system (`docs/DESIGN.md`): five tabs, one card shape, one chance figure per word, the trade sheet as a full screen with a swipe to confirm; deposit over MWA and withdraw from the app wallet (`src/trade/transfer.ts`, `src/ui/fund-sheet.tsx`) |
 
-Two supporting documents went to the web repo as part of this work:
-`docs/WEB_PUSH_TASK.md` and `docs/WEB_MOBILE_CONFIG_TASK.md` specify the
-server-side halves that the app is already built against.
+One supporting document went to the web repo as part of this work:
+`docs/WEB_MOBILE_CONFIG_TASK.md` specifies the server-side half of remote
+config that the app is already built against.
 
 ## The problems worth knowing about
 
@@ -491,7 +491,7 @@ which needs a lookup rather than a rewrite. Anything unrecognised returns null:
 a tap that does nothing is better than a tap that opens the wrong market, and
 the row still reads fine on its own.
 
-### A Seeker is proved by its Genesis Token, and the stake is paid once per token
+### A Seeker is proved by its Genesis Token, and its first pick is paid for once per token
 
 A phone model string or a dApp Store install can be faked; the Seeker Genesis
 Token cannot. Every Seeker mints one SGT into its Seed Vault wallet, so the app
@@ -506,12 +506,56 @@ server's `seeker_links.sgt_mint` is unique for ever, so one Seeker funds one
 welcome stake however many accounts its owner makes, and an account's SGT can
 never be swapped (that would free the old one to fund a second account).
 
-The stake ($1 USDC and 0.006 SOL, enough for a first pick) is a plain transfer
-the person could withdraw. Making it spendable only on picks needs a credit in
-the program or the website, which is far more work than $1.50 per Seeker is
-worth protecting. The server saves the signed transfer before broadcasting it
-and only ever re-checks or re-sends those bytes, so "Check again" on a stake
-that is on its way is the same call and cannot pay twice.
+The stake began as a plain transfer: $1 USDC and 0.006 SOL into the app wallet.
+Making it spendable only on picks looked like more work than $1.50 per Seeker
+was worth protecting. It was not: within days of the store release people were
+linking a Seeker and withdrawing the dollar straight back to it, without
+making a pick.
+
+So the stake is now one sponsored pick (`src/trade/seeker-pick.ts`, web
+`lib/seekerFreePick.ts`). The server builds a single transaction, paid for and
+signed by its funder, that moves the price of one majority pick into the app
+wallet and spends it on the word the person chose; the app wallet co-signs as
+the buyer. A transaction is atomic, so the dollar is never cash: it is a
+position or it is nothing. Winnings are the person's to keep, which is the
+point. `SEEKER_GRANT_MODE=cash` on the web restores the old transfer.
+
+Three things about it are not obvious:
+
+- **It is the only transaction the app signs without having built it**, so it
+  is read first. `checkSeekerPickTransaction` rebuilds the buy the app would
+  have made for that word and requires the server's to match it byte for byte,
+  allows this wallet to receive SOL and own the new token account and nothing
+  else, and refuses lookup tables and unknown programs. Then it is simulated,
+  then signed. A wallet that signs whatever its server sends is one bad deploy
+  away from signing a withdrawal.
+- **Once the funder has signed, the person holds a live transaction** and could
+  broadcast it without the server. So the server saves its signature before the
+  bytes leave (the signature is the fee payer's, the funder's, and is final
+  before the co-signature exists) and releases a reservation only when the
+  chain shows that signature failed or its blockhash expired. It never signs a
+  second pick while the first could land, or one Seeker could fund two. The
+  cost is that a pick abandoned half way holds the perk for about a minute.
+- **The app never sends twice.** After the co-signed bytes go to the server the
+  only question is whether they landed, and the app asks that, with no
+  transaction attached, until it has an answer. A timeout is "may still land".
+
+The free pick is exactly one word on a paid majority market, because that is
+what one sponsored buy is. A basket of one word is free; a bigger basket is
+paid for as usual and keeps the free pick, and says so
+(`freePickUse` in `src/lib/seeker-perk.ts`). Builds from before the pick read
+only the cash half of the status, which the server reports as unavailable, so
+they offer the link alone and never promise money that will not come.
+
+Owning a Seeker shows as a very small mark beside the name on Ranks, profiles,
+chat and team members (`src/ui/seeker-badge.tsx`). Those lists already hold
+each person's wallet, so the app asks one public route about wallets in batches
+(`POST /api/seeker/verified`, at most 200) instead of the website adding a
+column to five queries and its chat stream. Every mark asks for its own wallet
+as it mounts and the asks are gathered into one request per screen; a yes is
+kept for the session, a no is asked again after ten minutes
+(`src/lib/seeker-badge.ts`). With the route missing or failing, nobody gets a
+mark and nothing else changes.
 
 SGTs live on mainnet only, so the check always reads mainnet. That is what lets
 staging (devnet) verify a real Seeker and pay the stake in devnet USDC.
@@ -670,7 +714,7 @@ height leaves out.
 
 ## What is tested, and what is not
 
-- 501 unit tests over 34 files, offline, against 29 captured fixtures.
+- 1001 unit tests over 69 files, offline, against captured fixtures.
 - The pure layers are the tested ones: market maths, account decoding, schemas,
   merging, positions, the spending cap, claim planning, deep links, formatting,
   Arena derivations.
@@ -685,8 +729,6 @@ height leaves out.
 ## Known gaps
 
 - The session token still comes back only as a cookie; see above.
-- Push needs the web routes in `docs/WEB_PUSH_TASK.md` to land before the
-  device token the app already registers goes anywhere.
 - The older paid market and majority screens still derive more in the component
   than they should. New work puts that in a pure module with tests, and the old
   screens move that way as they are touched.

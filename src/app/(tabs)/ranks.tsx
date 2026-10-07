@@ -28,6 +28,7 @@ import { Pill } from '@/ui/pill';
 import { Screen } from '@/ui/screen';
 import { Segmented } from '@/ui/segmented';
 import { EmptyState, ErrorState, RowsSkeleton, Skeleton } from '@/ui/states';
+import { SeekerBadge } from '@/ui/seeker-badge';
 import { colors, fonts, radius, spacing, type } from '@/ui/theme';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -258,6 +259,7 @@ const Row = memo(function Row({ entry, rank, you, top, bottom }: { entry: Leader
           <Text style={styles.name} numberOfLines={1}>
             {entry.username ?? shortAddress(entry.wallet)}
           </Text>
+          <SeekerBadge wallet={entry.wallet} />
           {you ? <Pill label="YOU" tone="gold" /> : null}
         </View>
         <Text style={type.money}>{entry.weeklyPoints.toLocaleString()}</Text>

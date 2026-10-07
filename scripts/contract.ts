@@ -3,6 +3,7 @@
 import { address as toAddress } from '@solana/kit';
 
 import * as arena from '../src/api/arena';
+import * as categories from '../src/api/categories';
 import * as chat from '../src/api/chat';
 import { chatEventId } from '../src/chat/rules';
 import * as free from '../src/api/free';
@@ -126,6 +127,7 @@ async function main() {
   add('custom/[id]/board (no wallet)', async () => `${(await free.getFreeBoard(freeBoard.id)).board.length} board words`);
   add('custom/[id]/chart', async () => `${(await free.getFreeChart(freeSheet.id)).words.length} series`);
   add('custom/user-activity', async () => `${(await free.getFreeUserActivity(WALLET)).positions.length} positions`);
+  add('categories', async () => `${(await categories.getCategories()).length} categories`);
   add('profile', async () => `username ${(await user.getProfile(WALLET)).username}`);
   // The dev screen's gate in a store build. A random wallet must never be an admin.
   add('auth/admin', async () => {

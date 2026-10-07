@@ -43,6 +43,8 @@ export const FreeMarket = z.object({
 export type FreeMarket = z.infer<typeof FreeMarket>;
 
 export const FreeListEntry = FreeMarket.extend({
+  /** Category slug (see src/api/categories.ts), or null. Absent on a server from before categories. */
+  category: z.string().nullable().optional(),
   word_count: z.number(),
   trader_count: z.number(),
   words_prices: z.array(

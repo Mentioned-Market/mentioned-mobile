@@ -1,5 +1,5 @@
 // The Seeker card on Me: link the Seeker's Seed Vault wallet to this account,
-// then collect the welcome stake. What it says and offers comes from
+// then use the free pick (or collect the older cash stake). What it says and offers comes from
 // `@/lib/seeker-perk`; the steps are `useSeekerFlow`, shared with Home's offer.
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
@@ -27,11 +27,11 @@ export function SeekerCard({ sessionWallet, status }: { sessionWallet: string; s
         <Text style={card.celebrate ? styles.celebrateTitle : type.heading}>{card.title}</Text>
       </View>
       <Text style={card.celebrate ? styles.celebrateBody : type.muted}>{card.body}</Text>
-      {flow.error ? <Text style={styles.error}>{flow.error}</Text> : null}
+      {flow.error ? <Text style={styles.error}>{flow.error}</Text> : flow.notice ? <Text style={type.muted}>{flow.notice}</Text> : null}
       {card.action && card.cta ? (
         <Button
           label={flow.busyLabel ?? card.cta}
-          tone={card.action === 'check' || card.action === 'history' ? 'neutral' : 'gold'}
+          tone={card.action === 'check' || card.action === 'check-pick' || card.action === 'history' || (card.action === 'positions' && !card.celebrate) ? 'neutral' : 'gold'}
           disabled={flow.busy}
           onPress={() => void flow.run(card.action!)}
         />

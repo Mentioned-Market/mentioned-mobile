@@ -18,6 +18,7 @@ import { useSession } from '@/store/session';
 import { useWalletLink } from '@/store/wallet-link';
 import { friendlyTradeError } from '@/trade/amm';
 import { isAttestationRefusal, TRADE_REFUSED } from '@/trade/attestation';
+import type { OpenfortRawSign } from '@/auth/signer';
 import { rawSignWithProvider, type SolanaSigningProvider } from '@/trade/openfort-signer';
 import { sendInstructions, SimulationError, type SendStep } from '@/trade/send';
 
@@ -41,6 +42,25 @@ export type BatchResult = {
   /** True only if every batch confirmed. */
   complete: boolean;
 };
+
+/**
+ * What a thrown error becomes on screen. `partial` is appended when earlier
+ * batches of the same purchase already went through.
+ */
+function failure(e: unknown, explain: (raw: string) => string, partial: string): TradeState {
+  // A confirmation timeout is NOT a failed trade. The transaction was
+  // broadcast and may still be confirmed, so telling someone it failed
+  // invites them to pay for it twice.
+  if (e instanceof ConfirmationTimeoutError) {
+    return { status: 'failed', message: `Still confirming. Check your positions in a moment before trying again.${partial}`, indeterminate: true };
+  }
+  const raw = e instanceof SimulationError ? e.message : e instanceof Error ? e.message : String(e);
+  // The proxy refused to broadcast for want of an integrity
+  // confirmation. Screens ask for one first, so this is the backstop,
+  // and its raw form is a server code nobody should be shown.
+  const said = isAttestationRefusal(raw) ? TRADE_REFUSED : explain(raw);
+  return { status: 'failed', message: `${said}${partial}`, indeterminate: false };
+}
 
 export function useTrade() {
   const solana = useEmbeddedSolanaWallet();
@@ -119,29 +139,41 @@ export function useTrade() {
           confirmed.push(signature);
           opts.onConfirmed?.(i, signature);
         } catch (e) {
-          // A confirmation timeout is NOT a failed trade. The transaction was
-          // broadcast and may still be confirmed, so telling someone it failed
-          // invites them to pay for it twice.
-          if (e instanceof ConfirmationTimeoutError) {
-            setState({
-              status: 'failed',
-              message: `Still confirming. Check your positions in a moment before trying again.${partial(i)}`,
-              indeterminate: true,
-            });
-            return { confirmed, complete: false };
-          }
-          const raw = e instanceof SimulationError ? e.message : e instanceof Error ? e.message : String(e);
-          // The proxy refused to broadcast for want of an integrity
-          // confirmation. Screens ask for one first, so this is the backstop,
-          // and its raw form is a server code nobody should be shown.
-          const said = isAttestationRefusal(raw) ? TRADE_REFUSED : explain(raw);
-          setState({ status: 'failed', message: `${said}${partial(i)}`, indeterminate: false });
+          setState(failure(e, explain, partial(i)));
           return { confirmed, complete: false };
         }
       }
 
       setState({ status: 'done', signature: confirmed[confirmed.length - 1] });
       return { confirmed, complete: true };
+    },
+    [rawSign, wallet],
+  );
+
+  /**
+   * A transaction the app did not build from instructions, e.g. the Seeker's
+   * sponsored pick, which the server builds and this wallet co-signs. `send`
+   * does the work with the session's signer; the progress and the failure
+   * rules are the same as for any other trade.
+   */
+  const runCustom = useCallback(
+    async (
+      send: (signer: { wallet: string; rawSign: OpenfortRawSign; onStep: (step: SendStep) => void }) => Promise<string>,
+      opts: Pick<RunOptions, 'explain'> = {},
+    ): Promise<string | null> => {
+      if (!rawSign || !wallet) {
+        setState({ status: 'failed', message: 'Sign in before trading.', indeterminate: false });
+        return null;
+      }
+      try {
+        setState({ status: 'working', step: 'checking' });
+        const signature = await send({ wallet, rawSign, onStep: (step) => setState({ status: 'working', step }) });
+        setState({ status: 'done', signature });
+        return signature;
+      } catch (e) {
+        setState(failure(e, opts.explain ?? friendlyTradeError, ''));
+        return null;
+      }
     },
     [rawSign, wallet],
   );
@@ -166,5 +198,5 @@ export function useTrade() {
     setState({ status: 'failed', message, indeterminate: false });
   }, []);
 
-  return { ready, connecting, walletFailed, needsSignIn, retryWallet, state, run, runBatches, reset, setInputError, wallet };
+  return { ready, connecting, walletFailed, needsSignIn, retryWallet, state, run, runBatches, runCustom, reset, setInputError, wallet };
 }

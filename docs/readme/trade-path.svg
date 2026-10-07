@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1196" height="140" viewBox="0 0 1196 140" font-family="'Plus Jakarta Sans','Inter',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" role="img" aria-label="A trade: plan, build, simulate, sign, broadcast.">
+  <rect width="1196" height="140" rx="32" fill="#000000"/>
+  <rect x="24" y="24" width="212" height="92" rx="24" fill="#151515"/>
+  <text x="48" y="62" font-size="13" font-weight="600" fill="#8F8F94">1</text>
+  <text x="68" y="64" font-size="22" font-weight="700" fill="#FFFFFF">Plan</text>
+  <text x="48" y="92" font-size="14" fill="#8F8F94">amount to instructions</text><path d="M240 70 h10 m-5 -5 l5 5 l-5 5" stroke="#8F8F94" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="258" y="24" width="212" height="92" rx="24" fill="#151515"/>
+  <text x="282" y="62" font-size="13" font-weight="600" fill="#8F8F94">2</text>
+  <text x="302" y="64" font-size="22" font-weight="700" fill="#FFFFFF">Build</text>
+  <text x="282" y="92" font-size="14" fill="#8F8F94">v0 tx, fresh blockhash</text><path d="M474 70 h10 m-5 -5 l5 5 l-5 5" stroke="#8F8F94" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="492" y="24" width="212" height="92" rx="24" fill="#F2B71F"/>
+  <text x="516" y="62" font-size="13" font-weight="600" fill="#000000">3</text>
+  <text x="536" y="64" font-size="22" font-weight="700" fill="#000000">Simulate</text>
+  <text x="516" y="92" font-size="14" fill="#3A2C06">before any signature</text><path d="M708 70 h10 m-5 -5 l5 5 l-5 5" stroke="#8F8F94" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="726" y="24" width="212" height="92" rx="24" fill="#151515"/>
+  <text x="750" y="62" font-size="13" font-weight="600" fill="#8F8F94">4</text>
+  <text x="770" y="64" font-size="22" font-weight="700" fill="#FFFFFF">Sign</text>
+  <text x="750" y="92" font-size="14" fill="#8F8F94">on the device</text><path d="M942 70 h10 m-5 -5 l5 5 l-5 5" stroke="#8F8F94" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="960" y="24" width="212" height="92" rx="24" fill="#151515"/>
+  <text x="984" y="62" font-size="13" font-weight="600" fill="#8F8F94">5</text>
+  <text x="1004" y="64" font-size="22" font-weight="700" fill="#FFFFFF">Broadcast</text>
+  <text x="984" y="92" font-size="14" fill="#8F8F94">confirm, safe retries only</text>
+</svg>

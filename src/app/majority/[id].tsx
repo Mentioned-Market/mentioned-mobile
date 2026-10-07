@@ -9,24 +9,27 @@
 // recorded with the web, which is what feeds the leaderboard and points.
 import * as Haptics from 'expo-haptics';
 import { Link, useLocalSearchParams, type Href } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { chatEventId } from '@/chat/rules';
 import { recordMajorityBuys } from '@/api/paidMajority';
-import { useIsScreenFocused, usePaidMajorityMarket, usePaidMajorityMetadata, usePaidMajorityPositions, useSolBalance, useUsdcBalance } from '@/api/queries';
+import { keys, useIsScreenFocused, usePaidMajorityMarket, usePaidMajorityMetadata, usePaidMajorityPositions, useSeekerStatus, useSolBalance, useUsdcBalance } from '@/api/queries';
 import { deserializeMajorityMarket, MajorityStatus, normalizeWord, WordOutcome } from '@/chain/majority';
 import { placeLabel } from '@/chain/majorityWords';
 import { base64ToBytes } from '@/lib/bytes';
 import { findWordParam } from '@/markets/merge';
 import { boardTitle, freshPickWin, heldPickWin, paidResult, paidWeights, paysPlaces, ticketNote, winLine, type PoolState } from '@/markets/top3';
 import { usd, usdc } from '@/lib/format';
+import { FREE_PICK_BAR_TITLE, freePickUse } from '@/lib/seeker-perk';
 import { useNow } from '@/lib/use-now';
 import { useActiveWallet } from '@/store/active-wallet';
 import { useSession } from '@/store/session';
 import { TradeInputError } from '@/trade/amm';
 import { BUYS_PER_TX, checkCoinedWord, friendlyMajorityError, MIN_SOL_FOR_FEES, planMajorityBuy } from '@/trade/majority';
 import { fundsShortfall } from '@/trade/funds';
+import { friendlyPickError, sendSeekerPick } from '@/trade/seeker-pick';
 import { useAttestationGate } from '@/trade/use-attestation-gate';
 import { useTrade } from '@/trade/use-trade';
 import { BottomSheet, type BottomSheetHandle } from '@/ui/bottom-sheet';
@@ -69,6 +72,9 @@ export default function PaidMajorityScreen() {
   const sheetRef = useRef<BottomSheetHandle>(null);
   // The server can pause trading; claims elsewhere are never paused.
   const features = useFeatures();
+  // A linked Seeker's first pick here can be paid for (src/trade/seeker-pick.ts).
+  const queryClient = useQueryClient();
+  const seeker = useSeekerStatus(sessionWallet, features.seekerPerk);
 
   // The basket: normalised words, in the order they were picked.
   const [basket, setBasket] = useState<string[]>([]);
@@ -166,7 +172,11 @@ export default function PaidMajorityScreen() {
     }));
 
   const selectedKeys = new Set(named.filter((b) => basket.includes(normalizeWord(b.word))).map((b) => b.wordHash));
-  const total = basket.length * unitUsd;
+  // The Seeker's free pick, when this account has one and this market takes
+  // it. A basket of exactly one word is that pick and costs nothing.
+  const freePick = open && features.paidTrading ? freePickUse(seeker.data, basket.length, acct.unitPrice) : null;
+  const free = freePick?.free === true;
+  const total = free ? 0 : basket.length * unitUsd;
 
   const toggle = (key: string) => {
     const entry = named.find((b) => b.wordHash === key);
@@ -228,8 +238,50 @@ export default function PaidMajorityScreen() {
     void sol.refetch();
   };
 
+  // The one word in the basket, paid for by the Seeker funder. No balance is
+  // needed for it: the same transaction brings the dollar and the SOL its
+  // rent takes. Everything else is as for a pick the wallet pays for.
+  const submitFree = async () => {
+    if (!sessionWallet || basket.length !== 1) return;
+    setInputError(null);
+    const word = basket[0];
+
+    const gate = await attestation.requireTrade('majority', id);
+    if (!gate.ok) {
+      if (gate.error) setInputError(gate.error);
+      return;
+    }
+
+    const isNewWord = !boardByWord.has(word);
+    const signature = await trade.runCustom(
+      (signer) =>
+        sendSeekerPick({
+          ...signer,
+          marketId: id,
+          word,
+          onStatus: (next) => queryClient.setQueryData(keys.seekerStatus(sessionWallet), next),
+        }),
+      { explain: friendlyPickError },
+    );
+    // Whatever happened, the server's view of the perk may have moved (used,
+    // in flight, or free again), and the sheet must not offer it on a guess.
+    void queryClient.invalidateQueries({ queryKey: keys.seekerStatus(sessionWallet) });
+    if (!signature) return;
+
+    void recordMajorityBuys({ marketId: id, wallet: sessionWallet, signature, words: [{ word, isNewWord }] }).catch(() => {
+      // Best effort, as for any other pick.
+    });
+    setBasket([]);
+    refresh();
+    setTimeout(refresh, 4000);
+    setTimeout(refresh, 15000);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setResult({ title: 'Your free pick is in', detail: `${word}, on us. If it wins, the winnings are yours.` });
+  };
+
   const submit = async () => {
     if (!sessionWallet) return;
+    if (free) return submitFree();
     setInputError(null);
 
     // Never top up a word the wallet already holds: one pick per word.
@@ -302,14 +354,18 @@ export default function PaidMajorityScreen() {
   const signedIn = trade.ready;
   // Short before signing (the basket costs more than the wallet holds) or
   // after a refusal: offer the deposit rather than a retry that fails alike.
-  const shortOf: 'USDC' | 'SOL' | null =
-    usdcBalance.data !== undefined && total > usdcBalance.data ? 'USDC' : fundsShortfall(inputError ?? (trade.state.status === 'failed' ? trade.state.message : null));
+  // A free pick needs no funds of the wallet's own, so it is never short.
+  const shortOf: 'USDC' | 'SOL' | null = free
+    ? null
+    : usdcBalance.data !== undefined && total > usdcBalance.data
+      ? 'USDC'
+      : fundsShortfall(inputError ?? (trade.state.status === 'failed' ? trade.state.message : null));
   const openDeposit = (asset: 'USDC' | 'SOL') => {
     sheetRef.current?.close();
     setFund(asset);
   };
-  const barTitle = basket.length === 0 ? 'Tap words or add your own' : `${basket.length} ${basket.length === 1 ? 'word' : 'words'} · ${usd(total)}`;
-  const barSubtitle = basket.length === 0 ? `${usd(unitUsd)} each, paid in USDC` : basket.join(', ');
+  const barTitle = basket.length === 0 ? (freePick ? FREE_PICK_BAR_TITLE : 'Tap words or add your own') : free ? '1 word · Free' : `${basket.length} ${basket.length === 1 ? 'word' : 'words'} · ${usd(total)}`;
+  const barSubtitle = basket.length === 0 ? (freePick && !freePick.free ? freePick.note : `${usd(unitUsd)} each, paid in USDC`) : basket.join(', ');
   const newWords = basket.filter((w) => !boardByWord.has(w));
 
   return (
@@ -424,7 +480,7 @@ export default function PaidMajorityScreen() {
         <PinnedBar
           title={barTitle}
           subtitle={barSubtitle}
-          button={{ label: basket.length === 0 ? 'Review' : `Review ${usd(total)}`, disabled: basket.length === 0 || !signedIn, onPress: openSheet }}
+          button={{ label: basket.length === 0 ? 'Review' : free ? 'Review free pick' : `Review ${usd(total)}`, disabled: basket.length === 0 || !signedIn, onPress: openSheet }}
           note={!features.paidTrading ? PAUSED_NOTE : !signedIn ? (trade.connecting ? 'Connecting your wallet' : 'Sign in to pick') : undefined}
         />
       ) : null}
@@ -457,7 +513,7 @@ export default function PaidMajorityScreen() {
           ) : (
             <SwipeButton
               tone="gold"
-              label={`Swipe to buy for ${usd(total)}`}
+              label={free ? 'Swipe to place your free pick' : `Swipe to buy for ${usd(total)}`}
               disabled={!features.paidTrading || basket.length === 0 || !signedIn}
               note={inputError ?? (!features.paidTrading ? PAUSED_NOTE : undefined)}
               onConfirm={() => void submit()}
@@ -485,7 +541,7 @@ export default function PaidMajorityScreen() {
                     </View>
                     <Text style={[type.muted, { color: colors.yes }]}>{winLine(places, usd(winFor(w)))}</Text>
                   </View>
-                  <Text style={type.money}>{usd(unitUsd)}</Text>
+                  <Text style={type.money}>{free ? 'Free' : usd(unitUsd)}</Text>
                   <Pressable onPress={() => removeFromBasket(w)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Remove ${w}`}>
                     <Text style={styles.wordChipX}>×</Text>
                   </Pressable>
@@ -496,8 +552,13 @@ export default function PaidMajorityScreen() {
                 <Text style={type.money}>{usd(total)}</Text>
               </Row>
             </Card>
+            {free ? (
+              <Text style={[type.muted, { color: colors.gold }]}>Free with your Seeker. We cover this pick, and if it wins the winnings are yours.</Text>
+            ) : freePick && basket.length > 1 ? (
+              <Text style={type.muted}>{freePick.note}</Text>
+            ) : null}
             {places ? <Text style={type.muted}>{ticketNote(weights.length)}</Text> : null}
-            {newWords.length > 0 ? <Text style={type.muted}>A new word also pays a small SOL deposit for its record on chain.</Text> : null}
+            {newWords.length > 0 && !free ? <Text style={type.muted}>A new word also pays a small SOL deposit for its record on chain.</Text> : null}
             {basket.length > BUYS_PER_TX ? (
               <Text style={type.muted}>
                 This goes through as {Math.ceil(basket.length / BUYS_PER_TX)} transactions, {BUYS_PER_TX} words at a time.

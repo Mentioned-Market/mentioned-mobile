@@ -38,6 +38,7 @@ function fake(over: Partial<MarketSummary>): MarketSummary {
     pool: { kind: 'usdc', usd: 0 },
     traderCount: 0,
     isFeatured: false,
+  category: null,
     ...over,
   };
 }

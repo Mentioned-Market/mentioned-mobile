@@ -368,11 +368,15 @@ function PushSection() {
 }
 
 const SAMPLE_GRANT = { usdcBaseUnits: '1000000', lamports: '6000000', signature: null };
-/** The three states Home can show, for the Moments preview. */
+const NO_PICK = { status: 'unavailable' as const, usdcBaseUnits: '1000000', marketId: null, word: null, signature: null };
+const NO_GRANT = { ...SAMPLE_GRANT, status: 'unavailable' as const };
+/** The states Home can show, for the Moments preview: the cash stake, then the free pick. */
 const SEEKER_SAMPLES = [
-  { name: 'link', justFunded: false, status: { linked: false, seekerWallet: null, verifiedAt: null, grant: { ...SAMPLE_GRANT, status: 'available' as const } } },
-  { name: 'claim', justFunded: false, status: { linked: true, seekerWallet: null, verifiedAt: null, grant: { ...SAMPLE_GRANT, status: 'available' as const } } },
-  { name: 'funded', justFunded: true, status: { linked: true, seekerWallet: null, verifiedAt: null, grant: { ...SAMPLE_GRANT, status: 'funded' as const } } },
+  { name: 'link', justFunded: false, status: { linked: false, seekerWallet: null, verifiedAt: null, grant: { ...SAMPLE_GRANT, status: 'available' as const }, freePick: NO_PICK } },
+  { name: 'claim', justFunded: false, status: { linked: true, seekerWallet: null, verifiedAt: null, grant: { ...SAMPLE_GRANT, status: 'available' as const }, freePick: NO_PICK } },
+  { name: 'funded', justFunded: true, status: { linked: true, seekerWallet: null, verifiedAt: null, grant: { ...SAMPLE_GRANT, status: 'funded' as const }, freePick: NO_PICK } },
+  { name: 'pick-link', justFunded: false, status: { linked: false, seekerWallet: null, verifiedAt: null, grant: NO_GRANT, freePick: { ...NO_PICK, status: 'available' as const } } },
+  { name: 'pick-ready', justFunded: false, status: { linked: true, seekerWallet: null, verifiedAt: null, grant: NO_GRANT, freePick: { ...NO_PICK, status: 'available' as const } } },
 ];
 
 /**

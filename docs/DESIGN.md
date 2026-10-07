@@ -45,6 +45,12 @@ checklist for keeping the app that way. Tokens and components live in
    code one gold text link below them), `Segmented` for a choice between two to four
    things, `Chip` for a small fact with a caption, `IconButton` for a round
    icon.
+   The one exception among choices is a filter over a whole page: Markets
+   uses `FilterTabs`, separate squared-off buttons (hairline and faint, solid
+   white when chosen, a quieter count beside the label), with a `Dropdown` of
+   the same shape on the right for the category. This is the website's filter
+   row; one pill holding three choices read as generic there. "All" clears
+   the category as well, since it means everything.
 6. **The trade sheet is a screen** (`BottomSheet full`): a thumbnail and two
    lines at the top, the side as a `Segmented`, the amount in `type.display`,
    the return under it in green, chips for the chance and the balance, four

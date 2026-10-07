@@ -39,6 +39,8 @@ export const PaidMajorityListEntry = z.object({
   eventStartTime: z.string().nullable(),
   traderCount: z.number(),
   isFeatured: z.boolean(),
+  /** Category slug (see src/api/categories.ts), or null. Absent on a server from before categories. */
+  category: z.string().nullable().optional(),
   /** Present only on a resolved market that pays several places. Best place first. */
   podium: z.array(PaidMajorityPodiumTier).nullable().optional(),
 });

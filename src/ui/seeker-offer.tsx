@@ -39,7 +39,7 @@ function Offer({ sessionWallet, status }: { sessionWallet: string; status: Seeke
     <SeekerOfferCard
       offer={offer}
       busy={flow.busy}
-      progress={flow.busyLabel}
+      progress={flow.busyLabel ?? flow.notice}
       error={flow.error}
       onPress={() => void flow.run(offer.action)}
       onDismiss={dismiss}
