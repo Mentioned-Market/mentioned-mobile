@@ -31,12 +31,18 @@ control, arena team pages, image studio, iOS.
 Decisions already taken:
 
 - **Own repo, native React Native.** Not a wrapped website.
-- **Login is Openfort only.** Google, X, email OTP. Embedded Solana wallet,
-  automatic recovery, no seed phrase. No Phantom, no Privy, no wallet-adapter
-  sign-in. Mentioned is moving all logins to Openfort.
+- **Login is Openfort by default.** Google, X, email OTP. Embedded Solana wallet,
+  automatic recovery, no seed phrase. Mentioned is moving all logins to
+  Openfort. (Privy was later added for accounts from before the move; see
+  `docs/ENGINEERING.md`.)
 - **Mobile Wallet Adapter is the Seed Vault bridge**, used for exactly three
   things: deposit into the app wallet, withdraw destination, and Seeker
-  ownership proof. Never the trade signer.
+  ownership proof. Never the trade signer for an Openfort or Privy account.
+- **Revised Oct 7 2026: a Seeker can also be the account.** "Continue with
+  Seeker" signs in with the Seed Vault wallet itself, with no embedded wallet,
+  and that wallet then signs its own trades, one approval each. It is a
+  separate account from any Openfort account the same person has. See
+  "An account can be the Seeker's own wallet" in `docs/ENGINEERING.md`.
 - **No Discord in the app.** Linking, DM settings and the 30-day rule are gone;
   the server gate is being retired.
 - **Live mentions is parked.** No transcript panel, no mention push. Listed as

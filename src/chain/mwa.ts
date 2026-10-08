@@ -1,9 +1,14 @@
-// Mobile Wallet Adapter: the Seed Vault bridge (SPEC section 6.4). It does three
-// things: authorize, to learn the Seeker wallet's address; sign a deposit from
-// that wallet into the app wallet; and sign the one message that links the
-// Seeker to the account (SPEC section 6.5). It never signs a trade.
+// Mobile Wallet Adapter: the Seed Vault bridge (SPEC section 6.4). For an
+// Openfort or Privy account it does three things: authorize, to learn the
+// Seeker wallet's address; sign a deposit from that wallet into the app
+// wallet; and sign the one message that links the Seeker to the account (SPEC
+// section 6.5). It never signs a trade for those accounts.
+//
+// An account signed in with the Seeker itself is the exception: there the Seed
+// Vault wallet is the account, so it signs the sign-in message and every
+// trade (see src/trade/seeker-signer.ts).
 import { transact, type KitMobileWallet } from '@solana-mobile/mobile-wallet-adapter-protocol-kit';
-import type { Instruction } from '@solana/kit';
+import type { Instruction, Transaction } from '@solana/kit';
 import bs58 from 'bs58';
 
 import { APP_IDENTITY, CLUSTER } from '../config';
@@ -85,6 +90,78 @@ export async function signMessageWithSeeker(
     });
     if (!signed) throw new Error('The wallet returned no signature');
     return { ...seeker, message, signature: bytesToBase64(signatureFromSignedPayload(signed)) };
+  });
+}
+
+/**
+ * Authorize with the cached token, and ask afresh if the wallet will not take
+ * it. A token is refused when it was issued for another chain or has been
+ * revoked, and Seed Vault answers that with an error and no prompt, so without
+ * the second ask the person would be stuck until they cleared the app's data.
+ * Asking again signs nothing and sends nothing.
+ */
+async function authorizeAgain(wallet: KitMobileWallet, cachedToken: string | null): Promise<SeekerWallet> {
+  if (!cachedToken) return authorize(wallet, null);
+  try {
+    return await authorize(wallet, cachedToken);
+  } catch {
+    return authorize(wallet, null);
+  }
+}
+
+/**
+ * Sign the sign-in message with the Seeker wallet, in one MWA session:
+ * authorize to learn the address, then sign. The wallet that signs becomes the
+ * account (see src/lib/seeker-session.ts).
+ *
+ * Authorized on the build's own cluster, unlike the link message above,
+ * because the token it returns is the one the trades that follow will use.
+ */
+export async function signInWithSeeker(
+  cachedToken: string | null,
+  build: () => string,
+): Promise<SeekerWallet & { message: string; signature: string }> {
+  return transact(async (wallet) => {
+    const seeker = await authorizeAgain(wallet, cachedToken);
+    const message = build();
+    const [signed] = await wallet.signMessages({
+      addresses: [bytesToBase64(bs58.decode(seeker.address))],
+      payloads: [new TextEncoder().encode(message)],
+    });
+    if (!signed) throw new Error('The wallet returned no signature');
+    return { ...seeker, message, signature: bytesToBase64(signatureFromSignedPayload(signed)) };
+  });
+}
+
+/** Raised when the wallet app offers a different account from the one signed in. */
+export class WrongSeekerWalletError extends Error {
+  constructor(expected: string, got: string) {
+    super(`This account is ${expected}, but the wallet offered ${got}. Choose the wallet you signed in with.`);
+    this.name = 'WrongSeekerWalletError';
+  }
+}
+
+/**
+ * Have the Seeker wallet sign one transaction, for an account signed in with
+ * it. Signs only: the app broadcasts through its own proxy like every other
+ * trade, so the wallet's answer is the same shape as an embedded wallet's.
+ *
+ * The caller has already simulated the transaction. `expected` is the session
+ * wallet: a wallet app can hold several accounts, and a transaction paid for
+ * by one and signed by another is rejected by the chain, so any other account
+ * stops here before anything is signed.
+ */
+export async function signTransactionWithSeeker(
+  cachedToken: string | null,
+  expected: string,
+  transaction: Transaction,
+): Promise<{ authToken: string; transaction: Transaction }> {
+  return transact(async (wallet) => {
+    const seeker = await authorizeAgain(wallet, cachedToken);
+    if (seeker.address !== expected) throw new WrongSeekerWalletError(expected, seeker.address);
+    const [signed] = await wallet.signTransactions({ transactions: [transaction] });
+    if (!signed) throw new Error('The wallet returned no signature');
+    return { authToken: seeker.authToken, transaction: signed };
   });
 }
 

@@ -13,13 +13,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Instruction } from '@solana/kit';
 
 import { usePrivySigner } from '@/auth/privy';
+import { signTransactionWithSeeker } from '@/chain/mwa';
 import { ConfirmationTimeoutError } from '@/chain/rpcSend';
+import { isWalletCancel, WALLET_CANCELLED } from '@/lib/seeker-session';
 import { useSession } from '@/store/session';
+import { useWallet } from '@/store/wallet';
 import { useWalletLink } from '@/store/wallet-link';
 import { friendlyTradeError } from '@/trade/amm';
 import { isAttestationRefusal, TRADE_REFUSED } from '@/trade/attestation';
 import type { OpenfortRawSign } from '@/auth/signer';
 import { rawSignWithProvider, type SolanaSigningProvider } from '@/trade/openfort-signer';
+import { rawSignWithSeeker, signWithSeeker, type SeekerSignTransaction } from '@/trade/seeker-signer';
 import { sendInstructions, SimulationError, type SendStep } from '@/trade/send';
 
 export type TradeState =
@@ -58,7 +62,10 @@ function failure(e: unknown, explain: (raw: string) => string, partial: string):
   // The proxy refused to broadcast for want of an integrity
   // confirmation. Screens ask for one first, so this is the backstop,
   // and its raw form is a server code nobody should be shown.
-  const said = isAttestationRefusal(raw) ? TRADE_REFUSED : explain(raw);
+  // Backing out of the wallet's approval is not an error to explain. It is
+  // read here, ahead of each screen's own mapping, so every kind of trade
+  // says the same thing and none shows the wallet's raw exception.
+  const said = isAttestationRefusal(raw) ? TRADE_REFUSED : isWalletCancel(raw) ? WALLET_CANCELLED : explain(raw);
   return { status: 'failed', message: `${said}${partial}`, indeterminate: false };
 }
 
@@ -79,13 +86,37 @@ export function useTrade() {
   const openfortProvider =
     sessionProvider === 'openfort' && solana.status === 'connected' && onRightWallet ? (solana.provider as unknown as SolanaSigningProvider) : null;
 
+  // An account signed in with the Seeker signs with the Seed Vault, which the
+  // person approves each time. There is nothing to connect or recover first:
+  // the wallet app is opened at the moment of signing, so this signer exists
+  // as soon as the session does. The cached authorization only counts when it
+  // is for this wallet, and whatever the wallet hands back replaces it.
+  const seekerSign = useMemo<SeekerSignTransaction | null>(
+    () =>
+      sessionProvider === 'seeker' && wallet
+        ? async (transaction) => {
+            const cached = useWallet.getState();
+            const done = await signTransactionWithSeeker(cached.viewedAddress === wallet ? cached.authToken : null, wallet, transaction);
+            useWallet.getState().setWallet(wallet, done.authToken);
+            return done.transaction;
+          }
+        : null,
+    [sessionProvider, wallet],
+  );
+  // The strict signer, for a transaction someone else also signs (runCustom).
+  const seekerSigner = useMemo(() => (seekerSign && wallet ? rawSignWithSeeker(wallet, seekerSign) : null), [seekerSign, wallet]);
+  // The one ordinary trades use: the wallet may add its own fee (see
+  // src/trade/seeker-signer.ts), and what it signed is what is sent.
+  const seekerSignTransaction = useMemo(() => (seekerSign && wallet ? signWithSeeker(wallet, seekerSign) : undefined), [seekerSign, wallet]);
+
   // The signer for whichever provider the session is on: Openfort for new
-  // accounts, Privy for ones made before the move. Privy's hook applies the
-  // same right-wallet rule (see src/auth/privy.tsx). Both reach the chain
-  // through the same ported signing code.
+  // accounts, Privy for ones made before the move, the Seed Vault for one
+  // signed in with a Seeker. Privy's hook applies the same right-wallet rule
+  // (see src/auth/privy.tsx). All three reach the chain through the same
+  // ported signing code.
   const rawSign = useMemo(
-    () => (sessionProvider === 'privy' ? privySigner : openfortProvider ? rawSignWithProvider(openfortProvider) : null),
-    [sessionProvider, privySigner, openfortProvider],
+    () => (sessionProvider === 'privy' ? privySigner : sessionProvider === 'seeker' ? seekerSigner : openfortProvider ? rawSignWithProvider(openfortProvider) : null),
+    [sessionProvider, privySigner, seekerSigner, openfortProvider],
   );
 
   // A trade needs both halves: the wallet the session is for, and a live
@@ -133,6 +164,7 @@ export function useTrade() {
           const signature = await sendInstructions({
             wallet,
             rawSign,
+            signTransaction: seekerSignTransaction,
             instructions: batches[i],
             onStep: (step) => setState({ status: 'working', step, batch: batchInfo(i) }),
           });
@@ -147,7 +179,7 @@ export function useTrade() {
       setState({ status: 'done', signature: confirmed[confirmed.length - 1] });
       return { confirmed, complete: true };
     },
-    [rawSign, wallet],
+    [rawSign, seekerSignTransaction, wallet],
   );
 
   /**

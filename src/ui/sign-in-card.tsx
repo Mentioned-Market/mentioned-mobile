@@ -62,6 +62,7 @@ export function SignInCard({ compact = false }: { compact?: boolean }) {
       <View style={{ gap: spacing.sm }}>
         <ProviderButton provider="google" onPress={() => router.push('/sign-in?start=google')} />
         <ProviderButton provider="x" onPress={() => router.push('/sign-in?start=x')} />
+        <ProviderButton provider="seeker" onPress={() => router.push('/sign-in?start=seeker')} />
       </View>
       <TextLink label="Continue with email instead" onPress={() => router.push('/sign-in?start=email')} />
     </View>
