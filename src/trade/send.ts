@@ -30,6 +30,7 @@ import { openfortSignOnly, type OpenfortRawSign } from '@/auth/signer';
 import { bytesToBase64, confirmSignature, sendViaProxy } from '@/chain/rpcSend';
 import { RPC_URL } from '@/config';
 import { HttpStatusError, retryTransient } from '@/lib/retry';
+import { unitLimitForWalletFee } from '@/trade/wallet-edit';
 
 /** Raised when simulation rejects the transaction, carrying the program's own words. */
 export class SimulationError extends Error {
@@ -79,7 +80,7 @@ async function rpc<T>(method: string, params: unknown[]): Promise<T> {
  * The compiled form is what the Seeker wallet signs over MWA; everything else
  * in the app wants the wire bytes from `buildTransaction` below.
  */
-export async function buildUnsignedTransaction(feePayer: string, instructions: Instruction[]): Promise<Transaction> {
+export async function buildUnsignedTransaction(feePayer: string, instructions: Instruction[], unitLimit: number = COMPUTE_UNIT_LIMIT): Promise<Transaction> {
   const { value } = await rpc<{ value: { blockhash: string; lastValidBlockHeight: number } }>(
     'getLatestBlockhash',
     [{ commitment: 'confirmed' }],
@@ -94,7 +95,7 @@ export async function buildUnsignedTransaction(feePayer: string, instructions: I
         { blockhash: value.blockhash as Blockhash, lastValidBlockHeight: BigInt(value.lastValidBlockHeight) },
         m,
       ),
-    (m) => setTransactionMessageComputeUnitLimit(COMPUTE_UNIT_LIMIT, m),
+    (m) => setTransactionMessageComputeUnitLimit(unitLimit, m),
     (m) => appendTransactionMessageInstructions(instructions, m),
   );
 
@@ -107,8 +108,8 @@ export async function buildUnsignedTransaction(feePayer: string, instructions: I
  * Exported because simulation is useful on its own: the whole trade path can be
  * checked against the real programs without a wallet that can sign.
  */
-export async function buildTransaction(feePayer: string, instructions: Instruction[]): Promise<Uint8Array> {
-  return new Uint8Array(getTransactionEncoder().encode(await buildUnsignedTransaction(feePayer, instructions)));
+export async function buildTransaction(feePayer: string, instructions: Instruction[], unitLimit?: number): Promise<Uint8Array> {
+  return new Uint8Array(getTransactionEncoder().encode(await buildUnsignedTransaction(feePayer, instructions, unitLimit)));
 }
 
 /**
@@ -119,13 +120,18 @@ export async function buildTransaction(feePayer: string, instructions: Instructi
  * `{"InstructionError":[0,{"Custom":6002}]}`.
  */
 export async function simulate(txBytes: Uint8Array): Promise<string[]> {
-  const result = await rpc<{ value: { err: unknown; logs: string[] | null } }>('simulateTransaction', [
+  return (await simulateWithUnits(txBytes)).logs;
+}
+
+/** `simulate`, also reporting the compute units the transaction used, when the cluster says. */
+async function simulateWithUnits(txBytes: Uint8Array): Promise<{ logs: string[]; unitsConsumed: number | null }> {
+  const result = await rpc<{ value: { err: unknown; logs: string[] | null; unitsConsumed?: number | null } }>('simulateTransaction', [
     bytesToBase64(txBytes),
     { encoding: 'base64', sigVerify: false, replaceRecentBlockhash: true, commitment: 'confirmed' },
   ]);
 
   const logs = result.value.logs ?? [];
-  if (!result.value.err) return logs;
+  if (!result.value.err) return { logs, unitsConsumed: result.value.unitsConsumed ?? null };
 
   for (const line of logs) {
     const match = line.match(/Error Message: (.+)/);
@@ -133,6 +139,31 @@ export async function simulate(txBytes: Uint8Array): Promise<string[]> {
   }
   const summary = logs.filter((l) => l.startsWith('Program log:') || l.includes('failed')).slice(-6).join('\n');
   throw new SimulationError(`Simulation failed: ${JSON.stringify(result.value.err)}${summary ? `\n${summary}` : ''}`, logs);
+}
+
+/**
+ * The same transaction asking for only the compute it needs, for a wallet
+ * that prices its own priority fee per unit asked for (src/trade/wallet-edit.ts).
+ *
+ * Only for that kind of signer. An embedded wallet pays the flat base fee
+ * whatever the limit, so for it a tighter limit would add a way to fail and
+ * save nothing.
+ *
+ * The trimmed transaction is simulated before it is offered for signing, like
+ * any other. If that fails, or the cluster did not say what was used, the
+ * transaction already proven at the full limit is used instead: a dearer fee
+ * is better than a trade that does not go through.
+ */
+async function trimmedForWalletFee(wallet: string, instructions: Instruction[], proven: Uint8Array, unitsConsumed: number | null): Promise<Uint8Array> {
+  const limit = unitsConsumed === null ? null : unitLimitForWalletFee(unitsConsumed, COMPUTE_UNIT_LIMIT);
+  if (limit === null) return proven;
+  try {
+    const trimmed = await buildTransaction(wallet, instructions, limit);
+    await simulate(trimmed);
+    return trimmed;
+  } catch {
+    return proven;
+  }
 }
 
 /** True when two wire transactions carry the same message, whatever their signatures. */
@@ -169,8 +200,11 @@ export async function sendInstructions(opts: {
   onStep?: (step: SendStep) => void;
 }): Promise<string> {
   opts.onStep?.('checking');
-  const txBytes = await buildTransaction(opts.wallet, opts.instructions);
-  if (opts.simulateFirst !== false) await simulate(txBytes);
+  let txBytes = await buildTransaction(opts.wallet, opts.instructions);
+  if (opts.simulateFirst !== false) {
+    const { unitsConsumed } = await simulateWithUnits(txBytes);
+    if (opts.signTransaction) txBytes = await trimmedForWalletFee(opts.wallet, opts.instructions, txBytes, unitsConsumed);
+  }
 
   opts.onStep?.('signing');
   let signed: Uint8Array;

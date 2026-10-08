@@ -334,6 +334,15 @@ The session's provider is `seeker`, a third value beside `openfort` and
   are sent, so the rule still holds that nothing reaches the chain unchecked;
   what changes is that the second check comes after the approval, and a
   refusal there costs a double tap and no money.
+- **The compute limit is trimmed, for this signer only.** The wallet prices
+  its fee at 100,000 micro-lamports per unit of the limit asked for, so at the
+  app's 1.4 million a trade paid 0.00014 SOL on top of the base fee whatever it
+  used. A Seeker trade is therefore rebuilt asking for what the simulation
+  used, times 1.3, plus 50,000 for the wallet's own guards, and that rebuilt
+  transaction is simulated before it is offered for signing. If the rebuild
+  fails its simulation, the one already proven at the full limit is signed
+  instead. Embedded wallets keep the full limit: they pay the flat base fee
+  either way, so a tighter limit would add a way to fail and save nothing.
 - **A sponsored transaction stays strict.** Where someone else has already
   signed (the sponsored pick), the wallet's signature has to fit their exact
   message, so there any change at all is refused.
@@ -350,7 +359,10 @@ What it costs, knowingly:
 
 - One approval per transaction. A majority basket of more than three words is
   more than one transaction, so it is more than one double tap. Signing them
-  all in one wallet session is possible and not done yet.
+  all in one wallet session was considered and left: on mainnet the wallet's
+  guards are worked out from each transaction's simulation at signing time, so
+  a second batch signed before the first has landed would carry a balance
+  check the first batch has already made false.
 - It is a different account from the same person's Openfort account, and a
   Seeker already linked to that account stays linked there.
 - The Seeker perk and the Seeker mark key off the link table on the server, so
@@ -795,7 +807,7 @@ height leaves out.
 
 ## What is tested, and what is not
 
-- 1037 unit tests over 72 files, offline, against captured fixtures.
+- 1047 unit tests over 72 files, offline, against captured fixtures.
 - The pure layers are the tested ones: market maths, account decoding, schemas,
   merging, positions, the spending cap, claim planning, deep links, formatting,
   Arena derivations.

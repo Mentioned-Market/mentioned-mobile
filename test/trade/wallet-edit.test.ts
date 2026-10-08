@@ -15,7 +15,7 @@ import {
 import bs58 from 'bs58';
 import nacl from 'tweetnacl';
 
-import { checkWalletEdit, MAX_PRIORITY_FEE_LAMPORTS } from '@/trade/wallet-edit';
+import { checkWalletEdit, MAX_PRIORITY_FEE_LAMPORTS, unitLimitForWalletFee } from '@/trade/wallet-edit';
 
 const key = () => bs58.encode(nacl.sign.keyPair().publicKey);
 const BUDGET = address('ComputeBudget111111111111111111111111111111');
@@ -161,5 +161,22 @@ describe('checkWalletEdit', () => {
 
   it('refuses bytes that are not a message', () => {
     expect(checkWalletEdit(BUILT, new Uint8Array([1, 2, 3]))).toMatchObject({ ok: false });
+  });
+});
+
+describe('unitLimitForWalletFee', () => {
+  it('asks for what was used, with headroom and room for the wallet\'s guards', () => {
+    expect(unitLimitForWalletFee(60_000, 1_400_000)).toBe(128_000);
+    expect(unitLimitForWalletFee(38_326, 1_400_000)).toBe(99_824);
+  });
+
+  it('never raises the limit', () => {
+    expect(unitLimitForWalletFee(1_200_000, 1_400_000)).toBeNull();
+    expect(unitLimitForWalletFee(1_038_462, 1_400_000)).toBeNull();
+  });
+
+  it('gives nothing without a usable figure', () => {
+    expect(unitLimitForWalletFee(0, 1_400_000)).toBeNull();
+    expect(unitLimitForWalletFee(Number.NaN, 1_400_000)).toBeNull();
   });
 });

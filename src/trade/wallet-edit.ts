@@ -140,3 +140,30 @@ export function checkWalletEdit(builtMessage: Uint8Array, signedMessage: Uint8Ar
   }
   return { ok: true, priorityFeeLamports };
 }
+
+/** Room left above what the simulation used, for state that moved in between. */
+const UNIT_HEADROOM = 1.3;
+/**
+ * Room for what the wallet adds. Its guard instructions run inside the same
+ * limit: the first mainnet buy used about 17,000 units more than the same buy
+ * without them.
+ */
+const WALLET_UNITS = 50_000;
+
+/**
+ * The compute unit limit to ask for when the wallet will price its fee on it.
+ *
+ * The Seeker's wallet charges 100,000 micro-lamports per unit of the limit
+ * (read from its own instruction, Oct 8 2026), so at the default 1.4 million a
+ * trade that used 60,000 units paid 0.00014 SOL on top of the base fee. Asking
+ * for what the simulation used, with room to spare, brings that to about a
+ * tenth.
+ *
+ * Null when trimming would gain nothing: no usable figure, or a limit no lower
+ * than the one already in use.
+ */
+export function unitLimitForWalletFee(unitsConsumed: number, current: number): number | null {
+  if (!Number.isFinite(unitsConsumed) || unitsConsumed <= 0) return null;
+  const limit = Math.ceil(unitsConsumed * UNIT_HEADROOM) + WALLET_UNITS;
+  return limit < current ? limit : null;
+}
