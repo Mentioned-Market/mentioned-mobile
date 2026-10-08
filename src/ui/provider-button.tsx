@@ -1,5 +1,6 @@
 // "Continue with Google" and "Continue with X": the way we want people to sign
-// in, so they lead the sign-in screen. White pills with each brand's own mark,
+// in, so they lead the sign-in screen. "Continue with Seeker" sits with them:
+// it hands you to the Seed Vault wallet the same way. White pills with each brand's own mark,
 // the usual shape for a third-party login (Google's branding rules ask for the
 // full-colour G on a light button), set apart from the app's gold and grey
 // buttons on purpose: they hand you to someone else.
@@ -9,9 +10,11 @@ import Svg, { Path } from 'react-native-svg';
 
 import { fonts, radius, spacing } from '@/ui/theme';
 
-export type Provider = 'google' | 'x';
+export type Provider = 'google' | 'x' | 'seeker';
 
-const LABEL: Record<Provider, string> = { google: 'Continue with Google', x: 'Continue with X' };
+const LABEL: Record<Provider, string> = { google: 'Continue with Google', x: 'Continue with X', seeker: 'Continue with Seeker' };
+
+const ICON: Record<Exclude<Provider, 'google'>, 'logo-x' | 'phone-portrait-outline'> = { x: 'logo-x', seeker: 'phone-portrait-outline' };
 
 export function ProviderButton({ provider, onPress, disabled = false }: { provider: Provider; onPress: () => void; disabled?: boolean }) {
   return (
@@ -23,7 +26,7 @@ export function ProviderButton({ provider, onPress, disabled = false }: { provid
       accessibilityState={{ disabled }}
       style={({ pressed }) => [styles.button, disabled && styles.disabled, pressed && !disabled && styles.pressed]}
     >
-      <View style={styles.mark}>{provider === 'google' ? <GoogleMark /> : <Ionicons name="logo-x" size={18} color={INK} />}</View>
+      <View style={styles.mark}>{provider === 'google' ? <GoogleMark /> : <Ionicons name={ICON[provider]} size={18} color={INK} />}</View>
       <Text style={styles.label} numberOfLines={1}>
         {LABEL[provider]}
       </Text>

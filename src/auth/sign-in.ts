@@ -1,17 +1,17 @@
-// Exchanges a verified Openfort or Privy identity for a Mentioned session.
+// Exchanges a verified Openfort or Privy identity, or a Seeker wallet's
+// signature, for a Mentioned session.
 //
-// The web route verifies the provider's access token server side and binds the
-// session to the exact wallet the client claims, so a caller can never get a
-// session for someone else's wallet. It currently returns the session token
-// only as an httpOnly cookie; `sessionToken` here stays null until the web
-// adds it to the body for mobile clients. Sign-in still tells us the thing
-// that matters today: that a token minted by the React Native SDK verifies.
+// The web route verifies the provider's access token (or the signature) server
+// side and binds the session to the exact wallet the client claims, so a caller
+// can never get a session for someone else's wallet. It returns the session
+// token in the body for `client: 'mobile'`; `sessionToken` is null only against
+// a server from before that change.
 import type { WalletProvider } from '@/auth/wallet-routing';
 import { API_BASE } from '@/config';
 
 export type ServerSignIn = {
   wallet: string;
-  /** Null until the web returns the token in the body for `client: 'mobile'`. */
+  /** Null only from a server that predates the token in the body for `client: 'mobile'`. */
   sessionToken: string | null;
 };
 
@@ -28,6 +28,47 @@ export class SignInError extends Error {
 
 const TIMEOUT_MS = 20_000;
 
+type SignInBody = { ok?: boolean; wallet?: string; sessionToken?: string; error?: string; code?: string };
+
+/** One POST to the sign-in route. `wallet` is the wallet the session must come back bound to. */
+async function postSignIn(wallet: string, fields: Record<string, string>, ref?: string | null): Promise<ServerSignIn> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/sign-in`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...fields,
+        wallet,
+        // `client: 'mobile'` is what makes the route return the session token
+        // in the body; `ref` is read from there for the same reason.
+        client: 'mobile',
+        ...(ref ? { ref } : {}),
+      }),
+      signal: controller.signal,
+    });
+
+    let body: SignInBody = {};
+    try {
+      body = (await res.json()) as SignInBody;
+    } catch {
+      // Non-JSON body; the status below is what we report.
+    }
+
+    if (!res.ok) throw new SignInError(res.status, body.error ?? `Sign-in failed (${res.status})`, body.code);
+    if (!body.wallet) throw new SignInError(res.status, 'Sign-in succeeded but returned no wallet');
+    // Fail loudly rather than letting the app act as a different wallet.
+    if (body.wallet !== wallet) {
+      throw new SignInError(res.status, `Server bound the session to ${body.wallet}, not the wallet we signed in with`);
+    }
+
+    return { wallet: body.wallet, sessionToken: body.sessionToken ?? null };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * `provider` defaults to Openfort. Privy is for accounts made before the move
  * to Openfort; the route refuses a Privy account made after it with 409
@@ -37,44 +78,27 @@ export async function signInWithServer(params: {
   token: string;
   wallet: string;
   ref?: string | null;
-  provider?: WalletProvider;
+  provider?: Exclude<WalletProvider, 'seeker'>;
 }): Promise<ServerSignIn> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  try {
-    const res = await fetch(`${API_BASE}/api/auth/sign-in`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: params.provider ?? 'openfort',
-        token: params.token,
-        wallet: params.wallet,
-        // Both are ignored by the current web build. They are what the mobile
-        // sign-in change will read, and sending them now costs nothing.
-        client: 'mobile',
-        ...(params.ref ? { ref: params.ref } : {}),
-      }),
-      signal: controller.signal,
-    });
+  return postSignIn(params.wallet, { type: params.provider ?? 'openfort', token: params.token }, params.ref);
+}
 
-    let body: { ok?: boolean; wallet?: string; sessionToken?: string; error?: string; code?: string } = {};
-    try {
-      body = (await res.json()) as typeof body;
-    } catch {
-      // Non-JSON body; the status below is what we report.
-    }
-
-    if (!res.ok) throw new SignInError(res.status, body.error ?? `Sign-in failed (${res.status})`, body.code);
-    if (!body.wallet) throw new SignInError(res.status, 'Sign-in succeeded but returned no wallet');
-    // Fail loudly rather than letting the app act as a different wallet.
-    if (body.wallet !== params.wallet) {
-      throw new SignInError(res.status, `Server bound the session to ${body.wallet}, not the wallet we signed in with`);
-    }
-
-    return { wallet: body.wallet, sessionToken: body.sessionToken ?? null };
-  } finally {
-    clearTimeout(timer);
-  }
+/**
+ * Sign in as a Seeker wallet, with the message it signed (see
+ * src/lib/seeker-session.ts). There is no provider token here: the signature
+ * is the proof, and the server checks it against the wallet claimed.
+ *
+ * The route calls this type `phantom` because a browser wallet was the first
+ * thing to use it. It is a signature check and nothing about it is Phantom's.
+ * `signature` is base64.
+ */
+export async function signInWithWalletSignature(params: {
+  wallet: string;
+  message: string;
+  signature: string;
+  ref?: string | null;
+}): Promise<ServerSignIn> {
+  return postSignIn(params.wallet, { type: 'phantom', message: params.message, signature: params.signature }, params.ref);
 }
 
 /**

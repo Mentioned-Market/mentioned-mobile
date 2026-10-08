@@ -9,6 +9,7 @@ import { getSolBalance, getUsdcBalance } from '@/chain/balance';
 import { base64ToBytes } from '@/lib/bytes';
 import { standingsPollMs, type SeasonPhase } from '@/lib/arena-view';
 import { markSeekerVerified } from '@/store/seeker-verified';
+import { useSession } from '@/store/session';
 import { fetchAmmClaim } from '@/trade/claim';
 import * as achievements from './achievements';
 import * as arena from './arena';
@@ -386,18 +387,26 @@ export const useReferral = (wallet: string | null) =>
 
 // The signed-in account's Seeker link and welcome stake. Keyed by the session
 // wallet because the route answers for the bearer, not for a wallet it is told.
-export const useSeekerStatus = (sessionWallet: string | null, enabled: boolean) =>
-  useQuery({
-    queryKey: keys.seekerStatus(sessionWallet ?? ''),
+//
+// An account signed in with the Seeker itself has no second wallet to link, so
+// the offer is never asked for and never shown. The key is emptied as well as
+// the query disabled: the cache is persisted, and a status fetched for the
+// same wallet earlier would otherwise still be handed back.
+export const useSeekerStatus = (sessionWallet: string | null, enabled: boolean) => {
+  const isSeekerAccount = useSession((s) => s.provider) === 'seeker';
+  const wallet = isSeekerAccount ? null : sessionWallet;
+  return useQuery({
+    queryKey: keys.seekerStatus(wallet ?? ''),
     queryFn: async () => {
       const status = await seeker.getSeekerStatus();
       // The account's own mark needs no second request: this already says it is linked.
-      if (status.linked && sessionWallet) markSeekerVerified(sessionWallet);
+      if (status.linked && wallet) markSeekerVerified(wallet);
       return status;
     },
-    enabled: enabled && !!sessionWallet,
+    enabled: enabled && !!wallet,
     staleTime: 60_000,
   });
+};
 
 // Deposits and withdrawals, read from the chain by the server. Keyed by the
 // session wallet for the same reason as the Seeker status.

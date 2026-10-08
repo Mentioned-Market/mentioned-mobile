@@ -1,7 +1,7 @@
 // Sign-in binds a Mentioned session to an Openfort wallet. The case that
 // matters most is the mismatch: the app must never act as a wallet the server
 // did not agree to.
-import { chooseWalletAction, SignInError, signInWithServer } from '@/auth/sign-in';
+import { chooseWalletAction, SignInError, signInWithServer, signInWithWalletSignature } from '@/auth/sign-in';
 import { API_BASE } from '@/config';
 
 const WALLET = '49GT1N8mRLp4Q9JYJDRR3YopGtfHFGTrwg6cmbm3u2fY';
@@ -11,6 +11,34 @@ const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body)
 const mockFetch = (impl: (url: string, init?: RequestInit) => Promise<Response>) => jest.spyOn(globalThis, 'fetch').mockImplementation(impl as typeof fetch);
 
 afterEach(() => jest.restoreAllMocks());
+
+describe('signInWithWalletSignature', () => {
+  it('posts the signature and message under the type the route verifies as a wallet signature', async () => {
+    const spy = mockFetch(async () => reply({ ok: true, wallet: WALLET, sessionToken: 'sess_abc' }));
+    const result = await signInWithWalletSignature({ wallet: WALLET, message: 'Sign in to Mentioned\nTimestamp: 1', signature: 'c2ln', ref: 'ABC123' });
+    const [url, init] = spy.mock.calls[0];
+    expect(url).toBe(`${API_BASE}/api/auth/sign-in`);
+    expect(JSON.parse(init?.body as string)).toEqual({
+      type: 'phantom',
+      wallet: WALLET,
+      message: 'Sign in to Mentioned\nTimestamp: 1',
+      signature: 'c2ln',
+      client: 'mobile',
+      ref: 'ABC123',
+    });
+    expect(result).toEqual({ wallet: WALLET, sessionToken: 'sess_abc' });
+  });
+
+  it('refuses a session bound to a different wallet', async () => {
+    mockFetch(async () => reply({ ok: true, wallet: OTHER }));
+    await expect(signInWithWalletSignature({ wallet: WALLET, message: 'm', signature: 's' })).rejects.toThrow(/not the wallet we signed in with/);
+  });
+
+  it('surfaces a rejected signature with its status', async () => {
+    mockFetch(async () => reply({ error: 'Invalid signature' }, 401));
+    await expect(signInWithWalletSignature({ wallet: WALLET, message: 'm', signature: 's' })).rejects.toMatchObject({ status: 401, message: 'Invalid signature' });
+  });
+});
 
 describe('signInWithServer', () => {
   it('posts the Openfort type, token and wallet to the sign-in route', async () => {

@@ -280,6 +280,87 @@ stored sessions and read as Openfort). `useTrade` picks the matching signer,
 the Openfort reconnector leaves Privy sessions alone, and sign-out ends both
 SDK sessions.
 
+### An account can be the Seeker's own wallet
+
+The original rule was that the Seed Vault is the bank and never the checkout:
+people sign in with Openfort, and Mobile Wallet Adapter only moves money in and
+proves the phone. On a Seeker that leaves an odd gap. The person already has a
+wallet with funds in it, and is asked to make a second one and move money
+across before a first pick. "Continue with Seeker" closes it: the Seed Vault
+wallet signs one message and is the account.
+
+It needed nothing from the website. The sign-in route already verifies an
+Ed25519 signature over `Sign in to Mentioned` plus a timestamp, for browser
+wallets, under the type `phantom`. The app signs the same two lines
+(`src/lib/seeker-session.ts`), sends `client: 'mobile'`, and gets the same
+bearer every other session uses. Checked against staging on Oct 7 2026 with a
+throwaway key: 200, a token in the body, and that token alone answers an
+authenticated route. The message has no nonce or domain, only a five minute
+window; that is the website's format and is left as it is for now.
+
+Routing the Seeker signature through Openfort, to get an embedded wallet with
+a Seeker login, was looked at and rejected. Openfort's wallet login is Sign in
+with Ethereum only, so it would mean a custom token issuer on the website and
+a second way of verifying sessions there.
+
+The session's provider is `seeker`, a third value beside `openfort` and
+`privy`, and it changes three things:
+
+- **The signer.** `useTrade` hands the same ported `openfortSignOnly` a signer
+  that opens the wallet (`src/trade/seeker-signer.ts`). The seam passes a signer
+  the message bytes alone, which an embedded wallet signs as they are. The Seed
+  Vault must not: bytes signed as a message are shown as text, and a wallet is
+  right to refuse a message that is really a transaction. So the message is put
+  back inside a transaction with empty signature slots, the wallet signs that
+  with `signTransactions`, and only the signature is taken from the answer.
+  A sponsor's signature already on the real transaction is therefore untouched.
+- **The wallet may add its fee, and nothing else.** The first buy on a Seeker
+  (Oct 8 2026) came back with a different message from the one handed over:
+  the wallet adds a priority fee. For a transaction only this wallet signs,
+  that is its owner's fee to set, so the app sends what the wallet signed
+  rather than refuse it. `src/trade/wallet-edit.ts` decides what counts: the
+  same fee payer and signers, and the same instructions with the same accounts
+  and data once the wallet's own instructions are set aside on both sides, with
+  the added fee capped at 0.005 SOL. A new blockhash is allowed. On mainnet
+  the wallet also adds Lighthouse assertions, a guard that fails the
+  transaction if balances end up somewhere its own simulation did not expect
+  (found on the first production buy, the same day). Those are accepted
+  too. They are usually handed the wallet's own account, which is the signer,
+  so this is trust in that one program: it has no upgrade authority, it is
+  added by the wallet that holds the keys, and the result is simulated again
+  before it is sent. Anything else
+  is refused and the difference is named on screen, which is the only clue a
+  release build gives. The edited bytes are then simulated again before they
+  are sent, so the rule still holds that nothing reaches the chain unchecked;
+  what changes is that the second check comes after the approval, and a
+  refusal there costs a double tap and no money.
+- **A sponsored transaction stays strict.** Where someone else has already
+  signed (the sponsored pick), the wallet's signature has to fit their exact
+  message, so there any change at all is refused.
+- **The right account.** A wallet app can hold several accounts, so the one it
+  offers must be the session's, or nothing is signed.
+- **The Me screen.** Add funds and the Seeker link card are hidden: there is
+  no second wallet to fund from and nothing to link.
+
+Simulation still comes first. The transaction is built and simulated, then the
+wallet is opened, then the signed bytes go out through the proxy as before.
+The wallet signs and does not send.
+
+What it costs, knowingly:
+
+- One approval per transaction. A majority basket of more than three words is
+  more than one transaction, so it is more than one double tap. Signing them
+  all in one wallet session is possible and not done yet.
+- It is a different account from the same person's Openfort account, and a
+  Seeker already linked to that account stays linked there.
+- The Seeker perk and the Seeker mark key off the link table on the server, so
+  an account signed in this way gets neither yet, and is not shown the offer.
+- Any wallet app that speaks Mobile Wallet Adapter can use the button, not only
+  a Seeker's. Limiting it to Genesis Token holders is a server check.
+- A stale wallet authorization (issued for another cluster, or revoked) is
+  retried once without it, in the same wallet session. That asks again and
+  signs nothing, so it is safe; Seed Vault otherwise fails with no prompt.
+
 ### A program upgrade is a port, not a patch
 
 The mainnet AMM program was upgraded in September 2026 (log-sum-exp
@@ -714,12 +795,15 @@ height leaves out.
 
 ## What is tested, and what is not
 
-- 1001 unit tests over 69 files, offline, against captured fixtures.
+- 1037 unit tests over 72 files, offline, against captured fixtures.
 - The pure layers are the tested ones: market maths, account decoding, schemas,
   merging, positions, the spending cap, claim planning, deep links, formatting,
   Arena derivations.
 - The signer is tested end to end with a local keypair, including the refusals.
-  The Privy adapter runs through the same ported signer in its own test.
+  The Privy adapter runs through the same ported signer in its own test, and
+  so does the Seeker adapter, including a sponsor's signature being kept and a
+  wallet that changed the transaction being refused. What a wallet may change
+  is its own tested rule.
 - Screens are not unit tested. They are checked on a Seeker, which is why
   anything that is a rule rather than a layout gets moved out of the screen and
   into a pure module first (`src/lib/arena-view.ts` is the clearest example).

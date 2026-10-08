@@ -55,6 +55,10 @@ export default function YouScreen() {
   }, [pm.data, pa.data, fr.data]);
   const sessionWallet = useSession((s) => s.wallet);
   const own = !!sessionWallet && sessionWallet === active;
+  // An account signed in with the Seeker is the Seeker's own wallet: there is
+  // no second wallet to add funds from. (Nothing to link either, which
+  // useSeekerStatus handles by having no data for it.)
+  const isSeekerAccount = useSession((s) => s.provider) === 'seeker';
   // Only the signed-in account can set its own name; a wallet being viewed is
   // someone looking, not someone signed in.
   const needsName = own && profile.isSuccess && !profile.data.username;
@@ -172,7 +176,7 @@ export default function YouScreen() {
             </View>
             {own ? (
               <View style={styles.fundRow}>
-                <Button label="Add funds" onPress={() => setFund('deposit')} style={{ flex: 1 }} />
+                {!isSeekerAccount ? <Button label="Add funds" onPress={() => setFund('deposit')} style={{ flex: 1 }} /> : null}
                 <Button label="Withdraw" tone="neutral" onPress={() => setFund('withdraw')} style={{ flex: 1 }} />
               </View>
             ) : null}

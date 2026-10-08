@@ -12,6 +12,11 @@
 // LEGACY_PRIVY_ACCOUNT) and this screen hands the person to Privy instead,
 // the way the website does. Privy is never offered before that answer. See
 // src/auth/wallet-routing.ts for the whole rule.
+//
+// "Continue with Seeker" is the one way in that uses neither. The Seed Vault
+// wallet signs a message, the server checks the signature, and that wallet is
+// the account: no embedded wallet is made, and it signs its own trades (see
+// src/lib/seeker-session.ts).
 import { endFinish, tryStartFinish } from '@/auth/finish-lock';
 import { AccountTypeEnum, ChainTypeEnum, OAuthProvider } from '@openfort/openfort-js';
 import { useEmailAuthOtp, useEmbeddedSolanaWallet, useOAuth, useOpenfortClient, useUser } from '@openfort/react-native';
@@ -29,11 +34,15 @@ import {
 import { useOpenfortLogout, useProviderLogout } from '@/auth/logout';
 import { usePrivyAuth, type PrivyUserLike } from '@/auth/privy';
 import { activateWallet } from '@/auth/recover-wallet';
-import { chooseWalletAction, SignInError, signInWithServer } from '@/auth/sign-in';
+import { chooseWalletAction, SignInError, signInWithServer, signInWithWalletSignature, type ServerSignIn } from '@/auth/sign-in';
 import { handoffFor, privySolanaWallet, type WalletProvider } from '@/auth/wallet-routing';
+import { isNoWalletError, signInWithSeeker } from '@/chain/mwa';
 import { isOpenfortConfigured } from '@/config';
+import { buildSeekerSignInMessage, isWalletCancel } from '@/lib/seeker-session';
 import { usePrefs } from '@/store/prefs';
 import { useSession } from '@/store/session';
+import { useWallet } from '@/store/wallet';
+import { useWalletLink } from '@/store/wallet-link';
 import { Button } from '@/ui/button';
 import { Card } from '@/ui/card';
 import { ProviderButton } from '@/ui/provider-button';
@@ -82,8 +91,8 @@ function SignInFlow() {
   const router = useRouter();
   // A sign-in card elsewhere (Me, Positions, ...) shows the same three ways in
   // and opens this screen with the one chosen: `google` and `x` start the
-  // browser login at once, `email` opens the email form.
-  const { start } = useLocalSearchParams<{ start?: 'google' | 'x' | 'email' }>();
+  // browser login at once, `seeker` opens the wallet, `email` opens the email form.
+  const { start } = useLocalSearchParams<{ start?: 'google' | 'x' | 'seeker' | 'email' }>();
   const { getAccessToken, isAuthenticated } = useUser();
   const solana = useEmbeddedSolanaWallet();
   const client = useOpenfortClient();
@@ -282,6 +291,37 @@ function SignInFlow() {
   const withGoogle = () => run(async () => void (await initOAuth({ provider: OAuthProvider.GOOGLE })));
   const withX = () => run(async () => void (await initOAuth({ provider: OAuthProvider.TWITTER })));
 
+  // The Seeker's own wallet as the account. One wallet session authorizes and
+  // signs the message; the server then checks the signature and binds the
+  // session to that wallet. The authorization is kept, so the trades that
+  // follow open the wallet without asking for it again.
+  const seekerLogin = async () => {
+    const cached = useWallet.getState();
+    let signed: Awaited<ReturnType<typeof signInWithSeeker>>;
+    try {
+      signed = await signInWithSeeker(cached.authToken, () => buildSeekerSignInMessage(Date.now() / 1000));
+    } catch (e) {
+      if (isNoWalletError(e)) throw new Error('No wallet app answered. Open your Seeker wallet and try again.');
+      if (isWalletCancel(e instanceof Error ? e.message : String(e))) throw new Error('You cancelled in the wallet. Tap Continue with Seeker to try again.');
+      throw e;
+    }
+    useWallet.getState().setWallet(signed.address, signed.authToken);
+    setNote('Signing in…');
+    let result: ServerSignIn;
+    try {
+      result = await signInWithWalletSignature({ wallet: signed.address, message: signed.message, signature: signed.signature, ref: pendingRef });
+    } catch (e) {
+      // The message carries the phone's time and the server allows five
+      // minutes either way, so a clock that is off is the likeliest cause.
+      if (e instanceof SignInError && e.status === 401) {
+        throw new Error('That signature was not accepted. Check the date and time on this phone are set automatically, then try again.');
+      }
+      throw e;
+    }
+    await enterSession(result, 'seeker');
+  };
+  const withSeeker = () => run(seekerLogin);
+
   // Privy, for a legacy account. Every login here passes disableSignup (see
   // src/auth/privy.tsx), so an identity Privy has never seen is refused
   // rather than given a new account.
@@ -345,11 +385,18 @@ function SignInFlow() {
     await bindSession({ token, wallet: address, provider: 'privy' });
   };
 
-  const bindSession = async (params: { token: string; wallet: string; provider: WalletProvider }) => {
+  const bindSession = async (params: { token: string; wallet: string; provider: Exclude<WalletProvider, 'seeker'> }) => {
+    await enterSession(await signInWithServer({ ...params, ref: pendingRef }), params.provider);
+  };
+
+  /** Store the session the server agreed to, then go on to a username or Home. */
+  const enterSession = async (result: ServerSignIn, provider: WalletProvider) => {
     // A referral code caught from a link goes with the first sign-in after it
     // and is then forgotten, whether or not the server honoured it.
-    const result = await signInWithServer({ ...params, ref: pendingRef });
-    setSession(result.wallet, result.sessionToken, params.provider);
+    setSession(result.wallet, result.sessionToken, provider);
+    // Nothing watches a Seeker session's wallet (it is opened per signature),
+    // so a "sign in again" left by an earlier embedded session is cleared here.
+    if (provider === 'seeker') useWalletLink.getState().settled();
     if (pendingRef) setPendingRef(null);
     // A new account has no profile row until it picks a username, so ask now,
     // the way the website does, rather than leave it half set up.
@@ -411,11 +458,11 @@ function SignInFlow() {
   // that still read `start` would open the browser a second time.
   const started = useRef(false);
   useEffect(() => {
-    if ((start !== 'google' && start !== 'x') || started.current || busy || step !== 'email' || !settled) return;
+    if ((start !== 'google' && start !== 'x' && start !== 'seeker') || started.current || busy || step !== 'email' || !settled) return;
     started.current = true;
     router.setParams({ start: undefined });
     const provider = start === 'google' ? OAuthProvider.GOOGLE : OAuthProvider.TWITTER;
-    const login = async () => void (await initOAuth({ provider }));
+    const login = start === 'seeker' ? seekerLogin : async () => void (await initOAuth({ provider }));
     void run(login);
     // run and initOAuth are stable enough for this: it fires once per mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -445,6 +492,7 @@ function SignInFlow() {
             <Text style={type.muted}>You get a wallet with no seed phrase to remember.</Text>
             <ProviderButton provider="google" onPress={withGoogle} disabled={busy} />
             <ProviderButton provider="x" onPress={withX} disabled={busy} />
+            <ProviderButton provider="seeker" onPress={withSeeker} disabled={busy} />
             {emailOpen ? (
               <Card style={styles.card}>
                 <Text style={type.heading}>Email code</Text>

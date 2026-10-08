@@ -53,6 +53,7 @@ account, and its Genesis Token proves the person is holding a real one.
 | **Seed Vault funding** | A deposit is authorized, built, simulated and signed in one Mobile Wallet Adapter session, so the person approves once with the Seeker's double tap. Withdrawals default back to the same wallet. | [`src/chain/mwa.ts`](src/chain/mwa.ts), [`src/ui/fund-sheet.tsx`](src/ui/fund-sheet.tsx) |
 | **Seeker Genesis Token check** | The Seed Vault wallet signs one message naming the account. The server verifies it, then checks on mainnet that the wallet holds a Genesis Token. A model string can be faked; the token cannot. | [`src/lib/use-seeker-flow.ts`](src/lib/use-seeker-flow.ts), [`src/lib/seekerLinkMessage.ts`](src/lib/seekerLinkMessage.ts) |
 | **A first pick, on us** | A verified Seeker gets one pick on a paid market paid for. The funding and the pick are one transaction, so it can only become a position, never cash. It is keyed on the token's mint: once per Seeker, however many accounts its owner makes. | [`src/trade/seeker-pick.ts`](src/trade/seeker-pick.ts), [`src/lib/seeker-perk.ts`](src/lib/seeker-perk.ts) |
+| **Sign in with the Seeker itself** | "Continue with Seeker" signs one message with the Seed Vault and that wallet is the account: no email, no second wallet, nothing to deposit. Each trade is simulated first, then approved with the double tap. | [`src/lib/seeker-session.ts`](src/lib/seeker-session.ts), [`src/trade/seeker-signer.ts`](src/trade/seeker-signer.ts) |
 | **No wallet pop-up per trade** | An embedded wallet signs trades inside the app, so a pick during a live event is one swipe. The Seed Vault is the bank, not the checkout. | [`src/auth/signer.ts`](src/auth/signer.ts), [`src/trade/send.ts`](src/trade/send.ts) |
 | **Push that lands on the market** | Firebase push for resolutions and new markets, each one translated into an app route so a tap opens the right screen. | [`src/notifications/`](src/notifications/) |
 | **Verified App Links** | A `mentioned.market` link to a market, a free market or a referral opens the app with no chooser. | [`app.json`](app.json) |
@@ -95,6 +96,7 @@ What the app does on the network itself, with `@solana/kit`:
   "most said wins" across a board. Free markets are played with tokens and
   earn points, so anyone can play before funding a wallet.
 - **Sign in with Google, X or an email code.** No seed phrase to write down.
+  Or continue with the Seeker's own wallet and trade straight from it.
 - **Live numbers.** Multipliers and pools update in place, flash the way they
   moved, and a market in its last hour counts down by the second.
 - **Chat** in every market and one global room, live over the website's event

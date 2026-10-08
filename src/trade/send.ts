@@ -14,6 +14,7 @@ import {
   appendTransactionMessageInstructions,
   compileTransaction,
   createTransactionMessage,
+  getTransactionDecoder,
   getTransactionEncoder,
   pipe,
   setTransactionMessageComputeUnitLimit,
@@ -134,6 +135,13 @@ export async function simulate(txBytes: Uint8Array): Promise<string[]> {
   throw new SimulationError(`Simulation failed: ${JSON.stringify(result.value.err)}${summary ? `\n${summary}` : ''}`, logs);
 }
 
+/** True when two wire transactions carry the same message, whatever their signatures. */
+function sameMessage(a: Uint8Array, b: Uint8Array): boolean {
+  const x = new Uint8Array(getTransactionDecoder().decode(a).messageBytes);
+  const y = new Uint8Array(getTransactionDecoder().decode(b).messageBytes);
+  return x.length === y.length && x.every((v, i) => v === y[i]);
+}
+
 /**
  * The whole path: build, simulate, sign, broadcast, confirm.
  *
@@ -147,6 +155,13 @@ export type SendStep = 'checking' | 'signing' | 'confirming';
 export async function sendInstructions(opts: {
   wallet: string;
   rawSign: OpenfortRawSign;
+  /**
+   * Signs the whole transaction and returns the bytes to send, for a signer
+   * that may not sign exactly what it is given (the Seeker's wallet adds a
+   * priority fee, see src/trade/seeker-signer.ts). Used in place of `rawSign`
+   * when present.
+   */
+  signTransaction?: (txBytes: Uint8Array) => Promise<Uint8Array>;
   instructions: Instruction[];
   /** Set false to skip the pre-flight simulation. Only for a retry of a proven build. */
   simulateFirst?: boolean;
@@ -158,7 +173,19 @@ export async function sendInstructions(opts: {
   if (opts.simulateFirst !== false) await simulate(txBytes);
 
   opts.onStep?.('signing');
-  const signed = await openfortSignOnly(opts.rawSign, txBytes, opts.wallet);
+  let signed: Uint8Array;
+  if (opts.signTransaction) {
+    signed = await opts.signTransaction(txBytes);
+    // What was simulated above is no longer what would be sent, so what would
+    // be sent is simulated too. Nothing reaches the chain unchecked, and a
+    // refusal here costs the person an approval but no money.
+    if (!sameMessage(signed, txBytes)) {
+      opts.onStep?.('checking');
+      await simulate(signed);
+    }
+  } else {
+    signed = await openfortSignOnly(opts.rawSign, txBytes, opts.wallet);
+  }
 
   opts.onStep?.('confirming');
   const signature = await sendViaProxy(signed, RPC_URL);

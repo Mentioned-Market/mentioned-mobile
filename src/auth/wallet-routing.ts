@@ -18,7 +18,12 @@
 import { lastEncryptionSessionError, LegacyPrivyAccountError } from '@/auth/encryption-session';
 import { SignInError } from '@/auth/sign-in';
 
-export type WalletProvider = 'openfort' | 'privy';
+/**
+ * `seeker` is the third kind of account: one signed in with the Seeker's own
+ * Seed Vault wallet, which is then the wallet that trades. Neither embedded
+ * provider is involved, and none of the routing below applies to it.
+ */
+export type WalletProvider = 'openfort' | 'privy' | 'seeker';
 
 /**
  * `use-privy`: this identity already has an account with the previous
