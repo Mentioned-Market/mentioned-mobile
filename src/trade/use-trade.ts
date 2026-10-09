@@ -15,6 +15,7 @@ import type { Instruction } from '@solana/kit';
 import { usePrivySigner } from '@/auth/privy';
 import { signTransactionWithSeeker } from '@/chain/mwa';
 import { ConfirmationTimeoutError } from '@/chain/rpcSend';
+import { SEEKER_ACCOUNT_NO_PERK } from '@/lib/seeker-perk';
 import { isWalletCancel, WALLET_CANCELLED } from '@/lib/seeker-session';
 import { useSession } from '@/store/session';
 import { useWallet } from '@/store/wallet';
@@ -197,6 +198,14 @@ export function useTrade() {
         setState({ status: 'failed', message: 'Sign in before trading.', indeterminate: false });
         return null;
       }
+      // A co-signed transaction is one someone else signed first, and the Seed
+      // Vault adds to what it signs, which that signature does not cover. So
+      // it is refused before the server is asked to prepare anything, not
+      // after the person has approved a transaction that cannot be sent.
+      if (sessionProvider === 'seeker') {
+        setState({ status: 'failed', message: SEEKER_ACCOUNT_NO_PERK, indeterminate: false });
+        return null;
+      }
       try {
         setState({ status: 'working', step: 'checking' });
         const signature = await send({ wallet, rawSign, onStep: (step) => setState({ status: 'working', step }) });
@@ -207,7 +216,7 @@ export function useTrade() {
         return null;
       }
     },
-    [rawSign, wallet],
+    [rawSign, wallet, sessionProvider],
   );
 
   /** A single transaction. Returns its signature, or null if it did not go through. */

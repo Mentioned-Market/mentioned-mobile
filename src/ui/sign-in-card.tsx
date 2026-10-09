@@ -13,7 +13,9 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { useProviderLogout } from '@/auth/logout';
 import { shortAddress } from '@/lib/format';
+import { forgetsSeekerOnSignOut } from '@/lib/seeker-session';
 import { useSession } from '@/store/session';
+import { useWallet } from '@/store/wallet';
 import { Button } from '@/ui/button';
 import { ProviderButton } from '@/ui/provider-button';
 import { TextLink } from '@/ui/text-link';
@@ -31,10 +33,16 @@ export function SignInCard({ compact = false }: { compact?: boolean }) {
   // the Openfort and Privy sessions too, or the next sign-in skips straight to
   // the wallet step because an SDK still thinks it is signed in. That never
   // throws: the app's own session is cleared regardless.
+  //
+  // Last, an account that is the Seeker's own wallet forgets that wallet too,
+  // in the same breath as the session. Otherwise Me falls back to showing it
+  // and the account just signed out of is still on screen. It costs one more
+  // authorization the next time that Seeker signs in.
   const signOut = async () => {
     setSigningOut(true);
     await unregisterForPush();
     await logoutProviders();
+    if (forgetsSeekerOnSignOut(wallet, useWallet.getState().viewedAddress)) useWallet.getState().clear();
     clear();
     setSigningOut(false);
   };

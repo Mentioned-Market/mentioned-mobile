@@ -1,6 +1,6 @@
 // TanStack Query wrappers. Detail queries poll every 5s only while the screen
 // is focused (the server caches at 3s/8s, so this costs nothing upstream).
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { skipToken, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
@@ -8,6 +8,7 @@ import { deserializeMarketAccount } from '@/chain/amm';
 import { getSolBalance, getUsdcBalance } from '@/chain/balance';
 import { base64ToBytes } from '@/lib/bytes';
 import { standingsPollMs, type SeasonPhase } from '@/lib/arena-view';
+import { seekerPerkWallet } from '@/lib/seeker-perk';
 import { markSeekerVerified } from '@/store/seeker-verified';
 import { useSession } from '@/store/session';
 import { fetchAmmClaim } from '@/trade/claim';
@@ -388,24 +389,32 @@ export const useReferral = (wallet: string | null) =>
 // The signed-in account's Seeker link and welcome stake. Keyed by the session
 // wallet because the route answers for the bearer, not for a wallet it is told.
 //
-// An account signed in with the Seeker itself has no second wallet to link, so
-// the offer is never asked for and never shown. The key is emptied as well as
-// the query disabled: the cache is persisted, and a status fetched for the
-// same wallet earlier would otherwise still be handed back.
+// Not for an account signed in with the Seeker itself (`seekerPerkWallet`).
+// For those the query has no function at all, not merely `enabled: false`: a
+// disabled query still runs when something calls `refetch()`, which is how the
+// offer reached Seeker accounts in 1.2.0. With `skipToken` there is nothing to
+// run. The key is emptied too, so a status cached for the same wallet under
+// an earlier embedded session is not picked up.
 export const useSeekerStatus = (sessionWallet: string | null, enabled: boolean) => {
-  const isSeekerAccount = useSession((s) => s.provider) === 'seeker';
-  const wallet = isSeekerAccount ? null : sessionWallet;
-  return useQuery({
+  const wallet = seekerPerkWallet(sessionWallet, useSession((s) => s.provider));
+  const query = useQuery({
     queryKey: keys.seekerStatus(wallet ?? ''),
-    queryFn: async () => {
-      const status = await seeker.getSeekerStatus();
-      // The account's own mark needs no second request: this already says it is linked.
-      if (status.linked && wallet) markSeekerVerified(wallet);
-      return status;
-    },
+    queryFn: wallet
+      ? async () => {
+          const status = await seeker.getSeekerStatus();
+          // The account's own mark needs no second request: this already says it is linked.
+          if (status.linked) markSeekerVerified(wallet);
+          return status;
+        }
+      : skipToken,
     enabled: enabled && !!wallet,
     staleTime: 60_000,
   });
+  // Whatever the cache holds under the empty key is not handed out either.
+  // The 1.2.0 leak wrote a status there, and the cache is saved to disk, so
+  // without this an account that hit the bug would still be shown the card
+  // after updating, from the saved copy, with nothing fetched.
+  return wallet ? query : { ...query, data: undefined };
 };
 
 // Deposits and withdrawals, read from the chain by the server. Keyed by the

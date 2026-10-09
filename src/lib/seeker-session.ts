@@ -77,3 +77,19 @@ export const WALLET_CANCELLED = 'You cancelled in the wallet. Nothing was sent.'
 export function isWalletCancel(raw: string): boolean {
   return /CancellationException|cancell?ed|declined|not signed|user (rejected|denied)/i.test(raw);
 }
+
+/**
+ * True when signing out should also forget the remembered Seeker wallet.
+ *
+ * The app remembers a Seeker wallet it has been shown, and when nobody is
+ * signed in the Me tab shows that wallet as one to look at
+ * (src/store/active-wallet.ts). For an account that IS the Seeker wallet, the
+ * remembered wallet is the account, so after signing out the same name,
+ * portfolio and positions stayed on screen under the sign-in card, as if the
+ * sign-out had not worked. Forgetting it there is what makes signing out look
+ * like signing out. A Seeker remembered by an embedded account, from a deposit
+ * or a withdrawal, is a different wallet and is kept.
+ */
+export function forgetsSeekerOnSignOut(sessionWallet: string | null, rememberedSeeker: string | null): boolean {
+  return !!sessionWallet && sessionWallet === rememberedSeeker;
+}

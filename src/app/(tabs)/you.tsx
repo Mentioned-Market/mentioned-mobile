@@ -78,7 +78,7 @@ export default function YouScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const refetchAll = () => {
     setRefreshing(true);
-    Promise.all([profile.refetch(), balance.refetch(), sol.refetch(), pm.refetch(), pa.refetch(), fr.refetch(), seekerPerk && sessionWallet ? seeker.refetch() : null]).finally(() => setRefreshing(false));
+    Promise.all([profile.refetch(), balance.refetch(), sol.refetch(), pm.refetch(), pa.refetch(), fr.refetch(), seekerPerk && sessionWallet && !isSeekerAccount ? seeker.refetch() : null]).finally(() => setRefreshing(false));
   };
 
   // Balances always show cents: a $0.50 withdrawal must be visible on a $988
