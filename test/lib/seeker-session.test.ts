@@ -16,7 +16,7 @@ import {
 import bs58 from 'bs58';
 import nacl from 'tweetnacl';
 
-import { buildSeekerSignInMessage, isWalletCancel, requiredSignatures, sameBytes, unsignedWireTransaction } from '@/lib/seeker-session';
+import { buildSeekerSignInMessage, forgetsSeekerOnSignOut, isWalletCancel, requiredSignatures, sameBytes, unsignedWireTransaction } from '@/lib/seeker-session';
 
 const newAddress = () => bs58.encode(nacl.sign.keyPair().publicKey);
 
@@ -105,5 +105,24 @@ describe('isWalletCancel', () => {
     for (const raw of ['Add $3 more', 'insufficient funds', 'Blockhash not found', 'The wallet changed the transaction before signing it (the signers changed). Nothing was sent.']) {
       expect(isWalletCancel(raw)).toBe(false);
     }
+  });
+});
+
+describe('forgetsSeekerOnSignOut', () => {
+  const SEEKER = 'BKSsxaPQzwg2DXUD5BgFz6fiJmKZCQEr5J5S6QCrzqLC';
+  const EMBEDDED = '49GT1N8mRLp4Q9JYJDRR3YopGtfHFGTrwg6cmbm3u2fY';
+
+  it('forgets the Seeker when it is the account being signed out of', () => {
+    expect(forgetsSeekerOnSignOut(SEEKER, SEEKER)).toBe(true);
+  });
+
+  it('keeps a Seeker an embedded account only funded from', () => {
+    expect(forgetsSeekerOnSignOut(EMBEDDED, SEEKER)).toBe(false);
+  });
+
+  it('has nothing to forget when there is no session or no Seeker', () => {
+    expect(forgetsSeekerOnSignOut(null, SEEKER)).toBe(false);
+    expect(forgetsSeekerOnSignOut(SEEKER, null)).toBe(false);
+    expect(forgetsSeekerOnSignOut(null, null)).toBe(false);
   });
 });

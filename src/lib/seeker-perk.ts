@@ -10,11 +10,35 @@
 import { ApiError } from '@/api/client';
 import type { PaidMajorityListEntry } from '@/api/paidMajority';
 import type { SeekerStatus } from '@/api/seeker';
+import type { WalletProvider } from '@/auth/wallet-routing';
 import { formatSol } from '@/chain/amm';
 import { errorMessage } from '@/lib/error-message';
 import { usdc } from '@/lib/format';
 
 const SIGNATURE_BYTES = 64;
+
+/**
+ * The wallet the Seeker perk is offered to, or null when it is not offered.
+ *
+ * An account signed in with the Seeker's own wallet is left out. The perk is
+ * "link your Seeker to your account", and there the two are one wallet. It is
+ * also a pick that account cannot place: the sponsored pick is signed by the
+ * funder first and co-signed by the account, and the Seed Vault adds to what
+ * it signs (src/trade/wallet-edit.ts), which the funder's signature does not
+ * cover.
+ *
+ * This is the one rule every part of the perk asks: the status query, the
+ * link flow, and the co-signing path. Version 1.2.0 hid the offer by disabling
+ * the status query alone, and a pull to refresh on Me fetched it anyway (a
+ * manual refetch ignores `enabled`). A Seeker account was then offered the
+ * link, linked to itself, and was offered a pick that failed at signing.
+ */
+export function seekerPerkWallet(sessionWallet: string | null, provider: WalletProvider): string | null {
+  return provider === 'seeker' ? null : sessionWallet;
+}
+
+/** Said if a Seeker account reaches the perk some other way. */
+export const SEEKER_ACCOUNT_NO_PERK = 'The free Seeker pick is not available yet on an account signed in with a Seeker.';
 
 /**
  * The Ed25519 signature out of what MWA `signMessages` returns. The protocol

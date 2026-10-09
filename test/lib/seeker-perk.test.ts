@@ -5,7 +5,7 @@ import { ApiError } from '@/api/client';
 import type { PaidMajorityListEntry } from '@/api/paidMajority';
 import { SeekerStatus } from '@/api/seeker';
 import { base64ToBytes, bytesToBase64 } from '@/lib/bytes';
-import { freePickElsewhereNote, freePickMarket, freePickUse, grantAmountText, seekerCard, seekerErrorMessage, seekerHomeOffer, sendingLabel, signatureFromSignedPayload } from '@/lib/seeker-perk';
+import { freePickElsewhereNote, freePickMarket, freePickUse, grantAmountText, seekerCard, seekerErrorMessage, seekerHomeOffer, seekerPerkWallet, sendingLabel, signatureFromSignedPayload } from '@/lib/seeker-perk';
 import { buildSeekerLinkMessage, isValidSeekerLinkMessage } from '@/lib/seekerLinkMessage';
 
 const NO_PICK: SeekerStatus['freePick'] = { status: 'unavailable', usdcBaseUnits: '1000000', marketId: null, word: null, signature: null };
@@ -333,5 +333,22 @@ describe('the free pick', () => {
       expect(freePickUse(picking(), 1, 2_000_000n)).toBeNull();
       expect(freePickUse(picking({ usdcBaseUnits: '2000000' }), 1, 2_000_000n)).toEqual({ free: true });
     });
+  });
+});
+
+describe('seekerPerkWallet', () => {
+  const WALLET = '49GT1N8mRLp4Q9JYJDRR3YopGtfHFGTrwg6cmbm3u2fY';
+
+  it('is the session wallet for an embedded account', () => {
+    expect(seekerPerkWallet(WALLET, 'openfort')).toBe(WALLET);
+    expect(seekerPerkWallet(WALLET, 'privy')).toBe(WALLET);
+  });
+
+  it('is nobody for an account signed in with the Seeker itself', () => {
+    expect(seekerPerkWallet(WALLET, 'seeker')).toBeNull();
+  });
+
+  it('is nobody when signed out', () => {
+    expect(seekerPerkWallet(null, 'openfort')).toBeNull();
   });
 });

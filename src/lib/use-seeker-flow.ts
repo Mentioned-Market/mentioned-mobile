@@ -15,9 +15,10 @@ import { listPaidMajority } from '@/api/paidMajority';
 import { keys } from '@/api/queries';
 import { claimSeekerGrant, linkSeeker, submitSeekerPick, type SeekerStatus } from '@/api/seeker';
 import { isNoWalletError, signMessageWithSeeker } from '@/chain/mwa';
-import { freePickMarket, NO_FREE_PICK_MARKET, seekerErrorMessage, sendingLabel, type SeekerAction } from '@/lib/seeker-perk';
+import { freePickMarket, NO_FREE_PICK_MARKET, SEEKER_ACCOUNT_NO_PERK, seekerErrorMessage, seekerPerkWallet, sendingLabel, type SeekerAction } from '@/lib/seeker-perk';
 import { buildSeekerLinkMessage } from '@/lib/seekerLinkMessage';
 import { markSeekerVerified } from '@/store/seeker-verified';
+import { useSession } from '@/store/session';
 
 type Busy = null | 'wallet' | 'checking' | 'checking-pick' | 'pick' | 'sending';
 
@@ -92,6 +93,14 @@ export function useSeekerFlow(sessionWallet: string, status: SeekerStatus | unde
     if (action === 'history') return router.push('/transactions');
     if (action === 'positions') return router.push('/positions');
     setError(null);
+    // The card is not drawn for an account signed in with the Seeker, so this
+    // should be unreachable. It is checked here as well because this is where
+    // the link is actually made, and a second way to the card must not be a
+    // second way to link (see seekerPerkWallet).
+    if (!seekerPerkWallet(sessionWallet, useSession.getState().provider)) {
+      setError(SEEKER_ACCOUNT_NO_PERK);
+      return;
+    }
     try {
       if (action === 'link') {
         setBusy('wallet');

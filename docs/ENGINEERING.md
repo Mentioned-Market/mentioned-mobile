@@ -367,6 +367,22 @@ What it costs, knowingly:
   Seeker already linked to that account stays linked there.
 - The Seeker perk and the Seeker mark key off the link table on the server, so
   an account signed in this way gets neither yet, and is not shown the offer.
+  The free pick could not work for it as built anyway: the funder signs
+  first, and the wallet's additions are not covered by that signature.
+  Version 1.2.0 hid the offer by disabling its status query, and that was not
+  enough. Pull to refresh on Me calls `refetch()`, which runs a disabled
+  query, so the card appeared, the account linked to itself (the server
+  allows it), and the pick failed at signing; a bug report on Oct 9 2026 is
+  how it was found. Since 1.2.1 one rule, `seekerPerkWallet`, is asked in
+  three places: the status query has no function to run for these accounts
+  (`skipToken`) and hands out no cached copy, the link flow refuses, and the
+  co-signing path refuses before the server prepares anything. The server
+  should also refuse a link where the account and the Seeker are one wallet.
+- Signing out forgets the Seeker wallet as well as the session. The app
+  remembers a Seeker it has been shown, and Me shows a remembered wallet when
+  nobody is signed in. For these accounts that wallet is the account, so in
+  1.2.0 the name, portfolio and positions stayed on screen after signing out.
+  The price is one more authorization at the next sign-in.
 - Any wallet app that speaks Mobile Wallet Adapter can use the button, not only
   a Seeker's. Limiting it to Genesis Token holders is a server check.
 - A stale wallet authorization (issued for another cluster, or revoked) is
@@ -807,7 +823,7 @@ height leaves out.
 
 ## What is tested, and what is not
 
-- 1047 unit tests over 72 files, offline, against captured fixtures.
+- 1055 unit tests over 73 files, offline, against captured fixtures.
 - The pure layers are the tested ones: market maths, account decoding, schemas,
   merging, positions, the spending cap, claim planning, deep links, formatting,
   Arena derivations.
